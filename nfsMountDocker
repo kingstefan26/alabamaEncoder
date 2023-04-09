@@ -1,0 +1,1 @@
+docker run -d -v /home/kokoniara/dev/VideoSplit/temp:/home/kokoniara/dev/VideoSplit/temp -e NFS_EXPORT_0='/home/kokoniara/dev/VideoSplit/temp *(rw,sync,no_subtree_check,no_root_squash)' --cap-add SYS_ADMIN -p 2049:2049 --rm erichough/nfs-server

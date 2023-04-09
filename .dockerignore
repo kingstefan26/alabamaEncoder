@@ -1,0 +1,12 @@
+**.mkv
+**.mp4
+**.opus
+**.webm
+**.avi
+**.ivf
+**.m4v
+**.mov
+.git
+.gitignore
+**/__pycache__
+**/temp

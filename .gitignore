@@ -1,0 +1,16 @@
+*.mkv
+*.mp4
+*.opus
+*.webm
+*.avi
+*.ivf
+*.log
+mhmconcat
+out/
+.idea/
+temp/
+**/temp/
+**/*.pyc
+**/*.pyo
+**/__pycache__/
+**.tar.gz
