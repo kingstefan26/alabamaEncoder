@@ -1,17 +1,22 @@
+#!/usr/bin/python
 import argparse
 import atexit
+import copy
 import logging
 import os
 import shutil
 import sys
 import tempfile
-from typing import List
+from typing import List, Any
 
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 from CeleryApp import app
 from hoeEncode.ConvexHullEncoding.AutoGrain import get_best_avg_grainsynth
+from hoeEncode.ConvexHullEncoding.ConvexHull import ConvexKummand, ConvexEncoder
+from hoeEncode.encode.encoderImpl.Svtenc import AbstractEncoderSvtenc
+from hoeEncode.encode.encoderKommands.AbstractEncoderKommand import EncoderKommand
 from hoeEncode.encode.ffmpeg.ChunkOffset import ChunkObject
 from hoeEncode.encode.ffmpeg.FfmpegUtil import EncoderConfigObject, syscmd, do_cropdetect, get_frame_count, \
     check_for_invalid, EncoderJob
@@ -32,30 +37,50 @@ def exit_message():
 atexit.register(exit_message)
 
 
-def process_chunks(scenes: List[List[int]],
-                   inputfile: str,
+def get_chunks(scenes: List[List[int]], in_file: str) -> List[ChunkObject]:
+    return [ChunkObject(path=in_file, first_frame_index=(frag[0]), last_frame_index=(frag[1])) for frag in scenes]
+
+
+def process_chunks(chunks: List[ChunkObject],
                    encdr_config: EncoderConfigObject,
                    celeryless_encoding: bool,
                    multiprocess_workers: int):
     kumandobjects = []
-    for i, frag in tqdm(enumerate(scenes), desc='Preparing scenes', unit='scene'):
-        chunk = ChunkObject(path=inputfile, first_frame_index=(frag[0]), last_frame_index=(frag[1]))
-        ivf = f"{tempfolder}{i}.ivf"
-        job = EncoderJob(chunk, i, ivf)
 
-        if not os.path.exists(ivf):
+    for i, chunk in tqdm(enumerate(chunks), desc='Preparing scenes', unit='scene'):
+        job = EncoderJob(chunk, i, f'{tempfolder}{i}.ivf')
+
+        if not os.path.exists(job.encoded_scene_path):
             if encdr_config.convexhull:
-                kummnad_object = convex_svt(job, encdr_config)
+                enc = ConvexEncoder(job, encdr_config)
+                if len(kumandobjects) < 10:
+                    enc.threads_for_final_encode = os.cpu_count()
+                obj = ConvexKummand(None, None, convx=enc)
             else:
-                kummnad_object = gen_svt_kummands(job, encdr_config)
+                # obj = gen_svt_kummands(job, encdr_config)
 
-            kumandobjects.append(kummnad_object)
+                enc = AbstractEncoderSvtenc()
 
-    print('Starting encoding of ' + str(len(kumandobjects)) + ' scenes')
+                if len(kumandobjects) < 10:
+                    enc.threads = os.cpu_count()
+
+                obj = EncoderKommand(encdr_config, copy.deepcopy(job), enc)
+
+            kumandobjects.append(obj)
+
+    print(f'Starting encoding of {len(kumandobjects)} scenes')
 
     if encdr_config.dry_run:
         for kummand in kumandobjects:
             print(kummand.get_dry_run())
+        return
+
+    if len(kumandobjects) < 10:
+        print('Less than 10 scenes, running encodes sequentially')
+
+        for kummand in kumandobjects:
+            run_kummand(kummand)
+
         return
 
     if celeryless_encoding:
@@ -63,11 +88,11 @@ def process_chunks(scenes: List[List[int]],
                     kumandobjects,
                     max_workers=multiprocess_workers,
                     chunksize=1,
-                    desc='Encoding SVT-AV1',
-                    unit="scene")
+                    desc='Encoding',
+                    unit='scene')
     else:
         results = []
-        with tqdm(total=len(kumandobjects), desc='Encoding SVT-AV1', unit='scene') as pbar:
+        with tqdm(total=len(kumandobjects), desc='Encoding', unit='scene') as pbar:
             for cvm in kumandobjects:
                 task = run_kummad_on_celery.s(cvm)
                 result = task.apply_async()
@@ -97,38 +122,52 @@ def get_lan_ip() -> str:
     return ip
 
 
-def integrity_check(tempfolder, fragments):
-    # create a array of all files, so we can tqdm
+def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
+    """
+    :param tempfolder: folder that the scenes are in
+    :param scenes: all the scenes to check
+    :return: true if there are broken chunks
+    """
+    # create an array of all files, so we can tqdm
     ivf_files = []
     for root, dirs, files in os.walk(tempfolder):
         for name in files:
-            if name.endswith('.ivf'):
+            # is .ivf and name does not conrain "complexity"
+            if name.endswith('.ivf') and 'complexity' not in name:
                 ivf_files.append(name)
 
+    print('Preforming integrity check 🥰 ya fukin bastard')
+
+    if len(ivf_files) != len(scenes):
+        print(f'Found {len(ivf_files)} ivf files, but there are {len(scenes)} scenes to encode 😏')
+        return True
+
     # check every chunk and verify that 1: it's not corrupted 2: its length is correct
-    # if not, prompt the user with a command to remove them
+    # if not, prompt the user with a command to remove them/autoremove
     invalid_chunks = []
     # os.walk on the temp dir and add a line for every ivf file
-    for name in tqdm(ivf_files, desc="Checking files"):
+    for name in tqdm(ivf_files, desc="Checking files", unit='file', ):
         # get the file name
         name = name[:-4]  # 1.ivf -> 1
         file_full_path = tempfolder + name + '.ivf'
 
         if check_for_invalid(file_full_path):
+            tqdm.write(f'chunk {file_full_path} failed the ffmpeg integrity check 🤕')
             invalid_chunks.append(file_full_path)
-            tqdm.write(f'chunk {file_full_path} failed the ffmpeg integrity check')
             continue
 
         matching_frag = None
 
         # get the matching chunk
-        for i, frag in enumerate(fragments):
+        for i, frag in enumerate(scenes):
             if i == int(name):
                 matching_frag = frag
                 break
 
         if matching_frag is None:
-            raise Exception('Could not find matching chunk for file ' + file_full_path)
+            print(f'Could not find matching chunk for file {file_full_path} 🤪')
+            invalid_chunks.append(file_full_path)
+            continue
 
         # get the frame count
         frame_count = get_frame_count(file_full_path)
@@ -138,22 +177,67 @@ def integrity_check(tempfolder, fragments):
         if frame_count != chunk_length:
             invalid_chunks.append(file_full_path)
             tqdm.write(f'chunk {file_full_path} has failed the frame count check, expected {chunk_length} frames,'
-                       f'got {frame_count} frames')
+                       f'got {frame_count} frames 🥶')
 
     if len(invalid_chunks) > 0:
-        print('The following chunks are invalid:')
+        print(f'Found {len(invalid_chunks)} removing them 😂')
         for chunk in invalid_chunks:
-            print(chunk)
-        print('Please remove them and rerun the script, command to remove them:')
+            os.remove(chunk)
 
-        command = 'rm '
-        for chunk in invalid_chunks:
-            command += chunk + ' '
-        print(command)
+        return True
 
+    print('All chunks passed integrity checks🤓')
+    return False
+
+
+def concat():
+    # default, general audio params
+    audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
+    if not mux_at_the_end:
         quit()
 
-    print('All chunks are valid, encoding finished successfully')
+    if len(mux_output) == 0:
+        print('If muxing please provide a output path')
+        quit()
+
+    if os.path.exists(mux_output):
+        print(f'File {mux_output} already exists')
+        quit()
+
+    concat_file_path = 'lovelyconcat'
+
+    with open(concat_file_path, 'w') as f:
+        for i, frag in enumerate(scenes):
+            print(i)
+            f.write(f"file '{tempfolder}{i}.ivf'\n")
+
+    # if the audio flag is set then mux the audio
+    if mux_audio:
+        print('muxing audio innt luv')
+        if len(audio_params) == 0:
+            audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
+
+        kumannds = [
+            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i {tempfolder}temp.mkv -map 0:v -map 1:a {audio_params} -movflags +faststart -c:v copy temp_{mux_output}",
+            f"mkvmerge -o {mux_output} temp_{mux_output}",
+            f"rm temp_{mux_output} {concat_file_path}"
+        ]
+
+        for command in kumannds:
+            print('Running: ' + command)
+            os.system(command)
+    else:
+        print("not muxing audio")
+        kumannds = [
+            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart temp_" + mux_output,
+            f"mkvmerge -o {mux_output} temp_{mux_output}",
+            f"rm temp_{mux_output} {concat_file_path}"
+        ]
+        for command in kumannds:
+            print('Running: ' + command)
+            os.system(command)
+        print(f'Removing {concat_file_path}')
+        os.system(f'rm {concat_file_path}')
 
 
 if __name__ == "__main__":
@@ -168,8 +252,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Encode a video using SVT-AV1, and mux it with ffmpeg')
     parser.add_argument('input', type=str, help='Input video file')
-    parser.add_argument('temp_dir', help='Temp directory', nargs='?', default='temp/', type=str, metavar='temp_dir')
     parser.add_argument('output', type=str, help='Output video file')
+    parser.add_argument('temp_dir', help='Temp directory', nargs='?', default='temp/', type=str, metavar='temp_dir')
     parser.add_argument('--audio', help='Mux audio', action='store_true', default=True)
     parser.add_argument('--celeryless', help='Encode without celery', action='store_true', default=False)
     parser.add_argument('--dry', help='Dry run, dont actually encode', action='store_true', default=False)
@@ -201,7 +285,7 @@ if __name__ == "__main__":
     if input_path[0] != '/':
         print('Input video is not absolute, please use absolute paths')
 
-    # do convexhull 😍 sometime maybe
+    # do auto bitrate ladder 😍 sometime maybe
     bitraten = args.bitrate
 
     # usually the local network ip of the machine running the host
@@ -214,7 +298,7 @@ if __name__ == "__main__":
     tempfolder = args.temp_dir
     # turn tempfolder into a full path
     tempfolder = os.path.abspath(tempfolder) + '/'
-    input_file = tempfolder + 'temp.mkv'
+    input_file: str | Any = tempfolder + 'temp.mkv'
 
     DontUseCelery = args.celeryless
 
@@ -251,12 +335,17 @@ if __name__ == "__main__":
     sceneCacheFileName = tempfolder + 'sceneCache.json'
 
     encoded_scenes = []  # list of strings, that are paths to already encoded chunks
-    scenes = get_video_scene_list(input_file, sceneCacheFileName)  # list of [first frame index, last frame index]
+    scenes: list[list[int]] = get_video_scene_list(input_file,
+                                                   sceneCacheFileName,
+                                                   skip_check=True)
 
     config = EncoderConfigObject()
     config.two_pass = True
     config.crop_string = croppy_floppy
-    config.bitrate = bitraten
+    try:
+        config.bitrate = int(bitraten[:-1])
+    except ValueError:
+        raise ValueError('Bitrate must be in k\'s, example: 2000k')
     config.vmaf = args.vmaf
     config.convexhull = args.convexhull
     config.temp_folder = tempfolder
@@ -265,77 +354,39 @@ if __name__ == "__main__":
     config.dry_run = dry_run
 
     if args.autograin:
-        # create temp folder
-        tmp_dir = tempfile.mkdtemp()
-        config.grainsynth = get_best_avg_grainsynth(input_file=input_file,
-                                                    scenes=scenes,
-                                                    temp_folder=tmp_dir,
-                                                    cache_filename=tempfolder + 'ideal_grain.pt')
-        # remove temp folder
-        shutil.rmtree(tmp_dir)
+        config.grain_synth = get_best_avg_grainsynth(input_file=input_file,
+                                                     scenes=scenes,
+                                                     temp_folder=tempfolder,
+                                                     cache_filename=tempfolder + 'ideal_grain.pt')
     else:
-        config.grainsynth = args.grainsynth
+        config.grain_synth = args.grainsynth
 
-    process_chunks(scenes, input_file, config, celeryless_encoding=DontUseCelery,
-                   multiprocess_workers=args.multiprocess_workers)
+    chunks: List[ChunkObject] = get_chunks(scenes=scenes, in_file=input_file)
+
+    if args.integrity_check:
+        iter_counter = 0
+        while integrity_check(tempfolder, scenes) is True:
+            iter_counter += 1
+            if iter_counter > 3:
+                print('Integrity check failed 3 times, aborting')
+                quit()
+            process_chunks(chunks, config, celeryless_encoding=DontUseCelery,
+                           multiprocess_workers=args.multiprocess_workers)
+    else:
+        print('WARNING: integrity check is disabled, this is not recommended')
+        process_chunks(chunks, config, celeryless_encoding=DontUseCelery,
+                       multiprocess_workers=args.multiprocess_workers)
 
     # if we are doing a dry run the process chunks will spit out the commands, so we quit here
     if dry_run:
         quit()
 
-    if args.integrity_check:
-        integrity_check(tempfolder, scenes)
-    else:
-        print('WARNING: integrity check is disabled, this is not recommended')
-
     mux_at_the_end = args.mux
     mux_output = args.output
     mux_audio = args.audio
 
-    # default, general audio params
-    audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
-    if not mux_at_the_end:
+    try:
+        concat()
+    except Exception as e:
+        print('Concat at the end failed sobbing')
         quit()
-
-    if len(mux_output) == 0:
-        print('If muxing please provide a output path')
-        quit()
-
-    if os.path.exists(mux_output):
-        print(f'File {mux_output} already exists')
-        quit()
-
-    concat_file_path = 'mhmconcat'
-
-    with open(concat_file_path, 'w') as f:
-        for i, frag in enumerate(scenes):
-            print(i)
-            f.write(f"file '{tempfolder}{i}.ivf'\n")
-
-    # if the audio flag is set then mux the audio
-    if mux_audio:
-        print('muxing audio innt luv')
-        if len(audio_params) == 0:
-            audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
-
-        kumannds = [
-            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i {tempfolder}temp.mkv -map 0:v -map 1:a {audio_params} -movflags +faststart -c:v copy temp_{mux_output}",
-            f"mkvmerge -o {mux_output} temp_{mux_output}",
-            f"rm temp_{mux_output} {concat_file_path}"
-        ]
-
-        for command in kumannds:
-            print('Running: ' + command)
-            os.system(command)
-    else:
-        print("not muxing audio")
-        kumannds = [
-            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart temp_" + mux_output,
-            f"mkvmerge -o {mux_output} temp_{mux_output}",
-            f"rm temp_{mux_output} {concat_file_path}"
-        ]
-        for command in kumannds:
-            print('Running: ' + command)
-            os.system(command)
-        print(f'Removing {concat_file_path}')
-        os.system(f'rm {concat_file_path}')

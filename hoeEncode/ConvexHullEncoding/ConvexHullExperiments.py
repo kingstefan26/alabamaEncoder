@@ -9,9 +9,11 @@ from hoeEncode.split.split import get_video_scene_list
 from paraliezeMeHoe.ThaVaidioEncoda import gen_svt_kummands, run_kummand, CliKummand
 
 
-def normal_svt(chunk, crop_string, output, bitrate, two_pass):
-    kommand = f'ffmpeg {chunk.get_ss_ffmpeg_command_pair()} -c:v libsvtav1 {crop_string} -threads 1 ' \
-              f'-g 999 -b:v {bitrate} -passlogfile {output}svt'
+def normal_svt(chank, crop_string, output, bitrate, two_pass):
+    if os.path.exists(output):
+        return []
+    kommand = f'ffmpeg {chank.get_ss_ffmpeg_command_pair()} -c:v libsvtav1 {crop_string} -threads 1 ' \
+              f'-g 999 -b:v {bitrate}'
 
     # Explainer
     # tune=0 - tune for PsychoVisual Optimization
@@ -27,16 +29,14 @@ def normal_svt(chunk, crop_string, output, bitrate, two_pass):
     kummands = []
 
     if two_pass:
-        kummands.append(kommand + f' -svtav1-params {svt_common_params} -preset 7 -pass 1 -pix_fmt yuv420p10le -an -f '
-                                  f'null /dev/null')
-        kummands.append(kommand + f' -svtav1-params {svt_common_params}:film-grain=5 -preset 3 -pass 2 -pix_fmt '
-                                  f'yuv420p10le -an ' + output)
+        kommand += f" -passlogfile {output}svt"
+        kummands.append(kommand + f' -svtav1-params {svt_common_params} -preset 7 -pass 1 '
+                                  f'-pix_fmt yuv420p10le -an -f null /dev/null')
+        kummands.append(kommand + f' -svtav1-params {svt_common_params}:film-grain=5 -preset 3 -pass 2'
+                                  f' -pix_fmt yuv420p10le -an {output}')
     else:
-        kummands.append(
-            kommand + f' -svtav1-params {svt_common_params}:film-grain=5 -preset 3 -pix_fmt yuv420p10le -an '
-            + output
-        )
-
+        kummands.append(f'{kommand} -svtav1-params {svt_common_params}:film-grain=5'
+                        f' -preset 3 -pix_fmt yuv420p10le -an {output}')
     return kummands
 
 
@@ -68,7 +68,7 @@ def sequence_test(scene_list, sequence_start, sequence_lenght=10, normal=False):
     config = EncoderConfigObject()
     config.temp_folder = temp_folder
     config.two_pass = True
-    config.bitrate = "1000k"
+    config.bitrate = "500k"
 
     if normal:
         from tqdm.contrib.concurrent import process_map
@@ -79,10 +79,8 @@ def sequence_test(scene_list, sequence_start, sequence_lenght=10, normal=False):
             cli = CliKummand()
             for bb in normal_svt(job.chunk, '', job.encoded_scene_path, config.bitrate, config.two_pass):
                 cli.kummands.append(bb)
-
+                print(bb)
             a.append(cli)
-
-
 
         process_map(run_kummand,
                     a,
@@ -122,15 +120,18 @@ if __name__ == '__main__':
 
     print("Setting up test environment")
 
-    input_file = '/mnt/sda1/movies/Tetris (2023)/Tetris.2023.1080p.WEB.H264-NAISU[rarbg].mkv'
+    input_file = '/mnt/sda1/shows/The Chilling Adventures of Sabrina/Season 1/[TorrentCouch.net].The.Chilling.Adventures.Of.Sabrina.S01E04.720p.WEBRip.x264.mp4'
     # input_file = '/home/kokoniara/Downloads/chx.mp4'
 
     # abolute scene cache path
     cache_path = './scenecache.json'
     cache_path = os.path.abspath(cache_path)
-    scene_list = get_video_scene_list(input_file, cache_path)
+    scene_list = get_video_scene_list(input_file, cache_path, skip_check=True)
 
-    sequence_test(scene_list, 1564, 20, normal=True)
+    sequence_lenght = 20
+    sequence_start = 584
+
+    sequence_test(scene_list, sequence_start, sequence_lenght, normal=True)
     # sequence_test(scene_list, 1750, -1, normal=False)
 
     quit()

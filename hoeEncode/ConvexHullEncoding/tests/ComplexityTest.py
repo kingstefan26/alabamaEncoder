@@ -24,7 +24,7 @@ if __name__ == '__main__':
     config = EncoderConfigObject()
     config.temp_folder = test_env
     config.two_pass = True
-    config.bitrate = '1000k'
+    config.bitrate = 1000
 
 
     # test
@@ -32,4 +32,4 @@ if __name__ == '__main__':
 
     convex = ConvexEncoder(job, config)
 
-    print(convex.calculate_complexity())
+    print(convex.complexity_rate_estimation())

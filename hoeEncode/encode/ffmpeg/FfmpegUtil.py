@@ -35,7 +35,7 @@ def get_video_frame_rate(filename):
     return fps
 
 
-def syscmd(cmd, encoding='utf8'):
+def syscmd(cmd, encoding='utf8', timeout_value=-1):
     """
     Runs a command on the system, waits for the command to finish, and then
     returns the text output of the command. If the command produces no text
@@ -43,7 +43,10 @@ def syscmd(cmd, encoding='utf8'):
     """
     p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          close_fds=True)
-    p.wait()
+    if timeout_value > 0:
+        p.wait(timeout=timeout_value)
+    else:
+        p.wait()
     output = p.stdout.read()
     if len(output) > 1:
         if encoding:
@@ -55,7 +58,8 @@ def syscmd(cmd, encoding='utf8'):
 
 def check_for_invalid(path):
     if not os.path.exists(path):
-        raise FileNotFoundError(f"File {path} does not exist")
+        print(f"File {path} does not exist")
+        return True
     commnd = f"ffmpeg -v error -i {path} -c copy -f null -"
     # if the output is not empty then the file is invalid
     out = syscmd(commnd)
@@ -79,7 +83,8 @@ def get_video_lenght(path):
     # if string
     if isinstance(result, str):
         # if contains N/A
-        if 'N/A' in result:
+        # if it's invalid
+        if 'N/A' in result or 'Invalid data found' in result:
             raise ValueError(f"File {path} is invalid, (encoded with aomenc?)")
     return float(result)
 
@@ -323,11 +328,31 @@ def get_height(in_path):
     return int(result)
 
 
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
+class EncodingStatsObject:
+    time_taken = 0
+    rate_search_time = 0
+    grain_search_time = 0
+    psnr_score = 0
+    ssim_score = 0
+    vmaf_score = 0
+    bitrate = 0
+    filesize = 0
+    filesize_human = 0
+
+
 class EncoderConfigObject:
     """ A class to hold the configuration for the encoder """
     two_pass = True
     crop_string = ''
-    bitrate = 0
+    bitrate: int = 0
     temp_folder = ''
     server_ip = ''
     remote_path = ''
@@ -335,6 +360,28 @@ class EncoderConfigObject:
     convexhull = False
     vmaf = 94
     grain_synth = -1
+    passes = 2
+    crf = -1
+    speed = 3
+    rate_distribution = 0
+
+    def __init__(self, two_pass=True, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
+                 dry_run=False,
+                 convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3, rate_distribution=0):
+        self.two_pass = two_pass
+        self.crop_string = crop_string
+        self.bitrate = bitrate
+        self.temp_folder = temp_folder
+        self.server_ip = server_ip
+        self.remote_path = remote_path
+        self.dry_run = dry_run
+        self.convexhull = convexhull
+        self.vmaf = vmaf
+        self.grain_synth = grain_synth
+        self.passes = passes
+        self.crf = crf
+        self.speed = speed
+        self.rate_distribution = rate_distribution
 
 
 class EncoderJob:

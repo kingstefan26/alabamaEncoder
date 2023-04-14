@@ -1,6 +1,6 @@
 from typing import List
 
-from hoeEncode.encode.AbstractEncoder import AbstractEncoder
+from hoeEncode.encode.AbstractEncoder import AbstractEncoder, RateDistribution
 
 
 class AbstractEncoderX264(AbstractEncoder):
@@ -14,15 +14,19 @@ class AbstractEncoderX264(AbstractEncoder):
 
         kommand = f'ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libx264 {self.crop_string} -threads {self.threads} -g 999 -passlogfile {self.temp_folder}{self.current_scene_index}264 -pix_fmt yuv420p10le'
 
-        if self.rate_distribution == 0:
-            kommand += f' -b:v {self.bitrate}k'
-        elif self.rate_distribution == 1:
-            kommand += f' -crf {self.crf}'
-        elif self.rate_distribution == 2:
-            if self.passes < 2:
-                raise Exception('FATAL: passes must be 2 or more for vbr')
-            print()
-            kommand += f' -b:v {self.bitrate}k -maxrate {self.bitrate}k -bufsize -maxrate {int(self.bitrate * 2)}k'
+        match self.rate_distribution:
+            case RateDistribution.VBR:
+                kommand += f' -b:v {self.bitrate}k'
+            case RateDistribution.CQ:
+                kommand += f' -crf {self.crf}'
+            case RateDistribution.CQ_VBV:
+                if self.passes < 2:
+                    raise Exception('FATAL: passes must be 2 or more for vbr')
+                kommand += f' -crf {self.crf} -b:v {self.bitrate}k'
+            case RateDistribution.VBR_VBV:
+                if self.passes < 2:
+                    raise Exception('FATAL: passes must be 2 or more for vbr vbv')
+                kommand += f' -b:v {self.bitrate}k -maxrate {self.bitrate}k -bufsize -maxrate {int(self.bitrate * 2)}k'
 
         match self.speed:
             case 9:

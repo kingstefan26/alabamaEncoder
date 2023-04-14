@@ -119,7 +119,7 @@ class AutoGrain:
         return results
 
     def get_ideal_grain_butteraugli(self) -> int:
-        logging.debug("getting ideal grain for butteraugli")
+        print("getting ideal grain for butteraugli")
         start = time.time()
 
         from hoeEncode.encode.ffmpeg.FfmpegUtil import doesBinaryExist

@@ -13,6 +13,15 @@ class KummandObject:
     def get_dry_run(self) -> str:
         raise NotImplementedError
 
+    def output_check(self, path: str):
+        """
+        Throws a runtime error if path does not exist
+        :param path:
+        :return:
+        """
+        if not os.path.exists(path):
+            raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + path)
+
 
 # CliKummand is a KummandObject that runs a list of commands in a shell
 class CliKummand(KummandObject):

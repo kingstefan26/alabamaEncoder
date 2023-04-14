@@ -1,8 +1,7 @@
 import os.path
 from typing import List
 
-from hoeEncode.encode.AbstractEncoder import AbstractEncoder
-from hoeEncode.encode.ffmpeg.ChunkOffset import ChunkObject
+from hoeEncode.encode.AbstractEncoder import AbstractEncoder, RateDistribution
 from hoeEncode.encode.ffmpeg.FfmpegUtil import syscmd
 
 
@@ -87,6 +86,8 @@ class AvifEncoderSvtenc:
 
 
 class AbstractEncoderSvtenc(AbstractEncoder):
+    bias_pct = 50
+
     def get_encode_commands(self) -> List[str]:
         if self.chunk is None:
             raise Exception('FATAL: chunk is None')
@@ -94,22 +95,30 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             raise Exception('FATAL: temp_folder is None')
         if self.current_scene_index is None:
             raise Exception('FATAL: current_scene_index is None')
-        kommand = f'ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libsvtav1 {self.crop_string} -threads {self.threads} -g 999 -passlogfile {self.temp_folder}{self.current_scene_index}svt'
+        kommand = f'ffmpeg -v error -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libsvtav1 {self.crop_string} -threads {self.threads} -g 9999 -passlogfile {self.temp_folder}{self.current_scene_index}svt'
 
-        if self.crf is not None and int(self.crf) > 63:
+        if self.crf is not None and self.crf > 63:
             raise Exception('FATAL: crf must be less than 63')
 
-        if self.bitrate is not None:
-            kommand += f' -b:v {self.bitrate}k'
-
-        if self.crf is not None:
-            kommand += f' -crf {self.crf}'
-
-        if self.bitrate is not None and self.crf is not None:
-            kommand += f' -b:v {self.bitrate}k -crf {self.crf}'
-
-        if self.crf is None and self.bitrate is None:
-            raise Exception('FATAL: bitrate and crf are both None')
+        match self.rate_distribution:
+            case RateDistribution.CQ:
+                if self.crf is None or self.crf == -1:
+                    raise Exception('FATAL: crf must be set for CQ')
+                kommand += f' -crf {self.crf}'
+            case RateDistribution.VBR:
+                if self.bitrate is None or self.bitrate == -1:
+                    raise Exception('FATAL: bitrate must be set for VBR')
+                kommand += f' -b:v {self.bitrate}k'
+            case RateDistribution.CQ_VBV:
+                if self.crf is None or self.crf == -1:
+                    raise Exception('FATAL: crf must be set for CQ_VBV')
+                if self.bitrate is None or self.bitrate == -1:
+                    raise Exception('FATAL: bitrate must be set for CQ_VBV')
+                kommand += f' -crf {self.crf} -maxrate {self.bitrate}k'
+            case RateDistribution.VBR_VBV:
+                if self.bitrate is None or self.bitrate == -1:
+                    raise Exception('FATAL: bitrate must be set for VBR_VBV')
+                kommand += f' -b:v {self.bitrate}k -maxrate {self.bitrate}k -bufsize -maxrate {int(self.bitrate * 2)}k'
 
         # Explainer
         # tune=0 - tune for PsychoVisual Optimization
@@ -117,7 +126,10 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         # enable-overlays=1 - enable additional overlay frame thing
         # irefresh-type=1 - open gop
         # lp=1 - threads to use
-        svt_common_params = f'tune={self.tune}:scd=0:enable-overlays=1:irefresh-type=1:lp={self.threads}'
+        svt_common_params = f'tune={self.tune}:scd=0:enable-overlays=1:irefresh-type=1:' \
+                            f'chroma-u-dc-qindex-offset=-2:chroma-u-ac-qindex-offset=-2:chroma-v-dc-qindex-offset=-2:' \
+                            f'chroma-v-ac-qindex-offset=-2:lp={self.threads}:enable-qm=1:qm-min=8:qm-max=15' \
+                            f':bias-pct={self.bias_pct}'
 
         # NOTE:
         # I use this svt_common_params thing cuz we don't need grain synth for the first pass + its faster
