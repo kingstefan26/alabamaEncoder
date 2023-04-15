@@ -11,14 +11,15 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 from CeleryApp import app
-from hoeEncode.ConvexHullEncoding.AutoGrain import get_best_avg_grainsynth
-from hoeEncode.ConvexHullEncoding.ConvexHull import ConvexKummand, ConvexEncoder
-from hoeEncode.encode.encoderImpl.Svtenc import AbstractEncoderSvtenc
-from hoeEncode.encode.encoderKommands.AbstractEncoderKommand import EncoderKommand
-from hoeEncode.encode.ffmpeg.ChunkOffset import ChunkObject
-from hoeEncode.encode.ffmpeg.FfmpegUtil import EncoderConfigObject, syscmd, do_cropdetect, get_frame_count, \
-    check_for_invalid, EncoderJob, VideoConcatenator
-from hoeEncode.split.split import get_video_scene_list
+from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, syscmd, do_cropdetect
+from hoeEncode.bitrateAdapt.AutoGrain import get_best_avg_grainsynth
+from hoeEncode.bitrateAdapt.ConvexHull import ConvexKummand, ConvexEncoder
+from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
+from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
+from hoeEncode.encoders.EncoderJob import EncoderJob
+from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
+from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.sceneSplit.split import get_video_scene_list
 from paraliezeMeHoe.ThaVaidioEncoda import run_kummand, run_kummad_on_celery
 
 tasks = []

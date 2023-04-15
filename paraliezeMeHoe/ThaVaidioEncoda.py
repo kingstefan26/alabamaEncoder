@@ -2,7 +2,9 @@ import os.path
 from copy import copy
 
 from CeleryApp import app
-from hoeEncode.encode.ffmpeg.FfmpegUtil import syscmd, EncoderConfigObject, EncoderJob
+from hoeEncode.ffmpegUtil import syscmd
+from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
+from hoeEncode.encoders.EncoderJob import EncoderJob
 
 
 # KummandObject has one abstract run method
@@ -77,11 +79,6 @@ def run_kummad_on_celery(kummand: KummandObject):
 
 def run_kummand(kummand: KummandObject):
     kummand.run()
-
-
-def convex_svt(job: EncoderJob, config: EncoderConfigObject) -> KummandObject:
-    from hoeEncode.ConvexHullEncoding.ConvexHull import ConvexKummand
-    return ConvexKummand(job, config)
 
 
 def gen_svt_kummands(job: EncoderJob, config: EncoderConfigObject) -> CliKummand:

@@ -5,7 +5,7 @@ import sys
 
 from tqdm import tqdm
 
-from hoeEncode.encode.ffmpeg.FfmpegUtil import get_video_lenght
+from hoeEncode.ffmpegUtil import get_video_lenght
 
 # example usage:
 # python genConcat.py out.mp4
