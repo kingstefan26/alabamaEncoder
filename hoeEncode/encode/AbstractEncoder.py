@@ -1,18 +1,9 @@
 import os
-from enum import Enum
 from typing import List
 
+from hoeEncode.encode.encoderImpl.RateDiss import RateDistribution
 from hoeEncode.encode.ffmpeg.ChunkOffset import ChunkObject
 from hoeEncode.encode.ffmpeg.FfmpegUtil import syscmd, EncoderJob, EncoderConfigObject
-
-
-# enum class that represents rate distribution modes
-class RateDistribution(Enum):
-    VBR: int = 0
-    CQ: int = 1
-    CQ_VBV: int = 2
-    VBR_VBV: int = 3
-
 
 class AbstractEncoder:
     chunk: ChunkObject = None

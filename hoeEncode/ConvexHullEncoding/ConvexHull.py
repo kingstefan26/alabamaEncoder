@@ -9,7 +9,7 @@ from typing import List, Callable
 
 from hoeEncode.ConvexHullEncoding.AutoGrain import AutoGrain
 from hoeEncode.ConvexHullEncoding.RdPoint import RdPoint
-from hoeEncode.encode.AbstractEncoder import RateDistribution
+from hoeEncode.encode.encoderImpl.RateDiss import RateDistribution
 from hoeEncode.encode.encoderImpl.Aomenc import AbstractEncoderAomEnc
 from hoeEncode.encode.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from hoeEncode.encode.ffmpeg.FfmpegUtil import EncoderJob, EncoderConfigObject, get_video_vmeth, get_video_ssim, \

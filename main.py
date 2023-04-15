@@ -4,9 +4,7 @@ import atexit
 import copy
 import logging
 import os
-import shutil
 import sys
-import tempfile
 from typing import List, Any
 
 from tqdm import tqdm
@@ -19,10 +17,9 @@ from hoeEncode.encode.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from hoeEncode.encode.encoderKommands.AbstractEncoderKommand import EncoderKommand
 from hoeEncode.encode.ffmpeg.ChunkOffset import ChunkObject
 from hoeEncode.encode.ffmpeg.FfmpegUtil import EncoderConfigObject, syscmd, do_cropdetect, get_frame_count, \
-    check_for_invalid, EncoderJob
+    check_for_invalid, EncoderJob, VideoConcatenator
 from hoeEncode.split.split import get_video_scene_list
-from paraliezeMeHoe.ThaVaidioEncoda import gen_svt_kummands, \
-    run_kummand, run_kummad_on_celery, convex_svt
+from paraliezeMeHoe.ThaVaidioEncoda import run_kummand, run_kummad_on_celery
 
 tasks = []
 

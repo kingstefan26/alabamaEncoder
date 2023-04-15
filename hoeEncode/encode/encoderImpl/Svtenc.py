@@ -1,8 +1,10 @@
 import os.path
 from typing import List
 
-from hoeEncode.encode.AbstractEncoder import AbstractEncoder, RateDistribution
-from hoeEncode.encode.ffmpeg.FfmpegUtil import syscmd
+from hoeEncode.encode.AbstractEncoder import AbstractEncoder
+from hoeEncode.encode.encoderImpl.RateDiss import RateDistribution
+from hoeEncode.encode.ffmpeg.FfmpegUtil import syscmd, create_chunk_ffmpeg_pipe_command_using_chunk, get_width, \
+    get_height
 
 
 class AvifEncoderSvtenc:
@@ -87,6 +89,9 @@ class AvifEncoderSvtenc:
 
 class AbstractEncoderSvtenc(AbstractEncoder):
     bias_pct = 50
+    film_grain_denoise: (0 | 1) = 1  # denoise the image when apling grain synth, turn off if you want preserve more
+
+    # detail and use grain
 
     def get_encode_commands(self) -> List[str]:
         if self.chunk is None:
@@ -95,7 +100,17 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             raise Exception('FATAL: temp_folder is None')
         if self.current_scene_index is None:
             raise Exception('FATAL: current_scene_index is None')
-        kommand = f'ffmpeg -v error -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libsvtav1 {self.crop_string} -threads {self.threads} -g 9999 -passlogfile {self.temp_folder}{self.current_scene_index}svt'
+
+        # kommand = f'ffmpeg -v error -y {self.chunk.get_ss_ffmpeg_command_pair()}
+        # -c:v libsvtav1 {self.crop_string} -threads {self.threads}
+        # -g 9999 -passlogfile {self.temp_folder}{self.current_scene_index}svt'
+        kommand = f'{create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, bit_depth=10)} | ' \
+                  f'SvtAv1EncApp' \
+                  f' -i stdin' \
+                  f' --input-depth 10' \
+                  f' -w {get_width(self.chunk.path)}' \
+                  f' -h {get_height(self.chunk.path)}' \
+                  f' --keyint 9999'
 
         if self.crf is not None and self.crf > 63:
             raise Exception('FATAL: crf must be less than 63')
@@ -104,50 +119,53 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             case RateDistribution.CQ:
                 if self.crf is None or self.crf == -1:
                     raise Exception('FATAL: crf must be set for CQ')
-                kommand += f' -crf {self.crf}'
+                kommand += f' --crf {self.crf}'
             case RateDistribution.VBR:
                 if self.bitrate is None or self.bitrate == -1:
                     raise Exception('FATAL: bitrate must be set for VBR')
-                kommand += f' -b:v {self.bitrate}k'
+                kommand += f' --rc 1 --tbr {self.bitrate} --gop-constraint-rc 1'
             case RateDistribution.CQ_VBV:
                 if self.crf is None or self.crf == -1:
                     raise Exception('FATAL: crf must be set for CQ_VBV')
                 if self.bitrate is None or self.bitrate == -1:
                     raise Exception('FATAL: bitrate must be set for CQ_VBV')
-                kommand += f' -crf {self.crf} -maxrate {self.bitrate}k'
+                kommand += f' --crf {self.crf} --tbr {self.bitrate}'
             case RateDistribution.VBR_VBV:
                 if self.bitrate is None or self.bitrate == -1:
                     raise Exception('FATAL: bitrate must be set for VBR_VBV')
-                kommand += f' -b:v {self.bitrate}k -maxrate {self.bitrate}k -bufsize -maxrate {int(self.bitrate * 2)}k'
+                kommand += f' --tbr {self.bitrate} --mbr {self.bitrate * 1.5}'
 
-        # Explainer
-        # tune=0 - tune for PsychoVisual Optimization
-        # scd=0 - disable scene change detection
-        # enable-overlays=1 - enable additional overlay frame thing
-        # irefresh-type=1 - open gop
-        # lp=1 - threads to use
-        svt_common_params = f'tune={self.tune}:scd=0:enable-overlays=1:irefresh-type=1:' \
-                            f'chroma-u-dc-qindex-offset=-2:chroma-u-ac-qindex-offset=-2:chroma-v-dc-qindex-offset=-2:' \
-                            f'chroma-v-ac-qindex-offset=-2:lp={self.threads}:enable-qm=1:qm-min=8:qm-max=15' \
-                            f':bias-pct={self.bias_pct}'
+        kommand += f' --tune 0'  # tune for PsychoVisual Optimization
+        kommand += f' --bias-pct {self.bias_pct}'  # 100 vbr like, 0 cbr like
+        kommand += f' --lp {self.threads}'  # threads
 
-        # NOTE:
-        # I use this svt_common_params thing cuz we don't need grain synth for the first pass + its faster
+        if 0 <= self.svt_grain_synth <= 50:
+            kommand += f' --film-grain {self.svt_grain_synth}'  # grain synth
+
+        kommand += f' --preset {self.speed}'  # speed
+        kommand += f' --film-grain-denoise {self.film_grain_denoise}'
+        kommand += ' --scd 0'  # disable scene change detection
+        kommand += ' --enable-qm 1'  # enable quantization matrix
+        kommand += ' --qm-min 8'  # min quantization matrix
+        kommand += ' --qm-max 15'  # max quantization matrix
+        kommand += ' --chroma-u-dc-qindex-offset -2'
+        kommand += ' --chroma-u-ac-qindex-offset -2'
+        kommand += ' --chroma-v-dc-qindex-offset -2'
+        kommand += ' --chroma-v-ac-qindex-offset -2'
 
         if self.passes == 2:
             return [
-                f'{kommand} -svtav1-params {svt_common_params} -preset {self.first_pass_speed} -pass 1 -pix_fmt yuv420p10le -an -f null /dev/null',
-                f'{kommand} -svtav1-params {svt_common_params}:film-grain={self.svt_grain_synth} -preset {self.speed} -pass 2 -pix_fmt yuv420p10le -an {self.output_path}'
+                f'{kommand} --passes 2 --stats {self.temp_folder}{self.current_scene_index}svt.stat -b {self.output_path}'
             ]
         elif self.passes == 1:
+            # enable-overlays=1 - enable additional overlay frame thing
+            # irefresh-type=1 - open gop
             return [
-                f'{kommand} -svtav1-params {svt_common_params}:film-grain={self.svt_grain_synth} -preset {self.speed} -pix_fmt yuv420p10le -an {self.output_path}'
+                f'{kommand} --enable-overlays 1 --irefresh-type 1 --passes 1 -b {self.output_path}'
             ]
         elif self.passes == 3:
             return [
-                f'{kommand} -svtav1-params {svt_common_params} -preset {self.first_pass_speed} -pass 1 -pix_fmt yuv420p10le -an -f null /dev/null',
-                f'{kommand} -svtav1-params {svt_common_params}:film-grain={self.svt_grain_synth} -preset {self.speed} -pass 2 -pix_fmt yuv420p10le -an {self.output_path}',
-                f'{kommand} -svtav1-params {svt_common_params}:film-grain={self.svt_grain_synth} -preset {self.speed} -pass 3 -pix_fmt yuv420p10le -an {self.output_path}'
+                f'{kommand} --passes 3 --stats {self.temp_folder}{self.current_scene_index}svt.stat -b {self.output_path}'
             ]
         else:
             raise Exception(f'FATAL: invalid passes count {self.passes}')

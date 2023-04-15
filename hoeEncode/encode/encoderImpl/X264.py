@@ -1,6 +1,7 @@
 from typing import List
 
-from hoeEncode.encode.AbstractEncoder import AbstractEncoder, RateDistribution
+from hoeEncode.encode.AbstractEncoder import AbstractEncoder
+from hoeEncode.encode.encoderImpl.RateDiss import RateDistribution
 
 
 class AbstractEncoderX264(AbstractEncoder):

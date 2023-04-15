@@ -12,14 +12,13 @@ if __name__ == '__main__':
     shutil.rmtree(test_env, ignore_errors=True)
     path_setup(test_env)
 
-    input_file = '/mnt/sda1/shows/The Chilling Adventures of Sabrina/Season 1/[TorrentCouch.net].The.Chilling.Adventures.Of.Sabrina.S01E04.720p.WEBRip.x264.mp4'
+    input_file = '/mnt/sda1/Animation.mkv'
     print('Preparing scenes for test file and using one')
-    scenes = get_test_scenes(input_file,
-                             '/home/kokoniara/dev/VideoSplit/hoeEncode/ConvexHullEncoding/scenecache.json')
+    scenes = get_test_scenes(input_file, '/home/kokoniara/dev/VideoSplit/hoeEncode/ConvexHullEncoding/animation.json')
 
-    chunk = get_a_chunk(152, scenes, input_file)
+    chunk = get_a_chunk(4, scenes, input_file)
 
-    config = EncoderConfigObject(temp_folder=test_env, two_pass=True, bitrate=500, grain_synth=0)
+    config = EncoderConfigObject(temp_folder=test_env, two_pass=True, bitrate=1000, grain_synth=0)
 
     print('\nRunning control')
     enc_control = ConvexEncoder(EncoderJob(chunk, 0, 'control.ivf'), config)
@@ -33,7 +32,9 @@ if __name__ == '__main__':
 
     reduction = (control_stats.filesize - test_stats.filesize) / control_stats.filesize * 100
 
+    reduction = reduction * -1
+
     vmaf_improvement = (test_stats.vmaf_score - control_stats.vmaf_score) / control_stats.vmaf_score * 100
 
-    print(f'\nFile size reduction compared to control: {reduction:.2f}%')
-    print(f'VMAF improvement compared to control: {vmaf_improvement:.2f}%')
+    print(f'\nFile size change compared to control: {reduction:.2f}%')
+    print(f'VMAF change to control: {vmaf_improvement:.2f}%')

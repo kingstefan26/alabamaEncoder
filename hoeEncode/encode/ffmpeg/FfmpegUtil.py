@@ -2,6 +2,9 @@ import os.path
 import re
 import subprocess
 from shutil import which
+from typing import List
+
+from hoeEncode.encode.encoderImpl.RateDiss import RateDistribution
 
 
 def get_quality_preset(resolution_canon_name):
@@ -162,17 +165,27 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
         return 0
 
 
-def get_video_ssim(distorted_path, in_chunk=None):
+def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=False):
     null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk)
     null_ += f" | ffmpeg -hide_banner -i - "
 
     null_ += f" -i {distorted_path} -filter_complex ssim -f null -"
 
     result_string = syscmd(null_, "utf8")
+    if print_output:
+        print(result_string)
     try:
-        match = re.search(r"All:\s*([\d.]+)", result_string)
-        ssim_score = float(match.group(1))
-        return ssim_score
+        if get_db is True:
+            # Regex to get avrage score out of:
+            # [Parsed_ssim_0 @ 0x55f6705fa200] SSIM Y:0.999999 (0.000000 dB) U:0.999999 (0.000000 dB) V:0.999999 (0.000000 dB) All:0.999999 (0.000000)
+            match = re.search(r"All:([\d.]+) \(([\d.]+)", result_string)
+            ssim_score = float(match.group(1))
+            ssim_db = float(match.group(2))
+            return ssim_score, ssim_db
+        else:
+            match = re.search(r"All:\s*([\d.]+)", result_string)
+            ssim_score = float(match.group(1))
+            return ssim_score
     except AttributeError:
         print(f"Failed getting ssim comparing {distorted_path} agains {in_chunk.path}")
         print(null_)
@@ -304,10 +317,15 @@ def create_chunk_ffmpeg_pipe_command(resolution_canon_name="source", start_clip_
     return end_command
 
 
-def create_chunk_ffmpeg_pipe_command_using_chunk(resolution_canon_name="source", in_chunk=None):
+def create_chunk_ffmpeg_pipe_command_using_chunk(resolution_canon_name="source", in_chunk=None, crop_string='',
+                                                 bit_depth: (8 | 10) = 8):
     end_command = "ffmpeg -v error -nostdin "
     end_command += in_chunk.get_ss_ffmpeg_command_pair()
-    end_command += f" -an -sn -strict -1 {get_quality_preset(resolution_canon_name)} -f yuv4mpegpipe - "
+    if bit_depth == 10:
+        end_command += f"-pix_fmt yuv420p10le "
+    else:
+        end_command += f"-pix_fmt yuv420p "
+    end_command += f" -an -sn -strict -1 {get_quality_preset(resolution_canon_name)} {crop_string} -f yuv4mpegpipe - "
 
     return end_command
 
@@ -315,7 +333,7 @@ def create_chunk_ffmpeg_pipe_command_using_chunk(resolution_canon_name="source",
 def get_width(in_path):
     if not os.path.exists(in_path):
         raise FileNotFoundError(f"File {in_path} does not exist")
-    argv_ = f"ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 {in_path}"
+    argv_ = f'ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "{in_path}"'
     result = syscmd(argv_)
     return int(result)
 
@@ -323,7 +341,7 @@ def get_width(in_path):
 def get_height(in_path):
     if not os.path.exists(in_path):
         raise FileNotFoundError(f"File {in_path} does not exist")
-    argv_ = f"ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 {in_path}"
+    argv_ = f'ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "{in_path}"'
     result = syscmd(argv_)
     return int(result)
 
@@ -363,11 +381,11 @@ class EncoderConfigObject:
     passes = 2
     crf = -1
     speed = 3
-    rate_distribution = 0
+    rate_distribution: RateDistribution
 
     def __init__(self, two_pass=True, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
                  dry_run=False,
-                 convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3, rate_distribution=0):
+                 convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3, rate_distribution=RateDistribution.VBR):
         self.two_pass = two_pass
         self.crop_string = crop_string
         self.bitrate = bitrate
@@ -396,3 +414,73 @@ class EncoderJob:
     chunk: ChunkObject
     current_scene_index: int
     encoded_scene_path: str
+
+
+class VideoConcatenator:
+    mux_audio = True
+    nessesary = ['ffmpeg', 'mkvmerge']
+
+    def __init__(self, files: List[str] = None, output: str = None, file_with_audio: str = None,
+                 audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on'):
+        self.files = files
+        self.output = output
+        self.file_with_audio = file_with_audio
+        self.audio_param_override = audio_param_override
+        for n in self.nessesary:
+            if not doesBinaryExist(n):
+                print(f'Could not find {n} in PATH')
+                exit(1)
+
+    def find_files_in_dir(self, folder_path, extension):
+        files = []
+        for file in os.listdir(folder_path):
+            if file.endswith(extension):
+                files.append(os.path.join(folder_path, file))
+
+        self.files = files
+
+    def concat_videos(self):
+        if not self.output:
+            print('If muxing please provide an output path')
+            return
+
+        if os.path.exists(self.output):
+            print(f'File {self.output} already exists')
+            return
+
+        concat_file_path = 'lovelyconcat'
+
+        with open(concat_file_path, 'w') as f:
+            for file in self.files:
+                f.write(f'file \'{file}\'\n')
+
+        total_duration = 0
+        for file in self.files:
+            total_duration += get_frame_count(file)
+
+        cuttoff = total_duration / get_video_frame_rate(self.files[0])
+        print(f'Cuttoff is {cuttoff}')
+        print(f'Frame rate is {get_video_frame_rate(self.files[0])}')
+        print(f'Total duration is {total_duration} frames')
+
+        if self.mux_audio:
+            print('Muxing audio into the output')
+            commands = [
+                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" -t {cuttoff} -map 0:v -map 1:a {self.audio_param_override} -movflags +faststart -c:v copy temp_{self.output}',
+                f'mkvmerge -o {self.output} temp_{self.output}',
+                f'rm temp_{self.output} {concat_file_path}'
+            ]
+        else:
+            print('Not muxing audio')
+            commands = [
+                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart temp_{self.output}',
+                f'mkvmerge -o {self.output} temp_{self.output}',
+                f'rm temp_{self.output} {concat_file_path}'
+            ]
+
+        for command in commands:
+            print('Running: ' + command)
+            os.system(command)
+
+        print(f'Removing {concat_file_path}')
+        os.system(f'rm {concat_file_path}')
