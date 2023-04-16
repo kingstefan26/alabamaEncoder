@@ -4,6 +4,7 @@ from typing import List
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.RateDiss import RateDistribution
+from hoeEncode.ffmpegUtil import syscmd
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 
 

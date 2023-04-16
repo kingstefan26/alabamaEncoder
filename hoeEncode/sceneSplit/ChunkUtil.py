@@ -1,4 +1,5 @@
-from hoeEncode.ffmpegUtil import get_video_frame_rate, get_quality_preset
+from hoeEncode.utils.resolutionLadder import get_quality_preset
+from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 
 
 def create_chunk_ffmpeg_pipe_command(resolution_canon_name="source", start_clip_time=0, end_clip_time=0, in_path="./no",

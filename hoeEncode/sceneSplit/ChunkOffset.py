@@ -1,4 +1,4 @@
-from hoeEncode.ffmpegUtil import get_video_frame_rate
+from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 
 

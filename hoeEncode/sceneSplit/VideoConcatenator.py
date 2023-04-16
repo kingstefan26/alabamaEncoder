@@ -1,7 +1,8 @@
 import os
 from typing import List
 
-from hoeEncode.ffmpegUtil import doesBinaryExist, get_frame_count, get_video_frame_rate
+from hoeEncode.ffmpegUtil import doesBinaryExist, get_frame_count
+from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 
 
 class VideoConcatenator:

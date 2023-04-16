@@ -6,37 +6,6 @@ from shutil import which
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 
 
-def get_quality_preset(resolution_canon_name):
-    if resolution_canon_name == '360p':
-        return '-vf scale=-2:360'
-    elif resolution_canon_name == '480p':
-        return '-vf scale=-2:468'
-    elif resolution_canon_name == '720p':
-        return '-vf scale=-2:720'
-    elif resolution_canon_name == '1080p':
-        return '-vf scale=-2:1080'
-    else:
-        return ''
-
-
-def get_video_frame_rate(filename):
-    result = subprocess.run([
-        "ffprobe",
-        "-v",
-        "error",
-        "-select_streams",
-        "v",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
-        "-show_entries",
-        "stream=r_frame_rate",
-        filename,
-    ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    result_string = result.stdout.decode('utf-8').split()[0].split('/')
-    fps = float(result_string[0]) / float(result_string[1])
-    return fps
-
-
 def syscmd(cmd, encoding='utf8', timeout_value=-1):
     """
     Runs a command on the system, waits for the command to finish, and then

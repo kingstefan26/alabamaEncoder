@@ -24,7 +24,7 @@ class ConvexEncoder:
         self.stats = EncodingStatsObject()
 
     # what speed do we run while searching bitrate
-    convex_speed = 12
+    convex_speed = 8
 
     # speed for the final encode
     encode_speed = 3
@@ -43,7 +43,18 @@ class ConvexEncoder:
 
     flag_15 = False  # use aomenc
 
-    bias_pct = 8  # how much we want to cbr the final encode
+    bias_pct = 93  # how much we want to cbr the final encode
+
+    complexity_clamp_down = 0.8
+    complexity_clamp_up = 0.35
+    clamp_complexity = True
+
+    db_target = 20
+
+    # very much hd 22
+    # recomended 21
+    # csual 19
+    # ok 18
 
     def complexity_rate_estimation(self, ignore_cache=False):
         probe_file_base = self.get_probe_name()
@@ -66,49 +77,40 @@ class ConvexEncoder:
                    chunk=self.job.chunk,
                    svt_grain_synth=0,
                    current_scene_index=self.job.current_scene_index,
-                   output_path=test_probe_path)
+                   output_path=test_probe_path,
+                   threads=1)
 
         enc.update(bitrate=self.config.bitrate, rate_distribution=RateDistribution.VBR)
 
         enc.run(override_if_exists=False)
 
-        ssim = get_video_ssim(test_probe_path, self.job.chunk)
-        try:
-            bitrate = get_total_bitrate(test_probe_path)
-        except Exception as e:
-            print(e)
-            print(f"Failed to get bitrate for {test_probe_path} aborting this chunk")
-            os.remove(test_probe_path)
-            return -1
+        (ssim, ssim_db) = get_video_ssim(test_probe_path, self.job.chunk, get_db=True)
 
-        complexity = bitrate
-        complexity /= 1000000
-        complexity /= ssim
-        complexity -= 1
-        complexity /= 2
-        complexity += 1
+        # Calculate the ratio between the target ssim dB and the current ssim dB
+        ratio = 10 ** ((self.db_target - ssim_db) / 10)
 
-        # clamp between 0.5 and 1.5
-        complexity = max(0.5, min(1.5, complexity))
+        # Clamp the ratio to the complexity clamp
+        if self.clamp_complexity:
+            ratio = max(min(ratio, 1 + self.complexity_clamp_up), 1 - self.complexity_clamp_down)
 
-        target_bitrate = self.config.bitrate
-
-        abr_rate = target_bitrate * complexity
+        # Interpolate the ideal encode rate using the ratio
+        ideal_rate = self.config.bitrate * ratio
+        ideal_rate = int(ideal_rate)
 
         print(
             f'{self.log_prefix()}===============\n'
-            f'{self.log_prefix()} wanted bitrate: {target_bitrate}k\n'
-            f'{self.log_prefix()} ssim when using target bitrate: {ssim}\n'
-            f'{self.log_prefix()} complexity: max(0.5, min(1.5, bitrate / 1000000 / ssim - 1 / 2 + 1)) = {complexity}\n'
-            f'{self.log_prefix()} theoredical ABR rate: target * complexity = {abr_rate}k \n'
+            f'{self.log_prefix()} encode rate: {self.config.bitrate}k/s\n'
+            f'{self.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {self.db_target})\n'
+            f'{self.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n'
+            f'{self.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n'
             f'{self.log_prefix()}==============='
         )
 
-        if self.remove_probes:
-            os.remove(test_probe_path)
+        # if self.remove_probes:
+        #     os.remove(test_probe_path)
 
-        pickle.dump(abr_rate, open(cache_filename, 'wb'))
-        return abr_rate
+        pickle.dump(ideal_rate, open(cache_filename, 'wb'))
+        return ideal_rate
 
     def get_probe_file_base(self, encoded_scene_path) -> str:
         """

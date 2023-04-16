@@ -13,7 +13,7 @@ from tqdm.contrib.concurrent import process_map
 from CeleryApp import app
 from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, syscmd, do_cropdetect
 from hoeEncode.bitrateAdapt.AutoGrain import get_best_avg_grainsynth
-from hoeEncode.bitrateAdapt.ConvexHull import ConvexKummand, ConvexEncoder
+from hoeEncode.bitrateAdapt.AutoBitrate import ConvexKummand, ConvexEncoder
 from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
