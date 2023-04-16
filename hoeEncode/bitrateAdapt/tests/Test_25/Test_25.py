@@ -1,16 +1,16 @@
-import copy
 import shutil
 
 from tqdm.contrib.concurrent import process_map
 
 from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
 from hoeEncode.bitrateAdapt.tests.TestUtil import get_test_scenes, path_setup
+from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
+from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
-from paraliezeMeHoe.ThaVaidioEncoda import run_kummand
 
 if __name__ == '__main__':
     bias_pct = 8
@@ -39,10 +39,15 @@ if __name__ == '__main__':
                        f'{test_env}{i}.ivf') for i, scene in enumerate(new_scene_list)]
 
     config_test = EncoderConfigObject(temp_folder=test_env, two_pass=True, bitrate=1000, grain_synth=0)
-    cvmands = [ConvexEncoder(job, copy.deepcopy(config_test)) for job in jobs]
+
+    cvmands = []
+    for job in jobs:
+        enc = ConvexEncoder()
+        enc.setup(job, config_test)
+        cvmands.append(enc)
 
     print('\nStarting test')
-    process_map(run_kummand,
+    process_map(run_command,
                 cvmands,
                 max_workers=5,
                 chunksize=1,
@@ -57,12 +62,12 @@ if __name__ == '__main__':
 
     config_control = EncoderConfigObject(temp_folder=control_env, two_pass=True, bitrate=1000, grain_synth=0)
     commands = []
-    for i, job in enumerate(jobs):
-        enc = AbstractEncoderSvtenc()
-        enc.eat_job_config(job, config_control)
-        commands.append(enc)
+    for job in jobs:
+        a = EncoderKommand(AbstractEncoderSvtenc())
+        a.setup(job, config_control)
+        commands.append(a)
 
-    process_map(run_kummand,
+    process_map(run_command,
                 commands,
                 max_workers=5,
                 chunksize=1,

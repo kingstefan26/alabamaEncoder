@@ -6,21 +6,18 @@ import shutil
 import time
 
 from hoeEncode.bitrateAdapt.AutoGrain import AutoGrain
-from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
-from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.EncoderStats import EncodingStatsObject
 from hoeEncode.encoders.RateDiss import RateDistribution
 from hoeEncode.encoders.encoderImpl.Aomenc import AbstractEncoderAomEnc
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from hoeEncode.ffmpegUtil import get_video_ssim, get_total_bitrate, get_video_vmeth, sizeof_fmt
-from paraliezeMeHoe.ThaVaidioEncoda import KummandObject
+from hoeEncode.parallelEncoding.Command import CommandObject
 
 
-class ConvexEncoder:
+class ConvexEncoder(CommandObject):
 
-    def __init__(self, job: EncoderJob, config: EncoderConfigObject):
-        self.job = job
-        self.config = config
+    def __init__(self):
+        super().__init__()
         self.stats = EncodingStatsObject()
 
     # what speed do we run while searching bitrate
@@ -31,7 +28,7 @@ class ConvexEncoder:
 
     remove_probes = True  # after encoding is done remove the probes
 
-    threads_for_final_encode = 1
+    threads = 1
 
     # how long (seconds) before we time out the final encode
     # currently set to ~30 minutes
@@ -193,18 +190,14 @@ class ConvexEncoder:
             enc = AbstractEncoderSvtenc()
             enc.bias_pct = self.bias_pct
 
-            enc.update(current_scene_index=self.job.current_scene_index,
-                       speed=self.encode_speed,
-                       passes=2,
-                       temp_folder=self.config.temp_folder,
-                       chunk=self.job.chunk,
-                       crop_string=self.config.crop_string,
-                       svt_grain_synth=ideal_grain,
-                       output_path=self.job.encoded_scene_path,
-                       threads=self.threads_for_final_encode)
+            enc.eat_job_config(job=self.job, config=self.config)
 
-            enc.bitrate = ideal_rate
-            enc.update(rate_distribution=RateDistribution.VBR)
+            enc.update(
+                passes=2,
+                svt_grain_synth=ideal_grain,
+                bitrate=ideal_rate,
+                rate_distribution=RateDistribution.VBR
+            )
 
             try:
                 enc.run(timeout_value=self.final_encode_timeout)
@@ -230,16 +223,3 @@ class ConvexEncoder:
         self.stats.filesize_human = sizeof_fmt(self.stats.filesize)
 
         return self.stats
-
-
-class ConvexKummand(KummandObject):
-    def __init__(self, job: EncoderJob, config: EncoderConfigObject, convx=None):
-        if job is not None and config is not None:
-            self.enc = ConvexEncoder(job, config)
-        elif convx is not None:
-            self.enc = convx
-        else:
-            raise Exception('invalid constructor')
-
-    def run(self):
-        self.enc.run()

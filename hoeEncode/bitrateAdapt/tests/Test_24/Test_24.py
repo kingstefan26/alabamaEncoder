@@ -1,14 +1,12 @@
-import copy
-
 from tqdm.contrib.concurrent import process_map
 
 from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
 from hoeEncode.bitrateAdapt.tests.TestUtil import get_test_scenes
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
+from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
-from paraliezeMeHoe.ThaVaidioEncoda import run_kummand
 
 if __name__ == '__main__':
     bias_pct = 8
@@ -37,10 +35,14 @@ if __name__ == '__main__':
                        f'{test_env}{i}.ivf') for i, scene in enumerate(new_scene_list)]
 
     config_test = EncoderConfigObject(temp_folder=test_env, two_pass=True, bitrate=1000, grain_synth=0)
-    cvmands = [ConvexEncoder(job, copy.deepcopy(config_test)) for job in jobs]
+    cvmands = []
+    for job in jobs:
+        enc = ConvexEncoder()
+        enc.setup(job, config_test)
+        cvmands.append(enc)
 
     print('\nStarting test')
-    process_map(run_kummand,
+    process_map(run_command,
                 cvmands,
                 max_workers=5,
                 chunksize=1,
@@ -54,8 +56,13 @@ if __name__ == '__main__':
                        f'{control_env}{i}.ivf') for i, scene in enumerate(new_scene_list)]
 
     config_control = EncoderConfigObject(temp_folder=control_env, two_pass=True, bitrate=1000, grain_synth=0)
-    process_map(run_kummand,
-                [ConvexEncoder(job, copy.deepcopy(config_control)) for job in jobs],
+    cvmands_control = []
+    for job in jobs:
+        enc = ConvexEncoder()
+        enc.setup(job, config_control)
+        cvmands.append(enc)
+    process_map(run_command,
+                cvmands_control,
                 max_workers=5,
                 chunksize=1,
                 desc='Encoding Complexity Seq CONTROL',

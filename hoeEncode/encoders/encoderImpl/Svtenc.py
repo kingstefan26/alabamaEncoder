@@ -123,7 +123,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             case RateDistribution.VBR:
                 if self.bitrate is None or self.bitrate == -1:
                     raise Exception('FATAL: bitrate must be set for VBR')
-                kommand += f' --rc 1 --tbr {self.bitrate} --gop-constraint-rc 1'
+                kommand += f' --rc 1 --tbr {self.bitrate}'
             case RateDistribution.CQ_VBV:
                 if self.crf is None or self.crf == -1:
                     raise Exception('FATAL: crf must be set for CQ_VBV')

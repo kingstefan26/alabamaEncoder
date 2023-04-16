@@ -1,4 +1,5 @@
 import os
+import tempfile
 from typing import List
 
 from hoeEncode.ffmpegUtil import doesBinaryExist, get_frame_count
@@ -26,9 +27,14 @@ class VideoConcatenator:
             if file.endswith(extension):
                 files.append(os.path.join(folder_path, file))
 
+        print(f'Found {len(files)} files')
+        print('Sorting files')
+        # sort files by name by interpreting their name as an integer
+        files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
+
         self.files = files
 
-    def concat_videos(self):
+    def concat_videos(self, do_cuttoff=False):
         if not self.output:
             print('If muxing please provide an output path')
             return
@@ -47,15 +53,18 @@ class VideoConcatenator:
         for file in self.files:
             total_duration += get_frame_count(file)
 
-        cuttoff = total_duration / get_video_frame_rate(self.files[0])
-        print(f'Cuttoff is {cuttoff}')
-        print(f'Frame rate is {get_video_frame_rate(self.files[0])}')
-        print(f'Total duration is {total_duration} frames')
+        cuttoff = ''
+        if do_cuttoff:
+            cuttoff = total_duration / get_video_frame_rate(self.files[0])
+            print(f'Cuttoff is {cuttoff}')
+            print(f'Frame rate is {get_video_frame_rate(self.files[0])}')
+            print(f'Total duration is {total_duration} frames')
+            cuttoff = f'-t {cuttoff}'
 
         if self.mux_audio:
             print('Muxing audio into the output')
             commands = [
-                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" -t {cuttoff} -map 0:v -map 1:a {self.audio_param_override} -movflags +faststart -c:v copy temp_{self.output}',
+                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" {cuttoff} -map 0:v -map 1:a {self.audio_param_override} -movflags +faststart -c:v copy temp_{self.output}',
                 f'mkvmerge -o {self.output} temp_{self.output}',
                 f'rm temp_{self.output} {concat_file_path}'
             ]
@@ -71,5 +80,35 @@ class VideoConcatenator:
             print('Running: ' + command)
             os.system(command)
 
-        print(f'Removing {concat_file_path}')
-        os.system(f'rm {concat_file_path}')
+
+def test():
+    # make temp dir and put 20 empty .ivf files
+    temp_dir = tempfile.mkdtemp()
+    for i in range(20):
+        with open(os.path.join(temp_dir, f'{i}.ivf'), 'w') as f:
+            pass
+
+    # test the file discovery
+    vc = VideoConcatenator()
+    vc.find_files_in_dir(temp_dir, '.ivf')
+    assert len(vc.files) == 20
+    print('Test passed')
+
+    # make a sub dir and put 20 empty .ivf files
+    sub_dir = os.path.join(temp_dir, 'sub')
+    os.mkdir(sub_dir)
+    for i in range(20):
+        with open(os.path.join(sub_dir, f'{i}.ivf'), 'w') as f:
+            pass
+
+    # there still should be 20 files
+    vc = VideoConcatenator()
+    vc.find_files_in_dir(temp_dir, '.ivf')
+    assert len(vc.files) == 20
+    print('Test passed')
+
+    # remove temp dir
+    os.system(f'rm -rf {temp_dir}')
+
+if __name__ == '__main__':
+    test()

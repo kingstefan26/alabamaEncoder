@@ -37,6 +37,7 @@ class AbstractEncoder:
             speed=config.speed,
             svt_grain_synth=config.grain_synth,
             rate_distribution=config.rate_distribution,
+            threads=config.threads,
         )
 
     def update(self, **kwargs):

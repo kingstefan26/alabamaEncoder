@@ -1,19 +1,26 @@
+import os
+
 from hoeEncode.encoders.AbstractEncoder import AbstractEncoder
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
-from paraliezeMeHoe.ThaVaidioEncoda import KummandObject
+from hoeEncode.parallelEncoding.Command import CommandObject
 
 
-class EncoderKommand(KummandObject):
-    def __init__(self, config: EncoderConfigObject, job: EncoderJob, encoder_impl: AbstractEncoder):
-        self.config = config
-        self.job = job
+class EncoderKommand(CommandObject):
+    def __init__(self, encoder_impl: AbstractEncoder):
+        super().__init__()
+        self.config = None
+        self.job = None
         self.encoder_impl = encoder_impl
 
+    def setup(self, job: EncoderJob, config: EncoderConfigObject):
+        super().setup(job, config)
+        self.encoder_impl.eat_job_config(job, config)
+
     def run(self):
-        self.encoder_impl.eat_job_config(self.job, self.config)
         self.encoder_impl.run()
-        self.output_check(self.job.encoded_scene_path)
+        if not os.path.exists(self.job.encoded_scene_path):
+            raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + self.job.encoded_scene_path)
 
     def get_dry_run(self):
         enc = self.encoder_impl

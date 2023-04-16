@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import argparse
 import atexit
-import copy
 import logging
 import os
 import sys
@@ -11,22 +10,23 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 from CeleryApp import app
-from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, syscmd, do_cropdetect
+from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
 from hoeEncode.bitrateAdapt.AutoGrain import get_best_avg_grainsynth
-from hoeEncode.bitrateAdapt.AutoBitrate import ConvexKummand, ConvexEncoder
 from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
+from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, syscmd, do_cropdetect
+from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
 from hoeEncode.sceneSplit.split import get_video_scene_list
-from paraliezeMeHoe.ThaVaidioEncoda import run_kummand, run_kummad_on_celery
+from paraliezeMeHoe.ThaVaidioEncoda import run_command_on_celery
 
 tasks = []
 
 
 def exit_message():
-    # call task.abort() on all tasks
     for task in tasks:
         task.abort()
     print('App quiting. if you arent finished, resume by reruning the script with the same settings')
@@ -35,64 +35,50 @@ def exit_message():
 atexit.register(exit_message)
 
 
-def get_chunks(scenes: List[List[int]], in_file: str) -> List[ChunkObject]:
-    return [ChunkObject(path=in_file, first_frame_index=(frag[0]), last_frame_index=(frag[1])) for frag in scenes]
-
-
-def process_chunks(chunks: List[ChunkObject],
+def process_chunks(chunk_list: List[ChunkObject],
                    encdr_config: EncoderConfigObject,
                    celeryless_encoding: bool,
                    multiprocess_workers: int):
-    kumandobjects = []
+    command_objects = []
 
-    for i, chunk in tqdm(enumerate(chunks), desc='Preparing scenes', unit='scene'):
+    if len(chunk_list) < 10:
+        encdr_config.threads = os.cpu_count()
+
+    for i, chunk in tqdm(enumerate(chunk_list), desc='Preparing scenes', unit='scene'):
         job = EncoderJob(chunk, i, f'{tempfolder}{i}.ivf')
 
         if not os.path.exists(job.encoded_scene_path):
+
             if encdr_config.convexhull:
-                enc = ConvexEncoder(job, encdr_config)
-                if len(kumandobjects) < 10:
-                    enc.threads_for_final_encode = os.cpu_count()
-                obj = ConvexKummand(None, None, convx=enc)
+                obj = ConvexEncoder()
             else:
-                # obj = gen_svt_kummands(job, encdr_config)
+                obj = EncoderKommand(AbstractEncoderSvtenc())
 
-                enc = AbstractEncoderSvtenc()
+            obj.setup(job, encdr_config)
+            command_objects.append(obj)
 
-                if len(kumandobjects) < 10:
-                    enc.threads = os.cpu_count()
-
-                obj = EncoderKommand(encdr_config, copy.deepcopy(job), enc)
-
-            kumandobjects.append(obj)
-
-    print(f'Starting encoding of {len(kumandobjects)} scenes')
+    print(f'Starting encoding of {len(command_objects)} scenes')
 
     if encdr_config.dry_run:
-        for kummand in kumandobjects:
-            print(kummand.get_dry_run())
-        return
-
-    if len(kumandobjects) < 10:
+        for command in command_objects:
+            print(command.get_dry_run())
+    elif len(chunk_list) < 10:
         print('Less than 10 scenes, running encodes sequentially')
 
-        for kummand in kumandobjects:
-            run_kummand(kummand)
-
-        return
-
-    if celeryless_encoding:
-        process_map(run_kummand,
-                    kumandobjects,
+        for command in command_objects:
+            run_command(command)
+    elif celeryless_encoding:
+        process_map(run_command,
+                    command_objects,
                     max_workers=multiprocess_workers,
                     chunksize=1,
                     desc='Encoding',
                     unit='scene')
     else:
         results = []
-        with tqdm(total=len(kumandobjects), desc='Encoding', unit='scene') as pbar:
-            for cvm in kumandobjects:
-                task = run_kummad_on_celery.s(cvm)
+        with tqdm(total=len(command_objects), desc='Encoding', unit='scene') as pbar:
+            for command in command_objects:
+                task = run_command_on_celery.s(command)
                 result = task.apply_async()
                 results.append(result)
                 tasks.append(result)
@@ -188,56 +174,6 @@ def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
     return False
 
 
-def concat():
-    # default, general audio params
-    audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
-    if not mux_at_the_end:
-        quit()
-
-    if len(mux_output) == 0:
-        print('If muxing please provide a output path')
-        quit()
-
-    if os.path.exists(mux_output):
-        print(f'File {mux_output} already exists')
-        quit()
-
-    concat_file_path = 'lovelyconcat'
-
-    with open(concat_file_path, 'w') as f:
-        for i, frag in enumerate(scenes):
-            print(i)
-            f.write(f"file '{tempfolder}{i}.ivf'\n")
-
-    # if the audio flag is set then mux the audio
-    if mux_audio:
-        print('muxing audio innt luv')
-        if len(audio_params) == 0:
-            audio_params = '-c:a libopus -ac 2 -b:v 96k -vbr on'
-
-        kumannds = [
-            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i {tempfolder}temp.mkv -map 0:v -map 1:a {audio_params} -movflags +faststart -c:v copy temp_{mux_output}",
-            f"mkvmerge -o {mux_output} temp_{mux_output}",
-            f"rm temp_{mux_output} {concat_file_path}"
-        ]
-
-        for command in kumannds:
-            print('Running: ' + command)
-            os.system(command)
-    else:
-        print("not muxing audio")
-        kumannds = [
-            f"ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart temp_" + mux_output,
-            f"mkvmerge -o {mux_output} temp_{mux_output}",
-            f"rm temp_{mux_output} {concat_file_path}"
-        ]
-        for command in kumannds:
-            print('Running: ' + command)
-            os.system(command)
-        print(f'Removing {concat_file_path}')
-        os.system(f'rm {concat_file_path}')
-
-
 if __name__ == "__main__":
 
     # if a user does 'python main.py clear' then clear the celery queue
@@ -253,6 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('output', type=str, help='Output video file')
     parser.add_argument('temp_dir', help='Temp directory', nargs='?', default='temp/', type=str, metavar='temp_dir')
     parser.add_argument('--audio', help='Mux audio', action='store_true', default=True)
+    parser.add_argument('--audio_params', help='Audio params', type=str, default='-c:a libopus -ac 2 -b:v 96k -vbr on')
     parser.add_argument('--celeryless', help='Encode without celery', action='store_true', default=False)
     parser.add_argument('--dry', help='Dry run, dont actually encode', action='store_true', default=False)
     parser.add_argument('--autocrop', help='Automatically crop the video', action='store_true')
@@ -359,7 +296,8 @@ if __name__ == "__main__":
     else:
         config.grain_synth = args.grainsynth
 
-    chunks: List[ChunkObject] = get_chunks(scenes=scenes, in_file=input_file)
+    chunks: List[ChunkObject] = [ChunkObject(path=input_file, first_frame_index=(frag[0]), last_frame_index=(frag[1]))
+                                 for frag in scenes]
 
     if args.integrity_check:
         iter_counter = 0
@@ -375,7 +313,7 @@ if __name__ == "__main__":
         process_chunks(chunks, config, celeryless_encoding=DontUseCelery,
                        multiprocess_workers=args.multiprocess_workers)
 
-    # if we are doing a dry run the process chunks will spit out the commands, so we quit here
+    # if we are doing a dry run the process, chunks will spit out the commands, so we quit here
     if dry_run:
         quit()
 
@@ -384,7 +322,11 @@ if __name__ == "__main__":
     mux_audio = args.audio
 
     try:
-        concat()
+        concat = VideoConcatenator(output=mux_output,
+                                   file_with_audio=input_file,
+                                   audio_param_override=args.audio_params)
+        concat.find_files_in_dir(folder_path=tempfolder, extension='.ivf')
+        concat.concat_videos()
     except Exception as e:
-        print('Concat at the end failed sobbing')
+        print('Concat at the end failed sobbing 😷')
         quit()
