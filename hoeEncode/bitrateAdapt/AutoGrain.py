@@ -95,6 +95,9 @@ class AutoGrain:
             # turn the avif into a png
             syscmd(f"ffmpeg -y -i {avif_enc.output_path} {decoded_test_png_path}")
 
+            if not os.path.exists(decoded_test_png_path):
+                raise Exception("Could not create decoded png")
+
             rd = RdPoint()
             rd.grain = grain
             rd.butter = get_image_butteraugli_score(ref_png, decoded_test_png_path)
@@ -173,11 +176,11 @@ def get_best_avg_grainsynth(**kwargs) -> int:
 
     # create the autograin objects
     autograin_objects = [AutoGrain(chunk=chunk,
-                                   test_file_path=f'{temp_folder}/{chunks_for_processing.index(chunk)}',
+                                   test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
                                    crf=20)
                          for chunk in chunks_for_processing]
 
-    # using multiprocessing to do the tests on all the scenes
+    # using multiprocessing to do the experiments on all the scenes
     with Pool() as p:
         results = p.map(wrapper, autograin_objects)
         # and close the pool

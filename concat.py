@@ -73,34 +73,33 @@ file_names = []
 # list of invalid files so the user can delete them
 invalid_files = []
 
-# os.walk on the temp dir and add a line for every ivf file
-for root, dirs, files in tqdm(os.walk(tmp_dir), desc="Checking files"):
-    for name in files:
-        if name.endswith('.ivf'):
-            # get the file name
-            name = name[:-4]
 
-            # check if the filename is a number
-            if name.isdigit():
-                number_name = int(name)
-                # if the max flag is set and the number is greater than the max then skip it
-                if args.max != -1 and number_name > args.max:
-                    continue
+for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
+    if name.endswith('.ivf'):
+        # get the file name
+        name = name[:-4]
 
-            # add name to list
-            file_names.append(name)
-            # run ffmpeg command that checks if the file is valid
-            # ffmpeg -v error -i $i -c copy -f null -
-            argv_ = f"ffmpeg -v error -i {tmp_dir}{name}.ivf -c copy -f null -"
-            # if the command has any output then the file is invalid
-            p = subprocess.Popen(argv_, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT,
-                                 close_fds=True)
-            p.wait()
-            proc_output = p.stdout.read()
-            if len(proc_output) > 0:
-                tqdm.write(f"Found invalid file: {name}.ivf")
-                invalid_files.append(name)
+        # check if the filename is a number
+        if name.isdigit():
+            number_name = int(name)
+            # if the max flag is set and the number is greater than the max then skip it
+            if args.max != -1 and number_name > args.max:
+                continue
+
+        # add name to list
+        file_names.append(name)
+        # run ffmpeg command that checks if the file is valid
+        # ffmpeg -v error -i $i -c copy -f null -
+        argv_ = f"ffmpeg -v error -i {tmp_dir}{name}.ivf -c copy -f null -"
+        # if the command has any output then the file is invalid
+        p = subprocess.Popen(argv_, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT,
+                             close_fds=True)
+        p.wait()
+        proc_output = p.stdout.read()
+        if len(proc_output) > 0:
+            tqdm.write(f"Found invalid file: {name}.ivf")
+            invalid_files.append(name)
 
 # if there are invalid files print them out
 if len(invalid_files) > 0:

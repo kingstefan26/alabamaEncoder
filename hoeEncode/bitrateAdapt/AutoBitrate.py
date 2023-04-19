@@ -8,7 +8,6 @@ import time
 from hoeEncode.bitrateAdapt.AutoGrain import AutoGrain
 from hoeEncode.encoders.EncoderStats import EncodingStatsObject
 from hoeEncode.encoders.RateDiss import RateDistribution
-from hoeEncode.encoders.encoderImpl.Aomenc import AbstractEncoderAomEnc
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from hoeEncode.ffmpegUtil import get_video_ssim, get_total_bitrate, get_video_vmeth, sizeof_fmt
 from hoeEncode.parallelEncoding.Command import CommandObject
@@ -27,6 +26,8 @@ class ConvexEncoder(CommandObject):
     encode_speed = 3
 
     remove_probes = True  # after encoding is done remove the probes
+    show_rate_calc_log = False
+    calc_final_vmaf = False
 
     threads = 1
 
@@ -46,13 +47,6 @@ class ConvexEncoder(CommandObject):
     complexity_clamp_up = 0.35
     clamp_complexity = True
 
-    db_target = 20
-
-    # very much hd 22
-    # recomended 21
-    # csual 19
-    # ok 18
-
     def complexity_rate_estimation(self, ignore_cache=False):
         probe_file_base = self.get_probe_name()
         cache_filename = f'{probe_file_base}.complexity.speed{self.convex_speed}.pt'
@@ -63,10 +57,7 @@ class ConvexEncoder(CommandObject):
 
         test_probe_path = f'{probe_file_base}complexity.probe.ivf'
 
-        if self.flag_15 is True:
-            enc = AbstractEncoderAomEnc()
-        else:
-            enc = AbstractEncoderSvtenc()
+        enc = AbstractEncoderSvtenc()
 
         enc.update(speed=self.convex_speed,
                    passes=1,
@@ -75,16 +66,18 @@ class ConvexEncoder(CommandObject):
                    svt_grain_synth=0,
                    current_scene_index=self.job.current_scene_index,
                    output_path=test_probe_path,
-                   threads=1)
-
-        enc.update(bitrate=self.config.bitrate, rate_distribution=RateDistribution.VBR)
+                   threads=2,
+                   crop_string=self.config.crop_string,
+                   bitrate=self.config.bitrate,
+                   rate_distribution=RateDistribution.VBR)
 
         enc.run(override_if_exists=False)
 
-        (ssim, ssim_db) = get_video_ssim(test_probe_path, self.job.chunk, get_db=True)
+        (ssim, ssim_db) = get_video_ssim(test_probe_path, self.job.chunk, get_db=True,
+                                         crop_string=self.config.crop_string)
 
         # Calculate the ratio between the target ssim dB and the current ssim dB
-        ratio = 10 ** ((self.db_target - ssim_db) / 10)
+        ratio = 10 ** ((self.config.ssim_db_target - ssim_db) / 10)
 
         # Clamp the ratio to the complexity clamp
         if self.clamp_complexity:
@@ -94,14 +87,15 @@ class ConvexEncoder(CommandObject):
         ideal_rate = self.config.bitrate * ratio
         ideal_rate = int(ideal_rate)
 
-        print(
-            f'{self.log_prefix()}===============\n'
-            f'{self.log_prefix()} encode rate: {self.config.bitrate}k/s\n'
-            f'{self.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {self.db_target})\n'
-            f'{self.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n'
-            f'{self.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n'
-            f'{self.log_prefix()}==============='
-        )
+        if self.show_rate_calc_log:
+            print(
+                f'{self.log_prefix()}===============\n'
+                f'{self.log_prefix()} encode rate: {self.config.bitrate}k/s\n'
+                f'{self.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {self.config.ssim_db_target})\n'
+                f'{self.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n'
+                f'{self.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n'
+                f'{self.log_prefix()}==============='
+            )
 
         # if self.remove_probes:
         #     os.remove(test_probe_path)
@@ -157,15 +151,11 @@ class ConvexEncoder(CommandObject):
 
         ideal_rate = self.complexity_rate_estimation()
 
-        print(f'{self.log_prefix()}rate search took: {int(time.time() - rate_search_start)}s')
-        self.stats.rate_search_time = int(time.time() - rate_search_start)
-
-        self.job.chunk.end_override = -1
-
         if ideal_rate == -1:
             raise Exception('ideal_rate is -1')
 
-        print(f'{self.log_prefix()}ideal bitrate: {ideal_rate}')
+        print(f'{self.log_prefix()}rate search took: {int(time.time() - rate_search_start)}s, ideal bitrate: {ideal_rate}')
+        self.stats.rate_search_time = int(time.time() - rate_search_start)
 
         return ideal_grain, int(ideal_rate)
 
@@ -204,8 +194,11 @@ class ConvexEncoder(CommandObject):
             except Exception as e:
                 print(f'{self.log_prefix()}error while encoding: {e}')
 
-        final_vmaf = get_video_vmeth(self.job.encoded_scene_path, self.job.chunk, uhd_model=True,
-                                     disable_enchancment_gain=True)
+        if self.calc_final_vmaf:
+            final_vmaf = get_video_vmeth(self.job.encoded_scene_path, self.job.chunk, uhd_model=True,
+                                         disable_enchancment_gain=True)
+        else:
+            final_vmaf = -1
 
         final_bitrate = int(get_total_bitrate(self.job.encoded_scene_path) / 1000)
 

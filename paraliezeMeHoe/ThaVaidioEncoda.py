@@ -3,5 +3,5 @@ from hoeEncode.parallelEncoding.Command import CommandObject
 
 
 @app.task(bind=True)
-def run_command_on_celery(command: CommandObject):
+def run_command_on_celery(self, command: CommandObject):
     command.run()

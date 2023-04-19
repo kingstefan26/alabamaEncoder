@@ -12,6 +12,7 @@ class EncoderConfigObject:
     dry_run = False
     convexhull = False
     vmaf = 94
+    ssim_db_target = 20
     grain_synth = -1
     passes = 2
     crf = -1
@@ -21,9 +22,10 @@ class EncoderConfigObject:
 
     def __init__(self, two_pass=True, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
                  dry_run=False, convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3,
-                 rate_distribution=RateDistribution.VBR, threads=1):
+                 rate_distribution=RateDistribution.VBR, threads=1, ssim_db_target=20):
         self.two_pass = two_pass
         self.crop_string = crop_string
+        self.ssim_db_target = ssim_db_target
         self.bitrate = bitrate
         self.temp_folder = temp_folder
         self.server_ip = server_ip

@@ -16,7 +16,8 @@ class AbstractEncoderAomEnc(AbstractEncoder):
 
     def get_encode_commands(self) -> List[str]:
         self.speed = min(self.speed, 9)
-        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk)
+        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, bit_depth=10,
+                                                                      crop_string=self.crop_string)
         encode_command += ' | '
         encode_command += f"aomenc - "
         encode_command += " --quiet "

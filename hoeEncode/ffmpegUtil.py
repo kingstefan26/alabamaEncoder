@@ -2,7 +2,9 @@ import os.path
 import re
 import subprocess
 from shutil import which
+from typing import List
 
+from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 
 
@@ -48,26 +50,21 @@ def get_frame_count(path):
     return int(result)
 
 
-def get_video_lenght(path):
-    argv_ = f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{path}"'
-    result = syscmd(argv_)
-    # if string
+def get_video_lenght(path) -> float:
+    """
+    Returns the video length in seconds
+    :param path: path to the video
+    :return: float
+    """
+    result = syscmd(f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{path}"')
     if isinstance(result, str):
-        # if contains N/A
-        # if it's invalid
         if 'N/A' in result or 'Invalid data found' in result:
             raise ValueError(f"File {path} is invalid, (encoded with aomenc?)")
     return float(result)
 
 
 def get_total_bitrate(path) -> float:
-    # get file size
-    file_size = os.path.getsize(path)
-    # get file length
-    file_length = get_video_lenght(path)
-    # get bitrate
-    bitrate = file_size * 8 / file_length
-    return bitrate
+    return os.path.getsize(path) * 8 / get_video_lenght(path)
 
 
 def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_enchancment_gain=False, uhd_model=False):
@@ -133,11 +130,12 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
         return 0
 
 
-def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=False):
-    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk)
-    null_ += f" | ffmpeg -hide_banner -i - "
+def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=False, crop_string=''):
+    if not os.path.exists(in_chunk.path) or not os.path.exists(distorted_path):
+        raise FileNotFoundError(f"File {in_chunk.path} or {distorted_path} does not exist")
+    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk, crop_string=crop_string, bit_depth=10)
 
-    null_ += f" -i {distorted_path} -filter_complex ssim -f null -"
+    null_ += f" | ffmpeg -hide_banner -i - -i {distorted_path} -filter_complex ssim -f null -"
 
     result_string = syscmd(null_, "utf8")
     if print_output:
@@ -158,6 +156,39 @@ def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=Fal
         print(f"Failed getting ssim comparing {distorted_path} agains {in_chunk.path}")
         print(null_)
         return 0
+
+
+def get_source_bitrates(file_in: str) -> tuple[float, float]:
+    """
+    stolen from the one and only autocompressor.com's source code 🤑
+    Returns tuple of bitrates (firstVideoStream, firstAudioStream)
+    Works via demux-to-null (container stats are considered false)
+    """
+    common = '-show_entries packet=size -of default=nokey=1:noprint_wrappers=1'
+
+    command_v = f'ffprobe -v error -select_streams V:0 {common} {file_in}'
+    command_a = f'ffprobe -v error -select_streams a:0 {common} {file_in}'
+
+    packets_v_arr = syscmd(command_v).split('\n')
+    packets_a_arr = syscmd(command_a).split('\n')
+
+    packets_v_bits = 0
+    packets_a_bits = 0
+
+    for i in packets_v_arr:
+        packets_v_bits += int(i) * 8
+
+    for j in packets_a_arr:
+        packets_a_bits += int(j) * 8
+
+    real_duration = get_video_lenght(file_in)
+
+    vid_bps = round(packets_v_bits / real_duration)
+    aud_bps = round(packets_a_bits / real_duration)
+    print(f'Video is {vid_bps} bps')
+    print(f'Audio is {aud_bps} bps')
+
+    return vid_bps, aud_bps
 
 
 def get_video_psnr(distorted_path, in_chunk=None):
@@ -243,8 +274,17 @@ def get_image_vmaf_score(refrence_img_path, distorted_img_path):
         return 0
 
 
-def do_cropdetect(in_chunk=None):
+def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
+    sob = ''
+    if in_chunk is None and path is None:
+        raise ValueError("Either in_chunk or path must be set")
+    if in_chunk is None and path is not None:
+        lenght = get_frame_count(path)
+        lenght = int(lenght / 2)
+        in_chunk = ChunkObject(path=path, last_frame_index=lenght, first_frame_index=lenght - 100)
+
     sob = f'ffmpeg {in_chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -'
+
     result_string = syscmd(sob, "utf8")
 
     try:

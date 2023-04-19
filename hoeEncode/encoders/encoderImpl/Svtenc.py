@@ -53,7 +53,7 @@ class AvifEncoderSvtenc:
     passes: int
     threads: int
 
-    def get_encode_commands(self) -> List[str]:
+    def get_encode_commands(self) -> str:
         if not self.output_path.endswith('.avif'):
             raise Exception('FATAL: output_path must end with .avif')
 
@@ -72,19 +72,12 @@ class AvifEncoderSvtenc:
         else:
             ratebit = f'-crf {self.crf}'
 
-        if self.passes == 1:
-            return [
-                f'ffmpeg -y -i {self.in_path} -c:v libsvtav1 {ratebit} -svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth} -preset {self.speed} -pix_fmt {pix_fmt} {self.output_path}']
-        else:
-            return [
-                f'ffmpeg -y -i {self.in_path} -c:v libsvtav1 {ratebit} -svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth} -preset {self.speed} -pix_fmt {pix_fmt} -passlogfile {self.output_path} -pass 1 -f null /dev/null',
-                f'ffmpeg -y -i {self.in_path} -c:v libsvtav1 {ratebit} -svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth} -preset {self.speed} -pix_fmt {pix_fmt} -passlogfile {self.output_path} -pass 2 {self.output_path}']
+        return f'ffmpeg -y -i {self.in_path} -c:v libsvtav1 {ratebit} -svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth} -preset {self.speed} -pix_fmt {pix_fmt} {self.output_path}'
 
     def run(self):
-        for command in self.get_encode_commands():
-            syscmd(command)
+        out = syscmd(self.get_encode_commands())
         if not os.path.exists(self.output_path):
-            raise Exception('FATAL: SVTENC FAILED')
+            raise Exception('FATAL: SVTENC FAILED with ' + out)
 
 
 class AbstractEncoderSvtenc(AbstractEncoder):
@@ -104,7 +97,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         # kommand = f'ffmpeg -v error -y {self.chunk.get_ss_ffmpeg_command_pair()}
         # -c:v libsvtav1 {self.crop_string} -threads {self.threads}
         # -g 9999 -passlogfile {self.temp_folder}{self.current_scene_index}svt'
-        kommand = f'{create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, bit_depth=10)} | ' \
+        kommand = f'{create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, bit_depth=10, crop_string=self.crop_string)} | ' \
                   f'SvtAv1EncApp' \
                   f' -i stdin' \
                   f' --input-depth 10' \

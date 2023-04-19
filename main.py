@@ -3,6 +3,7 @@ import argparse
 import atexit
 import logging
 import os
+import shutil
 import sys
 from typing import List, Any
 
@@ -78,8 +79,11 @@ def process_chunks(chunk_list: List[ChunkObject],
         results = []
         with tqdm(total=len(command_objects), desc='Encoding', unit='scene') as pbar:
             for command in command_objects:
-                task = run_command_on_celery.s(command)
-                result = task.apply_async()
+                # task = run_command_on_celery.s(command)
+                # result = task.apply_async()
+
+                result = run_command_on_celery.delay(command)
+
                 results.append(result)
                 tasks.append(result)
 
@@ -106,6 +110,15 @@ def get_lan_ip() -> str:
     return ip
 
 
+def clean_rate_probes():
+    print('removing rate probe folders owo 🥺')
+    for root, dirs, files in os.walk(tempfolder):
+        # remove all folders that contain 'rate_probes'
+        for name in dirs:
+            if 'rate_probes' in name:
+                shutil.rmtree(tempfolder + name)
+
+
 def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
     """
     :param tempfolder: folder that the scenes are in
@@ -121,10 +134,6 @@ def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
                 ivf_files.append(name)
 
     print('Preforming integrity check 🥰 ya fukin bastard')
-
-    if len(ivf_files) != len(scenes):
-        print(f'Found {len(ivf_files)} ivf files, but there are {len(scenes)} scenes to encode 😏')
-        return True
 
     # check every chunk and verify that 1: it's not corrupted 2: its length is correct
     # if not, prompt the user with a command to remove them/autoremove
@@ -167,7 +176,12 @@ def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
         print(f'Found {len(invalid_chunks)} removing them 😂')
         for chunk in invalid_chunks:
             os.remove(chunk)
+        clean_rate_probes()
+        return True
 
+    if len(ivf_files) != len(scenes):
+        print(f'Found {len(ivf_files)} ivf files, but there are {len(scenes)} scenes to encode 😏')
+        clean_rate_probes()
         return True
 
     print('All chunks passed integrity checks🤓')
@@ -193,7 +207,10 @@ if __name__ == "__main__":
     parser.add_argument('--celeryless', help='Encode without celery', action='store_true', default=False)
     parser.add_argument('--dry', help='Dry run, dont actually encode', action='store_true', default=False)
     parser.add_argument('--autocrop', help='Automatically crop the video', action='store_true')
-    parser.add_argument('--crop_override', help='Override the crop', type=str, default='')
+    parser.add_argument('--crop_override', type=str, default='',
+                        help='Override the crop, put your vf ffmpeg there, example '
+                             'scale=-2:1080:flags=lanczos,zscale=t=linear etc...'
+                             ' just make sure ffmpeg on all workers has support')
     parser.add_argument('--mux', help='Mux the video and audio together', action='store_true', default=False)
     parser.add_argument('--integrity_check', help='Check for intergrity of encoded files', action='store_true',
                         default=True)
@@ -201,6 +218,10 @@ if __name__ == "__main__":
     parser.add_argument('--convexhull', help='Enable convexhull', action='store_true', default=False)
     parser.add_argument('--multiprocess_workers', help='Number of workers to use for multiprocessing', type=int,
                         default=7)
+    parser.add_argument('--ssim-db-target', type=float, default=20,
+                        help='What ssim dB to target when using auto bitrate,'
+                             ' 22 is pretty lossless, generally recommend 21, 20 lowkey blurry,'
+                             ' bellow 19.5 is bad')
 
     # auto grain
     parser.add_argument('--autograin', help="Automagicly pick grainsynth value", action='store_true', default=False)
@@ -208,9 +229,6 @@ if __name__ == "__main__":
     # grain override
     parser.add_argument('--grainsynth', help="Manually give the grainsynth value, 0 to disable", type=int, default=7,
                         choices=range(0, 63))
-
-    # target vmaf
-    parser.add_argument('--vmaf', help='Target vmaf', type=float, default=95)
 
     args = parser.parse_args()
 
@@ -281,12 +299,12 @@ if __name__ == "__main__":
         config.bitrate = int(bitraten[:-1])
     except ValueError:
         raise ValueError('Bitrate must be in k\'s, example: 2000k')
-    config.vmaf = args.vmaf
     config.convexhull = args.convexhull
     config.temp_folder = tempfolder
     config.server_ip = host_adrees
     config.remote_path = tempfolder
     config.dry_run = dry_run
+    config.ssim_db_target = args.ssim_db_target
 
     if args.autograin:
         config.grain_synth = get_best_avg_grainsynth(input_file=input_file,
