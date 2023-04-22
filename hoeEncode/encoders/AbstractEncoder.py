@@ -107,10 +107,12 @@ class AbstractEncoder:
 
         out = []
         for command in self.get_encode_commands():
-            out.append(syscmd(command, timeout_value=timeout_value))
+            output = syscmd(command, timeout_value=timeout_value)
+            out.append(output)
 
-        out_size = os.path.getsize(self.output_path)
-        if not os.path.exists(self.output_path) or out_size == 0:
+        if not os.path.exists(self.output_path):
+            raise Exception('FATAL: ENCODE FAILED ' + str(out))
+        if os.path.getsize(self.output_path) < 100:
             raise Exception('FATAL: ENCODE FAILED ' + str(out))
 
     def get_encode_commands(self) -> List[str]:

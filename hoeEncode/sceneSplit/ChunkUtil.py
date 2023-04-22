@@ -34,7 +34,7 @@ def create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=None, resolution_canon
         end_command += f"-pix_fmt yuv420p10le "
     else:
         end_command += f"-pix_fmt yuv420p "
-    if not '-vf' in crop_string:
+    if not '-vf' in crop_string and not crop_string == '':
         crop_string = f'-vf {crop_string}'
     end_command += f" -an -sn -strict -1 {get_quality_preset(resolution_canon_name)} {crop_string} -f yuv4mpegpipe - "
 

@@ -67,7 +67,8 @@ def get_total_bitrate(path) -> float:
     return os.path.getsize(path) * 8 / get_video_lenght(path)
 
 
-def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_enchancment_gain=False, uhd_model=False):
+def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_enchancment_gain=False, uhd_model=False,
+                    crop_string=''):
     links = [
         ['https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1.json', 'vmaf_4k_v0.6.1.json'],
         ['https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1.json', 'vmaf_v0.6.1.json'],
@@ -101,7 +102,7 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
     for link in links:
         link[1] = os.path.join(vmaf_models_dir, link[1])
 
-    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk)
+    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk, crop_string=crop_string)
     null_ += f" | ffmpeg -hide_banner -i - "
 
     lafi = "-lavfi libvmaf"
@@ -158,7 +159,7 @@ def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=Fal
         return 0
 
 
-def get_source_bitrates(file_in: str) -> tuple[float, float]:
+def get_source_bitrates(file_in: str, shutit=False) -> tuple[float, float]:
     """
     stolen from the one and only autocompressor.com's source code 🤑
     Returns tuple of bitrates (firstVideoStream, firstAudioStream)
@@ -169,24 +170,36 @@ def get_source_bitrates(file_in: str) -> tuple[float, float]:
     command_v = f'ffprobe -v error -select_streams V:0 {common} {file_in}'
     command_a = f'ffprobe -v error -select_streams a:0 {common} {file_in}'
 
-    packets_v_arr = syscmd(command_v).split('\n')
-    packets_a_arr = syscmd(command_a).split('\n')
+    v_out = syscmd(command_v)
+    if isinstance(v_out, int):
+        print('Failed getting video bitrate')
+        return 0, 0
+    packets_v_arr = v_out.split('\n')
+
+    a_out = syscmd(command_a)
+    if isinstance(a_out, int):
+        print('Failed getting video bitrate')
+        return 0, 0
+    packets_a_arr = a_out.split('\n')
 
     packets_v_bits = 0
     packets_a_bits = 0
 
     for i in packets_v_arr:
-        packets_v_bits += int(i) * 8
+        if i.isdigit():
+            packets_v_bits += int(i) * 8
 
     for j in packets_a_arr:
-        packets_a_bits += int(j) * 8
+        if j.isdigit():
+            packets_a_bits += int(j) * 8
 
     real_duration = get_video_lenght(file_in)
 
     vid_bps = round(packets_v_bits / real_duration)
     aud_bps = round(packets_a_bits / real_duration)
-    print(f'Video is {vid_bps} bps')
-    print(f'Audio is {aud_bps} bps')
+    if shutit is False:
+        print(f'Video is {vid_bps} bps')
+        print(f'Audio is {aud_bps} bps')
 
     return vid_bps, aud_bps
 

@@ -83,16 +83,26 @@ class AvifEncoderSvtenc:
 class AbstractEncoderSvtenc(AbstractEncoder):
     bias_pct = 50
     film_grain_denoise: (0 | 1) = 1  # denoise the image when apling grain synth, turn off if you want preserve more
+    open_gop = True
 
-    # detail and use grain
+    qm_min: int = 8
+    qm_max: int = 15
+    qm_enabled: bool = True
+    keyint: int = 9999
+    sdc: int = 0
+    chroma_thing = True
 
     def get_encode_commands(self) -> List[str]:
         if self.chunk is None:
             raise Exception('FATAL: chunk is None')
-        if self.temp_folder is None:
-            raise Exception('FATAL: temp_folder is None')
+        # if self.temp_folder is None:
+        #     raise Exception('FATAL: temp_folder is None')
         if self.current_scene_index is None:
             raise Exception('FATAL: current_scene_index is None')
+
+        if self.keyint == -1 and self.rate_distribution == RateDistribution.VBR:
+            print('WARNING: keyint must be set for VBR, setting to 240')
+            self.keyint = 240
 
         # kommand = f'ffmpeg -v error -y {self.chunk.get_ss_ffmpeg_command_pair()}
         # -c:v libsvtav1 {self.crop_string} -threads {self.threads}
@@ -103,13 +113,16 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                   f' --input-depth 10' \
                   f' -w {get_width(self.chunk.path)}' \
                   f' -h {get_height(self.chunk.path)}' \
-                  f' --keyint 9999'
+                  f' --keyint {self.keyint}'
 
         if self.crf is not None and self.crf > 63:
             raise Exception('FATAL: crf must be less than 63')
 
         match self.rate_distribution:
             case RateDistribution.CQ:
+                if self.passes != 1:
+                    print('WARNING: passes must be 1 for CQ, setting to 1')
+                    self.passes = 1
                 if self.crf is None or self.crf == -1:
                     raise Exception('FATAL: crf must be set for CQ')
                 kommand += f' --crf {self.crf}'
@@ -137,28 +150,44 @@ class AbstractEncoderSvtenc(AbstractEncoder):
 
         kommand += f' --preset {self.speed}'  # speed
         kommand += f' --film-grain-denoise {self.film_grain_denoise}'
-        kommand += ' --scd 0'  # disable scene change detection
-        kommand += ' --enable-qm 1'  # enable quantization matrix
-        kommand += ' --qm-min 8'  # min quantization matrix
-        kommand += ' --qm-max 15'  # max quantization matrix
-        kommand += ' --chroma-u-dc-qindex-offset -2'
-        kommand += ' --chroma-u-ac-qindex-offset -2'
-        kommand += ' --chroma-v-dc-qindex-offset -2'
-        kommand += ' --chroma-v-ac-qindex-offset -2'
+        if self.qm_enabled:
+            kommand += f' --qm-min {self.qm_min}'  # min quantization matrix
+            kommand += f' --qm-max {self.qm_max}'  # max quantization matrix
+            kommand += ' --enable-qm 1'
+        else:
+            kommand += ' --enable-qm 0'
+
+        kommand += f' --scd {self.sdc}'  # scene detection
+
+        if self.chroma_thing:
+            kommand += ' --chroma-u-dc-qindex-offset -2'
+            kommand += ' --chroma-u-ac-qindex-offset -2'
+            kommand += ' --chroma-v-dc-qindex-offset -2'
+            kommand += ' --chroma-v-ac-qindex-offset -2'
+
+        stats_bit = ''
+
+        if self.passes > 1:
+            stats_bit = f'--stats {self.current_scene_index}svt.stat'
+
+        if self.open_gop and self.passes > 1:
+            kommand += ' --irefresh-type 1'
 
         if self.passes == 2:
             return [
-                f'{kommand} --passes 2 --stats {self.temp_folder}{self.current_scene_index}svt.stat -b {self.output_path}'
+                f'{kommand} --pass 1 {stats_bit}',
+                f'{kommand} --pass 2 {stats_bit} -b {self.output_path}'
             ]
         elif self.passes == 1:
             # enable-overlays=1 - enable additional overlay frame thing
-            # irefresh-type=1 - open gop
             return [
-                f'{kommand} --enable-overlays 1 --irefresh-type 1 --passes 1 -b {self.output_path}'
+                f'{kommand} --enable-overlays 1 --passes 1 -b {self.output_path}'
             ]
         elif self.passes == 3:
             return [
-                f'{kommand} --passes 3 --stats {self.temp_folder}{self.current_scene_index}svt.stat -b {self.output_path}'
+                f'{kommand} --pass 1 {stats_bit}',
+                f'{kommand} --pass 2 {stats_bit}',
+                f'{kommand} --pass 3 {stats_bit} -b {self.output_path}'
             ]
         else:
             raise Exception(f'FATAL: invalid passes count {self.passes}')
