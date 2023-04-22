@@ -15,6 +15,7 @@ notes:
 * 8-15 is the default when using enable-qm=1
 * using SVT-AV1 fca4581 (release)
 * done on 200 frame chunks of a 1080p 24fps video, Blu-ray quality
+* all vbr was done with `--bias-pct 90` and three passes
 
 crf params
 used: `--input-depth 10 --crf 18 --tune 0 --film-grain 3 --preset 4 --qm-min x --qm-max x --enable-qm x --scd 0 --enable-overlays 1 --passes 1`
