@@ -12,7 +12,7 @@ needs to be redone since I added 0-8 tests & new clips
 
 ## intro
 
-notes:
+#### notes:
 
 * written as `min-max`, so `8-15` is `--qm_min 8 --qm_max 15`
 * 8-15 is the default when using enable-qm=1
@@ -20,11 +20,15 @@ notes:
 * done on 200 frame chunks of a 1080p/4k 24fps video, Blu-ray quality
 * all vbr was done with `--bias-pct 90` and three passes
 
-crf params
-used: `--input-depth 10 --crf 18 --tune 0 --film-grain 3 --preset 4 --qm-min x --qm-max x --enable-qm x --scd 0 --enable-overlays 1 --passes 1`
+#### things I wish I did different:
 
-vbr params
-used: ` --input-depth 10 --keyint 240 --rc 1 --tbr x --bias-pct 90 --tune 0 --film-grain 3 --preset 4 --qm-min x --qm-max x --enable-qm x --scd 0 --passes 3`
+* tune grain synth per clip, especially in the brighter live action since it looks blured
+
+### crf params
+`--input-depth 10 --crf 18 --tune 0 --film-grain 3 --preset 4 --qm-min x --qm-max x --enable-qm x --scd 0 --enable-overlays 1 --passes 1`
+
+### vbr params
+` --input-depth 10 --keyint 240 --rc 1 --tbr x --bias-pct 90 --tune 0 --film-grain 3 --preset 4 --qm-min x --qm-max x --enable-qm x --scd 0 --passes 3`
 
 
 
