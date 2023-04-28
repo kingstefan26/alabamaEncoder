@@ -5,7 +5,7 @@ import logging
 import os
 import shutil
 import sys
-from typing import List, Any
+from typing import Any
 
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -17,11 +17,13 @@ from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
-from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, syscmd, do_cropdetect
+from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, do_cropdetect, doesBinaryExist
+from hoeEncode.utils.execute import syscmd
 from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.sceneSplit.Chunks import ChunkSequence
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
-from hoeEncode.sceneSplit.split import get_video_scene_list
+from hoeEncode.sceneSplit.split import get_video_scene_list_skinny
 from paraliezeMeHoe.ThaVaidioEncoda import run_command_on_celery
 
 tasks = []
@@ -36,20 +38,18 @@ def exit_message():
 atexit.register(exit_message)
 
 
-def process_chunks(chunk_list: List[ChunkObject],
+def process_chunks(chunk_list: ChunkSequence,
                    encdr_config: EncoderConfigObject,
                    celeryless_encoding: bool,
                    multiprocess_workers: int):
     command_objects = []
 
-    if len(chunk_list) < 10:
-        encdr_config.threads = os.cpu_count()
 
-    for i, chunk in tqdm(enumerate(chunk_list), desc='Preparing scenes', unit='scene'):
-        job = EncoderJob(chunk, i, f'{tempfolder}{i}.ivf')
 
-        if not os.path.exists(job.encoded_scene_path):
+    for chunk in tqdm(chunk_list.chunks, desc='Preparing scenes', unit='scene'):
+        job = EncoderJob(chunk)
 
+        if not os.path.exists(job.chunk.chunk_path):
             if encdr_config.convexhull:
                 obj = ConvexEncoder()
             else:
@@ -58,12 +58,15 @@ def process_chunks(chunk_list: List[ChunkObject],
             obj.setup(job, encdr_config)
             command_objects.append(obj)
 
+    if len(command_objects) < 10:
+        encdr_config.threads = os.cpu_count()
+
     print(f'Starting encoding of {len(command_objects)} scenes')
 
     if encdr_config.dry_run:
         for command in command_objects:
             print(command.get_dry_run())
-    elif len(chunk_list) < 10:
+    elif len(command_objects) < 10:
         print('Less than 10 scenes, running encodes sequentially')
 
         for command in command_objects:
@@ -119,72 +122,54 @@ def clean_rate_probes():
                 shutil.rmtree(tempfolder + name)
 
 
-def integrity_check(tempfolder: str, scenes: List[List[int]]) -> bool:
+def integrity_check(seq: ChunkSequence) -> bool:
     """
-    :param tempfolder: folder that the scenes are in
-    :param scenes: all the scenes to check
+    checks the integrity of the chunks, and removes any that are invalid, remove probe folders, and see if all are done
+    :param seq: all the scenes to check
     :return: true if there are broken chunks
     """
-    # create an array of all files, so we can tqdm
-    ivf_files = []
-    for root, dirs, files in os.walk(tempfolder):
-        for name in files:
-            # is .ivf and name does not conrain "complexity"
-            if name.endswith('.ivf') and 'complexity' not in name:
-                ivf_files.append(name)
 
-    print('Preforming integrity check 🥰 ya fukin bastard')
+    print('Preforming integrity check 🥰')
 
-    # check every chunk and verify that 1: it's not corrupted 2: its length is correct
-    # if not, prompt the user with a command to remove them/autoremove
     invalid_chunks = []
-    # os.walk on the temp dir and add a line for every ivf file
-    for name in tqdm(ivf_files, desc="Checking files", unit='file', ):
-        # get the file name
-        name = name[:-4]  # 1.ivf -> 1
-        file_full_path = tempfolder + name + '.ivf'
 
-        if check_for_invalid(file_full_path):
-            tqdm.write(f'chunk {file_full_path} failed the ffmpeg integrity check 🤕')
-            invalid_chunks.append(file_full_path)
+    for c in tqdm(seq.chunks, desc="Checking files", unit='file'):
+        c.chunk_done = False
+        if not os.path.exists(c.chunk_path):
             continue
 
-        matching_frag = None
-
-        # get the matching chunk
-        for i, frag in enumerate(scenes):
-            if i == int(name):
-                matching_frag = frag
-                break
-
-        if matching_frag is None:
-            print(f'Could not find matching chunk for file {file_full_path} 🤪')
-            invalid_chunks.append(file_full_path)
+        if check_for_invalid(c.chunk_path):
+            tqdm.write(f'chunk {c.chunk_path} failed the ffmpeg integrity check 🤕')
+            invalid_chunks.append(c.chunk_path)
             continue
 
-        # get the frame count
-        frame_count = get_frame_count(file_full_path)
-        # get the length of the chunk
-        chunk_length = matching_frag[1] - matching_frag[0]
+        actual_frame_count = get_frame_count(c.chunk_path)
+        expected_frame_count = c.last_frame_index - c.first_frame_index
+
         # if the frame count is not the same as the chunk length, then the file is invalid
-        if frame_count != chunk_length:
-            invalid_chunks.append(file_full_path)
-            tqdm.write(f'chunk {file_full_path} has failed the frame count check, expected {chunk_length} frames,'
-                       f'got {frame_count} frames 🥶')
+        if actual_frame_count != expected_frame_count:
+            invalid_chunks.append(c.chunk_path)
+            tqdm.write(f'chunk {c.chunk_path} has failed the frame count check,'
+                       f' expected {expected_frame_count} frames, got {actual_frame_count} frames 🥶')
+
+        c.chunk_done = True
 
     if len(invalid_chunks) > 0:
-        print(f'Found {len(invalid_chunks)} removing them 😂')
-        for chunk in invalid_chunks:
-            os.remove(chunk)
+        print(f'Found {len(invalid_chunks)} invalid files, removing them 😂')
+        for c in invalid_chunks:
+            os.remove(c)
         clean_rate_probes()
         return True
 
-    if len(ivf_files) != len(scenes):
-        print(f'Found {len(ivf_files)} ivf files, but there are {len(scenes)} scenes to encode 😏')
+    # count chunks that are not done
+    not_done = len([c for c in seq.chunks if not c.chunk_done])
+
+    if not_done > 0:
+        print(f'Only {len(seq.chunks) - not_done}/{len(seq.chunks)} chunks are done 😏')
         clean_rate_probes()
         return True
 
-    print('All chunks passed integrity checks🤓')
+    print('All chunks passed integrity checks 🤓')
     return False
 
 
@@ -203,7 +188,8 @@ if __name__ == "__main__":
     parser.add_argument('output', type=str, help='Output video file')
     parser.add_argument('temp_dir', help='Temp directory', nargs='?', default='temp/', type=str, metavar='temp_dir')
     parser.add_argument('--audio', help='Mux audio', action='store_true', default=True)
-    parser.add_argument('--audio_params', help='Audio params', type=str, default='-c:a libopus -ac 2 -b:v 96k -vbr on')
+    parser.add_argument('--audio_params', help='Audio params', type=str,
+                        default='-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5')
     parser.add_argument('--celeryless', help='Encode without celery', action='store_true', default=False)
     parser.add_argument('--dry', help='Dry run, dont actually encode', action='store_true', default=False)
     parser.add_argument('--autocrop', help='Automatically crop the video', action='store_true')
@@ -215,7 +201,8 @@ if __name__ == "__main__":
     parser.add_argument('--integrity_check', help='Check for intergrity of encoded files', action='store_true',
                         default=True)
     parser.add_argument('--bitrate', help='Bitrate to use', type=str, default='2000k')
-    parser.add_argument('--convexhull', help='Enable convexhull', action='store_true', default=False)
+    parser.add_argument('--autobitrate', help='Enable automatic bitrate optimisation', action='store_true',
+                        default=False)
     parser.add_argument('--multiprocess_workers', help='Number of workers to use for multiprocessing', type=int,
                         default=7)
     parser.add_argument('--ssim-db-target', type=float, default=20,
@@ -230,6 +217,10 @@ if __name__ == "__main__":
     parser.add_argument('--grainsynth', help="Manually give the grainsynth value, 0 to disable", type=int, default=7,
                         choices=range(0, 63))
 
+    parser.add_argument('--max-scene-length', help="If a scene is longer then this, it will recursively cut in the"
+                                                   " middle it to get until each chunk is within the max",
+                        type=int, default=10, metavar='max_scene_length')
+
     args = parser.parse_args()
 
     input_path = args.input
@@ -237,6 +228,10 @@ if __name__ == "__main__":
     # check if input is an absolute path
     if input_path[0] != '/':
         print('Input video is not absolute, please use absolute paths')
+
+    if args.autograin and not doesBinaryExist('butteraugli'):
+        print('Autograin requires butteraugli in path, please install it')
+        quit()
 
     # do auto bitrate ladder 😍 sometime maybe
     bitraten = args.bitrate
@@ -264,7 +259,7 @@ if __name__ == "__main__":
             num_workers = app.control.inspect().active_queues()
             print(f'Number of available workers: {len(num_workers)}')
     else:
-        print('Not using celery, using multiprocessing instead')
+        print('Using multiprocessing instead of celery')
 
     if not os.path.exists(tempfolder):
         os.mkdir(tempfolder)
@@ -277,58 +272,50 @@ if __name__ == "__main__":
 
     # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
     croppy_floppy = args.crop_override
-
-    DoAutoCrop = args.autocrop
-
-    if DoAutoCrop and croppy_floppy == '':
+    if args.autocrop and croppy_floppy == '':
         cropdetect = do_cropdetect(ChunkObject(path=input_file))
         if cropdetect != '':
             croppy_floppy = f'-vf "crop={cropdetect}"'
 
-    sceneCacheFileName = tempfolder + 'sceneCache.json'
+    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(input_file=input_file,
+                                                               cache_file_path=tempfolder + 'sceneCache.pt',
+                                                               max_scene_length=args.max_scene_length)
+    for xyz in scenes_skinny.chunks:
+        xyz.chunk_path = f'{tempfolder}{xyz.chunk_index}.ivf'
 
-    encoded_scenes = []  # list of strings, that are paths to already encoded chunks
-    scenes: list[list[int]] = get_video_scene_list(input_file,
-                                                   sceneCacheFileName,
-                                                   skip_check=True)
-
-    config = EncoderConfigObject()
-    config.two_pass = True
-    config.crop_string = croppy_floppy
+    config = EncoderConfigObject(two_pass=True,
+                                 crop_string=croppy_floppy,
+                                 convexhull=args.autobitrate,
+                                 temp_folder=tempfolder,
+                                 server_ip=host_adrees,
+                                 remote_path=tempfolder,
+                                 dry_run=dry_run,
+                                 ssim_db_target=args.ssim_db_target)
     try:
         config.bitrate = int(bitraten[:-1])
     except ValueError:
         raise ValueError('Bitrate must be in k\'s, example: 2000k')
-    config.convexhull = args.convexhull
-    config.temp_folder = tempfolder
-    config.server_ip = host_adrees
-    config.remote_path = tempfolder
-    config.dry_run = dry_run
-    config.ssim_db_target = args.ssim_db_target
 
     if args.autograin:
         config.grain_synth = get_best_avg_grainsynth(input_file=input_file,
-                                                     scenes=scenes,
+                                                     scenes=scenes_skinny,
                                                      temp_folder=tempfolder,
                                                      cache_filename=tempfolder + 'ideal_grain.pt')
     else:
         config.grain_synth = args.grainsynth
 
-    chunks: List[ChunkObject] = [ChunkObject(path=input_file, first_frame_index=(frag[0]), last_frame_index=(frag[1]))
-                                 for frag in scenes]
-
     if args.integrity_check:
         iter_counter = 0
-        while integrity_check(tempfolder, scenes) is True:
+        while integrity_check(scenes_skinny) is True:
             iter_counter += 1
             if iter_counter > 3:
                 print('Integrity check failed 3 times, aborting')
                 quit()
-            process_chunks(chunks, config, celeryless_encoding=DontUseCelery,
+            process_chunks(scenes_skinny, config, celeryless_encoding=DontUseCelery,
                            multiprocess_workers=args.multiprocess_workers)
     else:
         print('WARNING: integrity check is disabled, this is not recommended')
-        process_chunks(chunks, config, celeryless_encoding=DontUseCelery,
+        process_chunks(scenes_skinny, config, celeryless_encoding=DontUseCelery,
                        multiprocess_workers=args.multiprocess_workers)
 
     # if we are doing a dry run the process, chunks will spit out the commands, so we quit here

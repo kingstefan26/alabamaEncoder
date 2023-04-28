@@ -1,32 +1,10 @@
 import os.path
 import re
-import subprocess
 from shutil import which
-from typing import List
 
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
-
-
-def syscmd(cmd, encoding='utf8', timeout_value=-1):
-    """
-    Runs a command on the system, waits for the command to finish, and then
-    returns the text output of the command. If the command produces no text
-    output, the command's return code will be returned instead.
-    """
-    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         close_fds=True)
-    if timeout_value > 0:
-        p.wait(timeout=timeout_value)
-    else:
-        p.wait()
-    output = p.stdout.read()
-    if len(output) > 1:
-        if encoding:
-            return output.decode(encoding)
-        else:
-            return output
-    return p.returncode
+from hoeEncode.utils.execute import syscmd
 
 
 def check_for_invalid(path):
@@ -312,22 +290,6 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
 
 def doesBinaryExist(pathOrLocation):
     return which(pathOrLocation) is not None
-
-
-def get_width(in_path):
-    if not os.path.exists(in_path):
-        raise FileNotFoundError(f"File {in_path} does not exist")
-    argv_ = f'ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "{in_path}"'
-    result = syscmd(argv_)
-    return int(result)
-
-
-def get_height(in_path):
-    if not os.path.exists(in_path):
-        raise FileNotFoundError(f"File {in_path} does not exist")
-    argv_ = f'ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "{in_path}"'
-    result = syscmd(argv_)
-    return int(result)
 
 
 def sizeof_fmt(num, suffix="B"):

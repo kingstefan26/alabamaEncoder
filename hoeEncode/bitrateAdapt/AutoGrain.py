@@ -9,8 +9,10 @@ from statistics import mean
 from typing import List
 
 from hoeEncode.encoders.encoderImpl.Svtenc import AvifEncoderSvtenc
-from hoeEncode.ffmpegUtil import doesBinaryExist, syscmd, get_image_butteraugli_score
+from hoeEncode.ffmpegUtil import doesBinaryExist, get_image_butteraugli_score
+from hoeEncode.utils.execute import syscmd
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.sceneSplit.Chunks import ChunkSequence
 
 
 class RdPoint:
@@ -151,7 +153,7 @@ def get_best_avg_grainsynth(**kwargs) -> int:
     if input_file is None:
         raise Exception("input_file is required")
 
-    scenes = kwargs.get("scenes")
+    scenes: ChunkSequence = kwargs.get("scenes")
     if scenes is None:
         raise Exception("scenes is required")
     # create a copy of the object, so it doesn't cause trouble
@@ -163,16 +165,11 @@ def get_best_avg_grainsynth(**kwargs) -> int:
     if 'scene_pick_seed' in kwargs:
         random.seed(kwargs.get('scene_pick_seed'))
 
-    random.shuffle(scenes)
+    random.shuffle(scenes.chunks)
 
     # how many random scenes to pick and do the test on
     random_pick = kwargs.get("random_pick", 3)
-    scenes = scenes[:random_pick]
-
-    # turn the scenes into chunk objects
-    chunks_for_processing = [ChunkObject(path=input_file,
-                                         first_frame_index=scene[0],
-                                         last_frame_index=scene[1]) for scene in scenes]
+    chunks_for_processing: List[ChunkObject] = scenes.chunks[:random_pick]
 
     # create the autograin objects
     autograin_objects = [AutoGrain(chunk=chunk,

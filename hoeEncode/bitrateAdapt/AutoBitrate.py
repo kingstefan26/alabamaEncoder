@@ -20,10 +20,10 @@ class ConvexEncoder(CommandObject):
         self.stats = EncodingStatsObject()
 
     # what speed do we run while searching bitrate
-    convex_speed = 8
+    convex_speed = 10
 
     # speed for the final encode
-    encode_speed = 3
+    encode_speed = 4
 
     remove_probes = True  # after encoding is done remove the probes
     show_rate_calc_log = False
@@ -41,9 +41,9 @@ class ConvexEncoder(CommandObject):
 
     flag_15 = False  # use aomenc
 
-    bias_pct = 93  # how much we want to cbr the final encode
+    bias_pct = 20  # how much we want to cbr the final encode
 
-    complexity_clamp_down = 0.8
+    complexity_clamp_down = 0.5
     complexity_clamp_up = 0.35
     clamp_complexity = True
 
@@ -64,7 +64,7 @@ class ConvexEncoder(CommandObject):
                    temp_folder=self.config.temp_folder,
                    chunk=self.job.chunk,
                    svt_grain_synth=0,
-                   current_scene_index=self.job.current_scene_index,
+                   current_scene_index=self.job.chunk.chunk_index,
                    output_path=test_probe_path,
                    threads=2,
                    crop_string=self.config.crop_string,
@@ -73,8 +73,14 @@ class ConvexEncoder(CommandObject):
 
         enc.run(override_if_exists=False)
 
-        (ssim, ssim_db) = get_video_ssim(test_probe_path, self.job.chunk, get_db=True,
+        try:
+            (ssim, ssim_db) = get_video_ssim(test_probe_path, self.job.chunk, get_db=True,
                                          crop_string=self.config.crop_string)
+        except Exception as e:
+            print(f'Error calculating ssim for complexity rate estimation: {e}')
+            # this happens when the scene is fully black, the best solution here is just setting the complexity to 0,
+            # and since its all black anyway it won't matter
+            ssim_db = self.config.ssim_db_target
 
         # Calculate the ratio between the target ssim dB and the current ssim dB
         ratio = 10 ** ((self.config.ssim_db_target - ssim_db) / 10)
@@ -127,7 +133,7 @@ class ConvexEncoder(CommandObject):
         return os.path.join(probe_folder_path, filename_without_ext)
 
     def get_probe_name(self):
-        return self.get_probe_file_base(self.job.encoded_scene_path)
+        return self.get_probe_file_base(self.job.chunk.chunk_path)
 
     def get_ideal_grain_bitrate(self):
 
@@ -137,7 +143,7 @@ class ConvexEncoder(CommandObject):
             ideal_grain = self.config.grain_synth
         else:
             auto_grain = AutoGrain(chunk=self.job.chunk,
-                                   test_file_path=self.get_probe_file_base(self.job.encoded_scene_path))
+                                   test_file_path=self.get_probe_file_base(self.job.chunk.chunk_path))
 
             ideal_grain = auto_grain.get_ideal_grain_butteraugli()
             logging.debug('ideal grain (butteraugli method): ' + str(ideal_grain))
@@ -160,11 +166,11 @@ class ConvexEncoder(CommandObject):
         return ideal_grain, int(ideal_rate)
 
     def log_prefix(self) -> str:
-        return f"[{self.job.current_scene_index}] "
+        return f"[{self.job.chunk.chunk_index}] "
 
     def run(self):
         if self.remove_probes:
-            shutil.rmtree(self.get_probe_file_base(self.job.encoded_scene_path), ignore_errors=True)
+            shutil.rmtree(self.get_probe_file_base(self.job.chunk.chunk_path), ignore_errors=True)
 
         try:
             ideal_grain, ideal_rate = self.get_ideal_grain_bitrate()
@@ -174,7 +180,7 @@ class ConvexEncoder(CommandObject):
             return
 
         final_encode_start = time.time()
-        if not os.path.exists(self.job.encoded_scene_path):
+        if not os.path.exists(self.job.chunk.chunk_path):
             # encode with ideal grain and bitrate
 
             enc = AbstractEncoderSvtenc()
@@ -183,7 +189,7 @@ class ConvexEncoder(CommandObject):
             enc.eat_job_config(job=self.job, config=self.config)
 
             enc.update(
-                passes=2,
+                passes=3,
                 svt_grain_synth=ideal_grain,
                 bitrate=ideal_rate,
                 rate_distribution=RateDistribution.VBR
@@ -195,12 +201,12 @@ class ConvexEncoder(CommandObject):
                 print(f'{self.log_prefix()}error while encoding: {e}')
 
         if self.calc_final_vmaf:
-            final_vmaf = get_video_vmeth(self.job.encoded_scene_path, self.job.chunk, uhd_model=True,
+            final_vmaf = get_video_vmeth(self.job.chunk.chunk_path, self.job.chunk, uhd_model=True,
                                          disable_enchancment_gain=True)
         else:
             final_vmaf = -1
 
-        final_bitrate = int(get_total_bitrate(self.job.encoded_scene_path) / 1000)
+        final_bitrate = int(get_total_bitrate(self.job.chunk.chunk_path) / 1000)
 
         print(
             f'{self.log_prefix()}final stats:'
@@ -212,7 +218,7 @@ class ConvexEncoder(CommandObject):
         self.stats.vmaf_score = final_vmaf
         self.stats.bitrate = final_bitrate
         self.stats.time_taken = int(time.time() - final_encode_start)
-        self.stats.filesize = os.path.getsize(self.job.encoded_scene_path)
+        self.stats.filesize = os.path.getsize(self.job.chunk.chunk_path)
         self.stats.filesize_human = sizeof_fmt(self.stats.filesize)
 
         return self.stats

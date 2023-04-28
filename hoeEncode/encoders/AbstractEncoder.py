@@ -4,7 +4,7 @@ from typing import List
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.RateDiss import RateDistribution
-from hoeEncode.ffmpegUtil import syscmd
+from hoeEncode.utils.execute import syscmd
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 
 
@@ -30,10 +30,10 @@ class AbstractEncoder:
             temp_folder=config.temp_folder,
             bitrate=config.bitrate,
             crf=config.crf,
-            current_scene_index=job.current_scene_index,
+            current_scene_index=job.chunk.chunk_index,
             passes=config.passes,
             crop_string=config.crop_string,
-            output_path=job.encoded_scene_path,
+            output_path=job.chunk.chunk_path,
             speed=config.speed,
             svt_grain_synth=config.grain_synth,
             rate_distribution=config.rate_distribution,

@@ -19,8 +19,8 @@ class EncoderKommand(CommandObject):
 
     def run(self):
         self.encoder_impl.run()
-        if not os.path.exists(self.job.encoded_scene_path):
-            raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + self.job.encoded_scene_path)
+        if not os.path.exists(self.job.chunk.chunk_path):
+            raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + self.job.chunk.chunk_path)
 
     def get_dry_run(self):
         enc = self.encoder_impl

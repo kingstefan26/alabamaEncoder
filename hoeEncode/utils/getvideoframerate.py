@@ -1,7 +1,7 @@
 import subprocess
 
 
-def get_video_frame_rate(filename):
+def get_video_frame_rate(filename) -> float:
     result = subprocess.run([
         "ffprobe",
         "-v",

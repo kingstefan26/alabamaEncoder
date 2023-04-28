@@ -1,5 +1,7 @@
-from hoeEncode.utils.getvideoframerate import get_video_frame_rate
+from hoeEncode.utils.getheight import get_height
+from hoeEncode.utils.getwidth import get_width
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
+from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 
 
 class ChunkObject:
@@ -10,17 +12,22 @@ class ChunkObject:
     SLICE = ChunkOffsetObject(100,200,"infile.mkv")
     AND THEN
     f'ffmpeg {SLICE.get_ss_ffmpeg_command_pair()} outfile.mkv'
-    CVM OS VIBES TBH
     THIS IS FRAME ACCURATE AS OF FFMPEG FROM 2012 OR SUMTFN
     """
 
-    def __init__(self, first_frame_index=-1, last_frame_index=-1, path="", framerate=-1):
+    def __init__(self, first_frame_index=-1, last_frame_index=-1, path="", framerate=-1, chunk_index=-1, height=-1,
+                 width=-1):
         self.path = path
         self.last_frame_index = last_frame_index
         self.first_frame_index = first_frame_index
         self.framerate = framerate
+        self.width = width
+        self.height = height
         self.length = self.last_frame_index - self.first_frame_index
         self.end_override = -1  # ends the chunk after `end_override` frames if set
+        self.chunk_index = chunk_index
+        self.chunk_path = ''
+        self.chunk_done = False
 
     def __str__(self):
         return f"ChunkObject({self.first_frame_index}, {self.last_frame_index}, {self.path}, {self.framerate})"
@@ -47,6 +54,16 @@ class ChunkObject:
         duration = (end_thingy - start_time)
 
         return f' -ss {str(start_time)} -i "{self.path}" -t {str(duration)} '
+
+    def get_width(self):
+        if self.width == -1:
+            self.width = get_width(self.path)
+        return self.width
+
+    def get_height(self):
+        if self.height == -1:
+            self.height = get_height(self.path)
+        return self.height
 
     def create_chunk_ffmpeg_pipe_command(self, *args):
         return create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self, *args)

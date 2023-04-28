@@ -53,7 +53,7 @@ if __name__ == '__main__':
         test_start = time.time()
         job = EncoderJob(chunk, 0, f'{test_env}test{i}.ivf')
 
-        grain = AutoGrain(chunk=chunk, test_file_path=job.encoded_scene_path)
+        grain = AutoGrain(chunk=chunk, test_file_path=job.chunk.chunk_path)
 
         ideal_grain = grain.get_ideal_grain_butteraugli()
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
         enc.bias_pct = 1
         enc.run()
 
-        (ssim, ssim_db) = get_video_ssim(job.encoded_scene_path, chunk, get_db=True)
+        (ssim, ssim_db) = get_video_ssim(job.chunk.chunk_path, chunk, get_db=True)
 
         miss_from_db_target = db_target - ssim_db
 
@@ -97,9 +97,9 @@ if __name__ == '__main__':
         enc.eat_job_config(final_job, final_config)
         final_encode_start = time.time()
         enc.run()
-        final_vmaf = get_video_vmeth(final_job.encoded_scene_path, chunk, disable_enchancment_gain=True, uhd_model=True)
-        final_bitrate = int(get_total_bitrate(final_job.encoded_scene_path) / 1000)
-        final_size = os.path.getsize(final_job.encoded_scene_path)
+        final_vmaf = get_video_vmeth(final_job.chunk.chunk_path, chunk, disable_enchancment_gain=True, uhd_model=True)
+        final_bitrate = int(get_total_bitrate(final_job.chunk.chunk_path) / 1000)
+        final_size = os.path.getsize(final_job.chunk.chunk_path)
         final_encode_end = time.time()
 
         print(

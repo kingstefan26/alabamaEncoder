@@ -3,7 +3,9 @@ from typing import List
 
 from hoeEncode.encoders.AbstractEncoder import AbstractEncoder
 from hoeEncode.encoders.RateDiss import RateDistribution
-from hoeEncode.ffmpegUtil import syscmd, get_width, get_height
+from hoeEncode.utils.execute import syscmd
+from hoeEncode.utils.getheight import get_height
+from hoeEncode.utils.getwidth import get_width
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 
 
@@ -100,7 +102,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         if self.current_scene_index is None:
             raise Exception('FATAL: current_scene_index is None')
 
-        if self.keyint == -1 and self.rate_distribution == RateDistribution.VBR:
+        if (self.keyint == -1 or self.keyint == -2) and self.rate_distribution == RateDistribution.VBR:
             print('WARNING: keyint must be set for VBR, setting to 240')
             self.keyint = 240
 
@@ -168,9 +170,9 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         stats_bit = ''
 
         if self.passes > 1:
-            stats_bit = f'--stats {self.current_scene_index}svt.stat'
+            stats_bit = f'--stats {self.output_path}.stat'
 
-        if self.open_gop and self.passes > 1:
+        if self.open_gop and self.passes == 1:
             kommand += ' --irefresh-type 1'
 
         if self.passes == 2:

@@ -4,5 +4,3 @@ celery
 redis
 psutil
 opencv-python
-sklearn
-scikit-learn
