@@ -1,4 +1,3 @@
-import copy
 from typing import List
 
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject

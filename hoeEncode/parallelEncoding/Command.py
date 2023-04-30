@@ -8,6 +8,7 @@ class CommandObject:
     def __init__(self):
         self.config: EncoderConfigObject = None
         self.job: EncoderJob = None
+        self.chunk = None
 
     @abstractmethod
     def run(self):
@@ -15,6 +16,7 @@ class CommandObject:
 
     def setup(self, job: EncoderJob, config: EncoderConfigObject):
         self.job = job
+        self.chunk = job.chunk
         self.config = config
 
 def run_command(command: CommandObject):

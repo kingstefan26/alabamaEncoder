@@ -11,19 +11,19 @@ from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
 from CeleryApp import app
-from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
-from hoeEncode.bitrateAdapt.AutoGrain import get_best_avg_grainsynth
+from hoeEncode.adaptiveEncoding.adaptiveAnalyser import do_adaptive_analasys
+from hoeEncode.adaptiveEncoding.adaptiveCommand import AdaptiveCommand
 from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, do_cropdetect, doesBinaryExist
-from hoeEncode.utils.execute import syscmd
 from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
 from hoeEncode.sceneSplit.split import get_video_scene_list_skinny
+from hoeEncode.utils.execute import syscmd
 from paraliezeMeHoe.ThaVaidioEncoda import run_command_on_celery
 
 tasks = []
@@ -44,14 +44,12 @@ def process_chunks(chunk_list: ChunkSequence,
                    multiprocess_workers: int):
     command_objects = []
 
-
-
     for chunk in tqdm(chunk_list.chunks, desc='Preparing scenes', unit='scene'):
         job = EncoderJob(chunk)
 
         if not os.path.exists(job.chunk.chunk_path):
             if encdr_config.convexhull:
-                obj = ConvexEncoder()
+                obj = AdaptiveCommand()
             else:
                 obj = EncoderKommand(AbstractEncoderSvtenc())
 
@@ -217,6 +215,11 @@ if __name__ == "__main__":
     parser.add_argument('--grainsynth', help="Manually give the grainsynth value, 0 to disable", type=int, default=7,
                         choices=range(0, 63))
 
+    parser.add_argument('--autoparam', help='Automagicly chose params', action='store_true', default=True)
+
+    parser.add_argument('--autobitrateladder', help='Automagicly chose bitrate based on quality',
+                        action='store_true', default=True)
+
     parser.add_argument('--max-scene-length', help="If a scene is longer then this, it will recursively cut in the"
                                                    " middle it to get until each chunk is within the max",
                         type=int, default=10, metavar='max_scene_length')
@@ -275,7 +278,7 @@ if __name__ == "__main__":
     if args.autocrop and croppy_floppy == '':
         cropdetect = do_cropdetect(ChunkObject(path=input_file))
         if cropdetect != '':
-            croppy_floppy = f'-vf "crop={cropdetect}"'
+            croppy_floppy = f'crop={cropdetect}'
 
     scenes_skinny: ChunkSequence = get_video_scene_list_skinny(input_file=input_file,
                                                                cache_file_path=tempfolder + 'sceneCache.pt',
@@ -283,26 +286,19 @@ if __name__ == "__main__":
     for xyz in scenes_skinny.chunks:
         xyz.chunk_path = f'{tempfolder}{xyz.chunk_index}.ivf'
 
-    config = EncoderConfigObject(two_pass=True,
-                                 crop_string=croppy_floppy,
-                                 convexhull=args.autobitrate,
-                                 temp_folder=tempfolder,
-                                 server_ip=host_adrees,
-                                 remote_path=tempfolder,
-                                 dry_run=dry_run,
-                                 ssim_db_target=args.ssim_db_target)
+    config = EncoderConfigObject(crop_string=croppy_floppy, convexhull=args.autobitrate, temp_folder=tempfolder,
+                                 server_ip=host_adrees, remote_path=tempfolder, dry_run=dry_run,
+                                 ssim_db_target=args.ssim_db_target, passes=3)
     try:
         config.bitrate = int(bitraten[:-1])
     except ValueError:
         raise ValueError('Bitrate must be in k\'s, example: 2000k')
 
-    if args.autograin:
-        config.grain_synth = get_best_avg_grainsynth(input_file=input_file,
-                                                     scenes=scenes_skinny,
-                                                     temp_folder=tempfolder,
-                                                     cache_filename=tempfolder + 'ideal_grain.pt')
-    else:
-        config.grain_synth = args.grainsynth
+    config.grain_synth = args.grainsynth
+
+    config = do_adaptive_analasys(scenes_skinny, config, do_grain=args.autograin,
+                                  do_bitrate_ladder=args.autobitrateladder,
+                                  do_qm=args.autoparam)
 
     if args.integrity_check:
         iter_counter = 0

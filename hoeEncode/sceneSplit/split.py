@@ -1,4 +1,3 @@
-import math
 import os
 import pickle
 
@@ -26,13 +25,13 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
         # Ensure input file matches the cached sequence
         if seq.input_file != input_file:
             raise Exception(
-                f'Video ({input_file}) does not match scene cache ({cache_file_path}),'
+                f'Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),'
                 f' please correct this (wrong temp folder?)'
             )
     else:
         print('Creating scene cache')
-        scene_list = detect(video_path=input_file, detector=AdaptiveDetector(), show_progress=True)
-        scene_list_frames = [[scene[0].get_frames(), scene[1].get_frames()] for scene in scene_list]
+        scene_list = detect(video_path=input_file, detector=AdaptiveDetector(window_width=10, adaptive_threshold=2.5),
+                            show_progress=True)
 
         seq = ChunkSequence([])
         seq.input_file = input_file

@@ -3,7 +3,6 @@ from hoeEncode.encoders.RateDiss import RateDistribution
 
 class EncoderConfigObject:
     """ A class to hold the configuration for the encoder """
-    two_pass = True
     crop_string = ''
     bitrate: int = 0
     temp_folder = ''
@@ -19,11 +18,15 @@ class EncoderConfigObject:
     speed = 3
     rate_distribution: RateDistribution
     threads: int = 1
+    qm_enabled = False
+    qm_min = 8
+    qm_max = 15
+    film_grain_denoise: (0 | 1) = 1
 
-    def __init__(self, two_pass=True, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
+    def __init__(self, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
                  dry_run=False, convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3,
-                 rate_distribution=RateDistribution.VBR, threads=1, ssim_db_target=20):
-        self.two_pass = two_pass
+                 rate_distribution=RateDistribution.VBR, threads=1, ssim_db_target=20, qm_enabled=False, qm_min=8,
+                 qm_max=15):
         self.crop_string = crop_string
         self.ssim_db_target = ssim_db_target
         self.bitrate = bitrate
@@ -39,3 +42,6 @@ class EncoderConfigObject:
         self.speed = speed
         self.rate_distribution = rate_distribution
         self.threads = threads
+        self.qm_enabled = qm_enabled
+        self.qm_min = qm_min
+        self.qm_max = qm_max

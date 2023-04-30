@@ -3,10 +3,10 @@ from typing import List
 
 from hoeEncode.encoders.AbstractEncoder import AbstractEncoder
 from hoeEncode.encoders.RateDiss import RateDistribution
+from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 from hoeEncode.utils.execute import syscmd
 from hoeEncode.utils.getheight import get_height
 from hoeEncode.utils.getwidth import get_width
-from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 
 
 class AvifEncoderSvtenc:
@@ -84,12 +84,8 @@ class AvifEncoderSvtenc:
 
 class AbstractEncoderSvtenc(AbstractEncoder):
     bias_pct = 50
-    film_grain_denoise: (0 | 1) = 1  # denoise the image when apling grain synth, turn off if you want preserve more
     open_gop = True
 
-    qm_min: int = 8
-    qm_max: int = 15
-    qm_enabled: bool = True
     keyint: int = 9999
     sdc: int = 0
     chroma_thing = True
@@ -153,6 +149,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         kommand += f' --preset {self.speed}'  # speed
         kommand += f' --film-grain-denoise {self.film_grain_denoise}'
         if self.qm_enabled:
+            kommand += f' --qm-min {self.qm_min}'  # min quantization matrix
             kommand += f' --qm-min {self.qm_min}'  # min quantization matrix
             kommand += f' --qm-max {self.qm_max}'  # max quantization matrix
             kommand += ' --enable-qm 1'

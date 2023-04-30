@@ -1,14 +1,18 @@
 import os
+import time
+from abc import abstractmethod, ABC
 from typing import List
 
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.RateDiss import RateDistribution
-from hoeEncode.utils.execute import syscmd
+from hoeEncode.encoders.encodeStats import EncodeStats, EncodeStatus
+from hoeEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.utils.execute import syscmd
 
 
-class AbstractEncoder:
+class AbstractEncoder(ABC):
     chunk: ChunkObject = None
     temp_folder: str
     bitrate: int = None
@@ -23,6 +27,9 @@ class AbstractEncoder:
     threads = 1
     tune = 0
     rate_distribution: RateDistribution = RateDistribution.CQ  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
+    qm_enabled = False
+    qm_min = 8
+    qm_max = 15
 
     def eat_job_config(self, job: EncoderJob, config: EncoderConfigObject):
         self.update(
@@ -38,6 +45,9 @@ class AbstractEncoder:
             svt_grain_synth=config.grain_synth,
             rate_distribution=config.rate_distribution,
             threads=config.threads,
+            qm_enabled=config.qm_enabled,
+            qm_min=config.qm_min,
+            qm_max=config.qm_max
         )
 
     def update(self, **kwargs):
@@ -100,20 +110,59 @@ class AbstractEncoder:
             self.rate_distribution = kwargs.get('rate_distribution')
             if not isinstance(self.rate_distribution, RateDistribution):
                 raise Exception('FATAL: rate_distribution must be an RateDistribution')
+        if 'qm_enabled' in kwargs:
+            self.qm_enabled = kwargs.get('qm_enabled')
+            if not isinstance(self.qm_enabled, bool):
+                raise Exception('FATAL: qm_enabled must be an bool')
+        if 'qm_min' in kwargs:
+            self.qm_min = kwargs.get('qm_min')
+            if not isinstance(self.qm_min, int):
+                raise Exception('FATAL: qm_min must be an int')
+        if 'qm_max' in kwargs:
+            self.qm_max = kwargs.get('qm_max')
+            if not isinstance(self.qm_max, int):
+                raise Exception('FATAL: qm_max must be an int')
 
-    def run(self, override_if_exists=True, timeout_value=-1):
+    def run(self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False) -> EncodeStats:
+        """
+        :param override_if_exists: if false and file already exist don't do anything
+        :param timeout_value: how much (in seconds) before giving up
+        :param calculate_vmaf: should vmaf be included in encoded stats
+        :return: stats object
+        """
+        stats = EncodeStats()
+
         if os.path.exists(self.output_path) and not override_if_exists:
-            return
+            stats.status = EncodeStatus.DONE
+        else:
+            out = []
+            start = time.time()
+            for command in self.get_encode_commands():
+                output = syscmd(command, timeout_value=timeout_value)
+                out.append(output)
 
-        out = []
-        for command in self.get_encode_commands():
-            output = syscmd(command, timeout_value=timeout_value)
-            out.append(output)
+            stats.time_encoding = time.time() - start
 
-        if not os.path.exists(self.output_path):
-            raise Exception('FATAL: ENCODE FAILED ' + str(out))
-        if os.path.getsize(self.output_path) < 100:
-            raise Exception('FATAL: ENCODE FAILED ' + str(out))
+            if not os.path.exists(self.output_path):
+                stats.status = EncodeStatus.FAILED
+                raise Exception('FATAL: ENCODE FAILED ' + str(out))
+            if os.path.getsize(self.output_path) < 100:
+                stats.status = EncodeStatus.FAILED
+                raise Exception('FATAL: ENCODE FAILED ' + str(out))
 
+            stats.status = EncodeStatus.DONE
+
+        if calculate_vmaf:
+            stats.vmaf = get_video_vmeth(self.output_path, self.chunk, crop_string=self.crop_string)
+
+        stats.bitrate = int(get_total_bitrate(self.output_path) / 1000)
+
+        return stats
+
+    @abstractmethod
     def get_encode_commands(self) -> List[str]:
+        """
+        Abstract method overriden by encoders.
+        :return: A list of cli commands to encode, according to class fields
+        """
         pass

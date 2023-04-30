@@ -10,9 +10,9 @@ from typing import List
 
 from hoeEncode.encoders.encoderImpl.Svtenc import AvifEncoderSvtenc
 from hoeEncode.ffmpegUtil import doesBinaryExist, get_image_butteraugli_score
-from hoeEncode.utils.execute import syscmd
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
+from hoeEncode.utils.execute import syscmd
 
 
 class RdPoint:
@@ -140,20 +140,17 @@ def wrapper(obj):
     return obj.get_ideal_grain_butteraugli()
 
 
-def get_best_avg_grainsynth(**kwargs) -> int:
-    cache_filename = kwargs.get("cache_filename")
+def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkSequence,
+                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=3, bitrate=-1) -> int:
     if cache_filename is not None and os.path.exists(cache_filename):
         return pickle.load(open(cache_filename, "rb"))
 
-    temp_folder = kwargs.get("temp_folder", "./test")
     if not os.path.exists(temp_folder):
         raise Exception(f"temp_folder {temp_folder} does not exist")
 
-    input_file = kwargs.get("input_file")
     if input_file is None:
         raise Exception("input_file is required")
 
-    scenes: ChunkSequence = kwargs.get("scenes")
     if scenes is None:
         raise Exception("scenes is required")
     # create a copy of the object, so it doesn't cause trouble
@@ -162,20 +159,24 @@ def get_best_avg_grainsynth(**kwargs) -> int:
     logging.info('starting autograin test')
 
     # pick random x scenes from the list
-    if 'scene_pick_seed' in kwargs:
-        random.seed(kwargs.get('scene_pick_seed'))
+    random.seed(scene_pick_seed)
 
     random.shuffle(scenes.chunks)
 
     # how many random scenes to pick and do the test on
-    random_pick = kwargs.get("random_pick", 3)
     chunks_for_processing: List[ChunkObject] = scenes.chunks[:random_pick]
 
     # create the autograin objects
-    autograin_objects = [AutoGrain(chunk=chunk,
-                                   test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
-                                   crf=20)
-                         for chunk in chunks_for_processing]
+    if bitrate == -1:
+        autograin_objects = [AutoGrain(chunk=chunk,
+                                       test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
+                                       crf=20)
+                             for chunk in chunks_for_processing]
+    else:
+        autograin_objects = [AutoGrain(chunk=chunk,
+                                       test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
+                                       bitrate=bitrate)
+                             for chunk in chunks_for_processing]
 
     # using multiprocessing to do the experiments on all the scenes
     with Pool() as p:

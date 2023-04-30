@@ -1,7 +1,7 @@
-from hoeEncode.utils.getheight import get_height
-from hoeEncode.utils.getwidth import get_width
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
+from hoeEncode.utils.getheight import get_height
 from hoeEncode.utils.getvideoframerate import get_video_frame_rate
+from hoeEncode.utils.getwidth import get_width
 
 
 class ChunkObject:
@@ -67,6 +67,9 @@ class ChunkObject:
 
     def create_chunk_ffmpeg_pipe_command(self, *args):
         return create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self, *args)
+
+    def log_prefix(self):
+        return f"[{self.chunk_index}] "
 
 
 def test_1():

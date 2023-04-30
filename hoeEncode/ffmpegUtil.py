@@ -92,8 +92,6 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
         lafi = f"-lavfi libvmaf=model_path={links[0][1]}"
     elif uhd_model is True and disable_enchancment_gain is True:
         lafi = f"-lavfi libvmaf=model_path={links[2][1]}"
-    elif phone_model is False:
-        lafi = "-lavfi libvmaf=phone_model=true"  # no documentation, just a guess
 
     null_ += f' -i {distorted_path} {lafi} -f null - '
     result_string = syscmd(null_, "utf8")
