@@ -12,7 +12,6 @@
 * --chroma-u-ac-qindex-offset x
 * --chroma-v-dc-qindex-offset x
 * --chroma-v-ac-qindex-offset x
-*
 
 ### params:
 

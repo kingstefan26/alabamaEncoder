@@ -15,4 +15,5 @@ temp/
 **/__pycache__/
 **.tar.gz
 **.pt
+**.ivf.stat
 .ruff_cache

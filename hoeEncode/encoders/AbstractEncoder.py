@@ -156,6 +156,7 @@ class AbstractEncoder(ABC):
         if calculate_vmaf:
             stats.vmaf = get_video_vmeth(self.output_path, self.chunk, crop_string=self.crop_string)
 
+        stats.size = os.path.getsize(self.output_path) / 1000
         stats.bitrate = int(get_total_bitrate(self.output_path) / 1000)
 
         return stats

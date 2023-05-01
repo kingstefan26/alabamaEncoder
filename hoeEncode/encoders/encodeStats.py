@@ -12,8 +12,9 @@ class EncodeStatus(Enum):
 
 class EncodeStats():
     def __init__(self, time_encoding: int = -1, bitrate: int = -1, vmaf: float = -1,
-                 status: EncodeStatus = EncodeStatus.UNKNOWN):
+                 status: EncodeStatus = EncodeStatus.UNKNOWN, size: int = -1):
         self.time_encoding = time_encoding
         self.bitrate = bitrate
         self.vmaf = vmaf
         self.status = status
+        self.size = size
