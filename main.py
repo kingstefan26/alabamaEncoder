@@ -219,6 +219,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--autobitrateladder', help='Automagicly chose bitrate based on quality',
                         action='store_true', default=True)
+    parser.add_argument('--vmaftarget', help='What vmaf to target when using autobitrate ladder', default=96)
 
     parser.add_argument('--max-scene-length', help="If a scene is longer then this, it will recursively cut in the"
                                                    " middle it to get until each chunk is within the max",
@@ -288,7 +289,7 @@ if __name__ == "__main__":
 
     config = EncoderConfigObject(crop_string=croppy_floppy, convexhull=args.autobitrate, temp_folder=tempfolder,
                                  server_ip=host_adrees, remote_path=tempfolder, dry_run=dry_run,
-                                 ssim_db_target=args.ssim_db_target, passes=3)
+                                 ssim_db_target=args.ssim_db_target, passes=3, vmaf=args.vmaftarget)
     try:
         config.bitrate = int(bitraten[:-1])
     except ValueError:

@@ -4,13 +4,43 @@ this is my attempt at encoding in a multi pc setup, currently supports svtav1, a
 like two lines _(get real, the efficiency from cpu0-tuneLavish-sb-qp-sweep1 aomenc is hot air stop using ur cpu as a
 space heater)_
 
-![lovely screenshot of th eworker](Screenshotidfk.png)
+![lovely screenshot of the worker](Screenshotidfk.png)
 
-# Getting started
+## **WARNING: THIS IS A WORK IN PROGRESS, IT MAY NOT WORK, IT MAY EAT YOUR FILES, IT MAY EAT YOUR PC
+
+# Cli interface
+
+````
+usage: ./main.py [-h] [INPUT] [OUTPUT] [TEMP DIR PATH] [flags]
+````
+
+| argument                     | description                                                             |
+|------------------------------|-------------------------------------------------------------------------|
+| -h, --help                   | show help                                                               |
+| --audio                      | mux+transcode audio into the final video                                |
+| --audio_params [str]         | params for audio, eg `-c:v libopus`                                     |
+| --celeryless                 | dont run on celery cluster                                              |
+| --dry                        | if running without automatic enchancements, will print encode commands  |
+| --autocrop                   | autocrop the video before encoding                                      |
+| --crop_override [str]        | override ffmpeg vf params, put your `-vf crop=...` or filter_graph even |
+| --mux                        | mux the video after encoding                                            |
+| --integrity_check            | check already encoded file integrity before starting                    |
+| --bitrate [int]k             | specify a bitrate to follow, eg `--bitrate 1000k` in kpbs end with k    |
+| --autobitrate                | set infividual chunks bitrate lower or higher depending on complexity   |
+| --multiprocess_workers [int] | when not using celery, how many encode processes to run at once         |
+| --ssim-db-target [float]     | when doing autobirate what ssim dB should the bitrate target            |
+| --autograin                  | auto test and add best grain parameters                                 |
+| --grainsynth                 | manually specify a grainsynth  value                                    |
+| --autoparam                  | automatically set some parameters based on the input video              |
+| --autobitrateladder          | automatically find a bitrate that suits ur video, based on target vmaf  |
+| --vmaf [float]               | what vmaf to target with auto ladder, default 96                        |
+| --max-scene-length [int]     | dont alow scenes longer than this, in seconds                           |
+
 # **OUT OF DATE READ THE CODE!**
 
-guide to get started (NOT COMPLETE, YOU MAY NEED TO INSTALL MORE PACKAGES, TELL ME IF YOU DO):
+````~~guide to get started (NOT COMPLETE, YOU MAY NEED TO INSTALL MORE PACKAGES, TELL ME IF YOU DO):
 
+# Getting started
 before you start: you need to have docker installed and working [https://docs.docker.com/engine/install/]()
 
 1. Install requirements ```pip install -r requirements.txt```
@@ -50,6 +80,7 @@ in the case that you want to do this on multiple pc's
         - do step 7 of above guide
 2. repeat on as many pc's as you want, just make sure they can reach each-other
 3. after all the docker images are running, go back to step 8 of the above guide
+````
 
 ## Notes
 
@@ -57,11 +88,12 @@ in the case that you want to do this on multiple pc's
   and split the
   workload
 - if you crash/abort the script, dont worry, just rerun it with the same arguments and it will pick up where it left
-  off (there can be corrution but `concat.py` will take care of that)
+  off
 - i *personally* did lots of testing and my ffmpeg split/concat method is frame perfect, but if you find any issues,
   please provide a sample and create a issue
 - ~~the amount of simultaneous chunks per worker is 8, you can change it in `ThaVaidioEncoda.py` line 19 "
-  worker_concurrency" (automagic way coming soon tm)~~ scales based on load avg and free memory (acually its brocken for now)
+  worker_concurrency" (automagic way coming soon tm)~~ scales based on load avg and free memory (acually its brocken for
+  now)
 
 ## TODO
 
@@ -69,7 +101,7 @@ in the case that you want to do this on multiple pc's
 - [ ] add support for more encoders (easy but idrc)
 - [X] split the ThaVaidioEncoda.py into multiple files
 - [X] Auto muxing & auto encoding
-- [ ] Auto retry failed chunks & auto merge
+- [X] Auto retry failed chunks & auto merge
 - [X] add cli interface to main.py
 - [X] dynamically select worker_concurrency based on load average
 - [ ] alternative to nfs file for worker sharing
@@ -77,9 +109,9 @@ in the case that you want to do this on multiple pc's
 
 ### far future
 
-- [ ] auto bitrate_lader_selection/convex_hull_enocding for extra ~10% efficiency
-- [ ] auto grain synthesis (50% done, needs more testing)
-- [ ] auto param tuner
+- [X] auto bitrate_lader_selection/convex_hull_enocding for extra ~10% efficiency
+- [X] auto grain synthesis (50% done, needs more testing)
+- [X] auto param tuner
 
 # general design
 

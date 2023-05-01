@@ -30,6 +30,7 @@ class AbstractEncoder(ABC):
     qm_enabled = False
     qm_min = 8
     qm_max = 15
+    film_grain_denoise: (0 | 1) = 1
 
     def eat_job_config(self, job: EncoderJob, config: EncoderConfigObject):
         self.update(

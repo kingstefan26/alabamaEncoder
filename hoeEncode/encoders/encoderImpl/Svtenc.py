@@ -88,7 +88,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
 
     keyint: int = 9999
     sdc: int = 0
-    chroma_thing = True
+    chroma_thing = -2
 
     def get_encode_commands(self) -> List[str]:
         if self.chunk is None:
@@ -158,11 +158,11 @@ class AbstractEncoderSvtenc(AbstractEncoder):
 
         kommand += f' --scd {self.sdc}'  # scene detection
 
-        if self.chroma_thing:
-            kommand += ' --chroma-u-dc-qindex-offset -2'
-            kommand += ' --chroma-u-ac-qindex-offset -2'
-            kommand += ' --chroma-v-dc-qindex-offset -2'
-            kommand += ' --chroma-v-ac-qindex-offset -2'
+        if self.chroma_thing != 0:
+            kommand += f' --chroma-u-dc-qindex-offset {self.chroma_thing}'
+            kommand += f' --chroma-u-ac-qindex-offset {self.chroma_thing}'
+            kommand += f' --chroma-v-dc-qindex-offset {self.chroma_thing}'
+            kommand += f' --chroma-v-ac-qindex-offset {self.chroma_thing}'
 
         stats_bit = ''
 
