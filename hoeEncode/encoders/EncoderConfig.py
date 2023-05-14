@@ -10,18 +10,20 @@ class EncoderConfigObject:
     remote_path = ''
     dry_run = False
     convexhull = False
-    vmaf = 94
+    vmaf = 96
     ssim_db_target = 20
     grain_synth = -1
-    passes = 2
+    passes = 3
     crf = -1
-    speed = 3
+    speed = 4
     rate_distribution: RateDistribution
     threads: int = 1
     qm_enabled = False
     qm_min = 8
     qm_max = 15
     film_grain_denoise: (0 | 1) = 1
+    crf_bitrate_mode = False
+    max_bitrate = 0
 
     def __init__(self, crop_string='', bitrate=0, temp_folder='', server_ip='', remote_path='',
                  dry_run=False, convexhull=False, vmaf=94, grain_synth=-1, passes=2, crf=-1, speed=3,

@@ -32,6 +32,21 @@ class ChunkObject:
     def __str__(self):
         return f"ChunkObject({self.first_frame_index}, {self.last_frame_index}, {self.path}, {self.framerate})"
 
+    def get_frame_count(self):
+        return self.last_frame_index - self.first_frame_index
+
+    def get_lenght(self) -> float:
+        if self.framerate == -1:
+            self.framerate = get_video_frame_rate(self.path)
+
+        local_overriden_end = self.last_frame_index
+        if self.end_override != -1 and self.length > self.end_override:
+            local_overriden_end = self.first_frame_index + self.end_override
+
+        end_thingy = (float(local_overriden_end) / self.framerate)
+        start_time = (float(self.first_frame_index) / self.framerate)
+        return end_thingy - start_time
+
     def get_ss_ffmpeg_command_pair(self) -> str:
         """
         :return: an '-ss 12 clip.mp4 -t 2' ffmpeg command from start frame index and end frame index

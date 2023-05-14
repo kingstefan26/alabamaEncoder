@@ -38,7 +38,7 @@ output = args.output
 # temp dir
 tmp_dir = args.temp_dir
 
-# if output is not set quit
+# if output is not set, quit
 if output == '' or output is None:
     print("Output file name not set")
     sys.exit(1)
@@ -53,12 +53,12 @@ if tmp_dir[-1] != '/':
 if tmp_dir[0] == '/':
     tmp_dir = tmp_dir[1:]
 
-# make sure directory exists
+# make sure the directory exists
 if not os.path.exists(tmp_dir):
     print(f"Directory {tmp_dir} does not exist")
     sys.exit(1)
 
-# make sure directory is not empty
+# make sure the directory is not empty
 if not os.listdir(tmp_dir):
     print(f"Directory {tmp_dir} is empty")
     sys.exit(1)
@@ -72,7 +72,6 @@ file_names = []
 
 # list of invalid files so the user can delete them
 invalid_files = []
-
 
 for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
     if name.endswith('.ivf'):
@@ -92,16 +91,14 @@ for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
         # ffmpeg -v error -i $i -c copy -f null -
         argv_ = f"ffmpeg -v error -i {tmp_dir}{name}.ivf -c copy -f null -"
         # if the command has any output then the file is invalid
-        p = subprocess.Popen(argv_, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT,
-                             close_fds=True)
+        p = subprocess.Popen(argv_, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         p.wait()
         proc_output = p.stdout.read()
         if len(proc_output) > 0:
             tqdm.write(f"Found invalid file: {name}.ivf")
             invalid_files.append(name)
 
-# if there are invalid files print them out
+# if there are invalid files, print them out
 if len(invalid_files) > 0:
     # red text
     print("\033[91m", end='')
@@ -121,11 +118,9 @@ with open("mhmconcat", 'w') as f:
     for name in file_names:
         f.write(f"file '{tmp_dir}{name}.ivf'\n")
 
-# if the audio flag is set then mux the audio
+# if the audio flag is set, then mux the audio
 if mux_audio:
     print('muxing audio innt luv')
-
-
 
     kumannds = []
 
@@ -136,7 +131,7 @@ if mux_audio:
     video_length = get_video_lenght(f"temp_{output}")
 
     kumannds.append(f"ffmpeg -v error -i temp_{output} -i {tmp_dir}temp.mkv -map 0:v -map 1:a -c:a libopus -ac 2 "
-                        f"-b:v 70k -vbr on -movflags +faststart -c:v copy -t {video_length} ttemp_{output}")
+                    f"-b:v 70k -vbr on -movflags +faststart -c:v copy -t {video_length} ttemp_{output}")
 
     # second command that uses mkvmerge to write additional metadata & fixup the container
     kumannds.append(f"mkvmerge -o {output} ttemp_{output}")

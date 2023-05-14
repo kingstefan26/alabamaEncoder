@@ -16,7 +16,7 @@ class AbstractEncoderAomEnc(AbstractEncoder):
 
     def get_encode_commands(self) -> List[str]:
         self.speed = min(self.speed, 9)
-        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, bit_depth=10,
+        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk,
                                                                       crop_string=self.crop_string)
         encode_command += ' | '
         encode_command += f"aomenc - "
@@ -45,7 +45,8 @@ class AbstractEncoderAomEnc(AbstractEncoder):
 
         encode_command += f" --enable-restoration=0 "
 
-        # quantization matrices. This gives a huge compression improvement at no speed cost.
+        # Quantization matrices.
+        # This gives a huge compression improvement at no speed cost.
         # It should really be the default, but it's not for some reason.
         # The default qm-min and qm-max are ideal, going lower than 5 for qm-min begins to produce worse video quality.
         encode_command += f"--enable-qm=1 "
@@ -61,10 +62,11 @@ class AbstractEncoderAomEnc(AbstractEncoder):
         # generally recommended content tune by the community?
         encode_command += f"--tune-content=psy "
 
-        # enables trellis-based quantization. This can help with detail retention.
+        # Enables trellis-based quantization. This can help with detail retention.
         encode_command += f"--disable-trellis-quant=0 "
 
-        # reduces the strength of Alt-Ref Frame Filtering. The default strength filters quite heavily.
+        # Reduces the strength of Alt-Ref Frame Filtering.
+        # The default strength filters quite heavily.
         # We lower this to 1 to retain more detail.
         # (Some members will advocate for disabling it completely.
         # My personal opinion is that there are still issues with rate distribution when ARNR is disabled

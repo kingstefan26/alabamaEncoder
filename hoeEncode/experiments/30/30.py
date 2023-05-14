@@ -3,7 +3,7 @@ Testing & experimenting with auto bitrate ladders
 """
 import os
 
-from hoeEncode.bitrateAdapt.autoBitrateLadder import AutoBitrateLadder
+from hoeEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 from hoeEncode.sceneSplit.split import get_video_scene_list_skinny

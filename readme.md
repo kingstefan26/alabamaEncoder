@@ -14,27 +14,25 @@ space heater)_
 usage: ./main.py [-h] [INPUT] [OUTPUT] [TEMP DIR PATH] [flags]
 ````
 
-| argument                     | description                                                             |
-|------------------------------|-------------------------------------------------------------------------|
-| -h, --help                   | show help                                                               |
-| --audio                      | mux+transcode audio into the final video                                |
-| --audio_params [str]         | params for audio, eg `-c:v libopus`                                     |
-| --celeryless                 | dont run on celery cluster                                              |
-| --dry                        | if running without automatic enchancements, will print encode commands  |
-| --autocrop                   | autocrop the video before encoding                                      |
-| --crop_override [str]        | override ffmpeg vf params, put your `-vf crop=...` or filter_graph even |
-| --mux                        | mux the video after encoding                                            |
-| --integrity_check            | check already encoded file integrity before starting                    |
-| --bitrate [int]k             | specify a bitrate to follow, eg `--bitrate 1000k` in kpbs end with k    |
-| --autobitrate                | set infividual chunks bitrate lower or higher depending on complexity   |
-| --multiprocess_workers [int] | when not using celery, how many encode processes to run at once         |
-| --ssim-db-target [float]     | when doing autobirate what ssim dB should the bitrate target            |
-| --autograin                  | auto test and add best grain parameters                                 |
-| --grainsynth                 | manually specify a grainsynth  value                                    |
-| --autoparam                  | automatically set some parameters based on the input video              |
-| --autobitrateladder          | automatically find a bitrate that suits ur video, based on target vmaf  |
-| --vmaf [float]               | what vmaf to target with auto ladder, default 96                        |
-| --max-scene-length [int]     | dont alow scenes longer than this, in seconds                           |
+| argument                     | description                                                                |
+|------------------------------|----------------------------------------------------------------------------|
+| -h, --help                   | show help                                                                  |
+| --audio                      | mux+transcode audio into the final video                                   |
+| --audio_params [str]         | params for audio, eg `-c:v libopus`                                        |
+| --celery                     | run on celery cluster                                                      |
+| --dry                        | if running without automatic enchancements, will print cli encode commands |
+| --autocrop                   | autocrop the video black bars                                              |
+| --crop_override [str]        | override ffmpeg vf params, put your `-vf crop=...` or filter_graph even    |
+| --bitrate [int]k             | specify a bitrate to follow, eg `--bitrate 1000k` in kpbs end with k       |
+| --autobitrate                | set individual chunks bitrate lower or higher depending on its complexity  |
+| --multiprocess_workers [int] | when not using celery, how many encode processes to run at once            |
+| --ssim-db-target [float]     | when doing autobirate what ssim dB should the bitrate target               |
+| --autograin                  | auto test and add best grain parameters                                    |
+| --grain_override             | manually specify a film grain value                                        |
+| --autoparam                  | automatically set some parameters based on the input video                 |
+| --auto_bitrate_ladder        | automatically find a bitrate that suits ur video, based on target vmaf     |
+| --vmaf_target [float]        | what vmaf to target with auto ladder, default 96                           |
+| --max_scene_length [int]     | dont allow scenes longer than this, in seconds                             |
 
 # **OUT OF DATE READ THE CODE!**
 

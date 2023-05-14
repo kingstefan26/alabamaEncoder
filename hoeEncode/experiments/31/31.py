@@ -4,7 +4,7 @@ Testing/evaluating autoParam
 
 import os
 
-from hoeEncode.bitrateAdapt.autoParam import AutoParam
+from hoeEncode.adaptiveEncoding.sub.param import AutoParam
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 from hoeEncode.sceneSplit.split import get_video_scene_list_skinny

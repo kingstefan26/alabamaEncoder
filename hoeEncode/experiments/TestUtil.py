@@ -11,12 +11,13 @@ def path_setup(test_env):
         os.mkdir(test_env)
 
 
-def get_test_scenes(vid_path: str, cache_path: str = None):
+def get_test_scenes(cache_path: str = None):
     if cache_path is None:
         cache_path = './scenecache.json'
         cache_path = os.path.abspath(cache_path)
     # return get_video_scene_list(vid_path, cache_path, skip_check=True)
     return None
+
 
 def get_a_chunk(chunk_index: int, scene_list: List[List[float]], path):
     if len(scene_list) <= chunk_index:

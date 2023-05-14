@@ -8,6 +8,11 @@ from hoeEncode.utils.execute import syscmd
 
 
 def check_for_invalid(path):
+    """
+    Checks if the file is invalid
+    :param path: path to the file
+    :return: True if the file is invalid, False if the file is valid
+    """
     if not os.path.exists(path):
         print(f"File {path} does not exist")
         return True
@@ -22,6 +27,11 @@ def check_for_invalid(path):
 
 
 def get_frame_count(path):
+    """
+    Returns the frame count of the video
+    :param path: path to the video
+    :return: int
+    """
     argv_ = f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets " \
             f'-of csv=p=0 "{path}"'
     result = syscmd(argv_)
@@ -47,6 +57,16 @@ def get_total_bitrate(path) -> float:
 
 def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_enchancment_gain=False, uhd_model=False,
                     crop_string=''):
+    """
+    Returns the VMAF score of the video
+    :param distorted_path: path to the distorted video
+    :param in_chunk: ChunkObject
+    :param phone_model:
+    :param disable_enchancment_gain:
+    :param uhd_model:
+    :param crop_string:
+    :return:
+    """
     links = [
         ['https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1.json', 'vmaf_4k_v0.6.1.json'],
         ['https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1.json', 'vmaf_v0.6.1.json'],
@@ -110,7 +130,7 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
 def get_video_ssim(distorted_path, in_chunk=None, print_output=False, get_db=False, crop_string=''):
     if not os.path.exists(in_chunk.path) or not os.path.exists(distorted_path):
         raise FileNotFoundError(f"File {in_chunk.path} or {distorted_path} does not exist")
-    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk, crop_string=crop_string, bit_depth=10)
+    null_ = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=in_chunk, crop_string=crop_string)
 
     null_ += f" | ffmpeg -hide_banner -i - -i {distorted_path} -filter_complex ssim -f null -"
 
@@ -264,7 +284,6 @@ def get_image_vmaf_score(refrence_img_path, distorted_img_path):
 
 
 def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
-    sob = ''
     if in_chunk is None and path is None:
         raise ValueError("Either in_chunk or path must be set")
     if in_chunk is None and path is not None:
@@ -274,7 +293,7 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
 
     sob = f'ffmpeg {in_chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -'
 
-    result_string = syscmd(sob, "utf8")
+    result_string = syscmd(sob)
 
     try:
         # [Parsed_cropdetect_0 @ 0x557cd612b6c0] x1:191 x2:1728 y1:0 y2:799 w:1536 h:800 x:192 y:0 pts:100498 t:4.187417 limit:0.094118 crop=1536:800:192:0

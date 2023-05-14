@@ -1,9 +1,8 @@
 from tqdm.contrib.concurrent import process_map
 
-from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
-from hoeEncode.bitrateAdapt.tests.TestUtil import get_test_scenes
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
+from hoeEncode.experiments.TestUtil import get_test_scenes
 from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
@@ -21,7 +20,7 @@ if __name__ == '__main__':
 
     input_file = '/mnt/sda1/Animation.mkv'
     print('Preparing scenes for test file and using one')
-    scenes = get_test_scenes(input_file, '/hoeEncode/bitrateAdapt/animation.json')
+    scenes = get_test_scenes('/hoeEncode/bitrateAdapt/animation.json')
 
     sequence_lenght = 5
     sequence_start = 0

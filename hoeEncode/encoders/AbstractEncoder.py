@@ -21,7 +21,7 @@ class AbstractEncoder(ABC):
     passes: int = 2
     crop_string: str = ""
     output_path: str
-    speed = 3
+    speed = 4
     first_pass_speed = 8
     svt_grain_synth = 10
     threads = 1
@@ -31,6 +31,9 @@ class AbstractEncoder(ABC):
     qm_min = 8
     qm_max = 15
     film_grain_denoise: (0 | 1) = 1
+    max_bitrate = 0
+
+    running_on_celery = False
 
     def eat_job_config(self, job: EncoderJob, config: EncoderConfigObject):
         self.update(
@@ -144,12 +147,19 @@ class AbstractEncoder(ABC):
 
             stats.time_encoding = time.time() - start
 
-            if not os.path.exists(self.output_path):
+            if not os.path.exists(self.output_path) or os.path.getsize(self.output_path) < 100:
                 stats.status = EncodeStatus.FAILED
-                raise Exception('FATAL: ENCODE FAILED ' + str(out))
-            if os.path.getsize(self.output_path) < 100:
-                stats.status = EncodeStatus.FAILED
-                raise Exception('FATAL: ENCODE FAILED ' + str(out))
+                print('Encode command failed, output:')
+                for o in out:
+                    # check for string
+                    if isinstance(o, str):
+                        o = o.replace('\x08', '')
+                        print(o)
+                print('Commands: ')
+                for c in self.get_encode_commands():
+                    print(c)
+
+                raise Exception('FATAL: ENCODE FAILED FILE NOT FOUND OR TOO SMALL')
 
             stats.status = EncodeStatus.DONE
 

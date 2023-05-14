@@ -22,14 +22,8 @@ def create_chunk_ffmpeg_pipe_command(filter_graph="", start_frame=0, end_frame=0
            f" -strict -1 {filter_graph} -f yuv4mpegpipe - "
 
 
-def create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=None, crop_string='',
-                                                 bit_depth: (8 | 10) = 8):
-    end_command = f"ffmpeg -v error -nostdin {in_chunk.get_ss_ffmpeg_command_pair()}"
-
-    if bit_depth == 10:
-        end_command += f"-pix_fmt yuv420p10le "
-    else:
-        end_command += f"-pix_fmt yuv420p "
+def create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=None, crop_string=''):
+    end_command = f"ffmpeg -v error -nostdin {in_chunk.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
 
     if not '-vf' in crop_string and not crop_string == '':
         crop_string = f'-vf {crop_string}'

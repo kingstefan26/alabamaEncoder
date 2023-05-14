@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 import pickle
 import random
@@ -47,11 +46,11 @@ def find_lowest_x(x_list: List[float], y_list: List[float]) -> float:
 
 class AutoGrain:
 
-    def __init__(self, **kwargs):
-        self.encoded_scene_path = kwargs.get("test_file_path")
-        self.chunk = kwargs.get("chunk")
-        self.crf = kwargs.get("crf", 13)
-        self.bitrate = kwargs.get("bitrate", None)
+    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13):
+        self.encoded_scene_path = test_file_path
+        self.chunk = chunk
+        self.crf = crf
+        self.bitrate = bitrate
 
     keep_avifs = False  # keep the avif's after we're done measuring their stats
     remove_files_after_use = True  # don't keep the png's since they can get big
@@ -76,9 +75,9 @@ class AutoGrain:
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
             cvmand = f"ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 " + ref_png
-            syscmd(cvmand)
+            out = syscmd(cvmand)
             if not os.path.exists(ref_png):
-                raise Exception("Could not create reference png")
+                raise Exception("Could not create reference png: " + out)
 
         avif_enc.update(in_path=ref_png)
 
@@ -110,7 +109,7 @@ class AutoGrain:
             if not self.keep_avifs:
                 os.remove(avif_enc.output_path)
 
-            logging.debug(f"tested grain {grain}")
+            print(f"grain {grain} -> {rd.butter} butteraugli")
             results.append(rd)
 
         if self.remove_files_after_use:
@@ -120,7 +119,7 @@ class AutoGrain:
         return results
 
     def get_ideal_grain_butteraugli(self) -> int:
-        print("getting ideal grain for butteraugli")
+        print("getting ideal grain using butteraugli")
         start = time.time()
 
         if not doesBinaryExist('butteraugli'):
@@ -132,7 +131,7 @@ class AutoGrain:
         ideal_grain = find_lowest_x([point.grain for point in runs],
                                     [point.butter for point in runs])
 
-        logging.debug(f"ideal grain is {ideal_grain}, in {time.time() - start} seconds")
+        print(f"ideal grain is {ideal_grain}, in {int(time.time() - start)} seconds")
         return int(ideal_grain)
 
 
@@ -141,12 +140,17 @@ def wrapper(obj):
 
 
 def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkSequence,
-                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=3, bitrate=-1) -> int:
+                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=6, bitrate=-1, crf=20) -> int:
     if cache_filename is not None and os.path.exists(cache_filename):
         return pickle.load(open(cache_filename, "rb"))
 
     if not os.path.exists(temp_folder):
         raise Exception(f"temp_folder {temp_folder} does not exist")
+
+    # turn temp folder into a full path
+    temp_folder = os.path.abspath(temp_folder)
+    # make /adapt/grain dir
+    os.makedirs(f'{temp_folder}/adapt/grain', exist_ok=True)
 
     if input_file is None:
         raise Exception("input_file is required")
@@ -156,7 +160,10 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
     # create a copy of the object, so it doesn't cause trouble
     scenes = copy.deepcopy(scenes)
 
-    logging.info('starting autograin test')
+    print('starting autograin test')
+
+    # bases on length, remove every x scene from the list so its shorter
+    scenes.chunks = scenes.chunks[::int(len(scenes.chunks) / 10)]
 
     # pick random x scenes from the list
     random.seed(scene_pick_seed)
@@ -169,12 +176,12 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
     # create the autograin objects
     if bitrate == -1:
         autograin_objects = [AutoGrain(chunk=chunk,
-                                       test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
-                                       crf=20)
+                                       test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
+                                       crf=crf)
                              for chunk in chunks_for_processing]
     else:
         autograin_objects = [AutoGrain(chunk=chunk,
-                                       test_file_path=f'{temp_folder}{chunks_for_processing.index(chunk)}',
+                                       test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
                                        bitrate=bitrate)
                              for chunk in chunks_for_processing]
 
@@ -186,7 +193,7 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
         p.join()
 
     # get the results
-    logging.info(f"for {random_pick} random scenes, the average ideal grain is {int(mean(results))}")
+    print(f"for {random_pick} random scenes, the average ideal grain is {int(mean(results))}")
     if cache_filename is not None:
         pickle.dump(int(mean(results)), open(cache_filename, "wb"))
     return int(mean(results))

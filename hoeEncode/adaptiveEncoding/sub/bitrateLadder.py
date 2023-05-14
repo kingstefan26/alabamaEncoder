@@ -6,6 +6,7 @@ import os
 import pickle
 import random
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.pool import ThreadPool
 from typing import List
 
@@ -40,8 +41,14 @@ class AutoBitrateLadder:
         self.chunk_sequence = chunk_sequence
         self.config: EncoderConfig = config
 
-    random_pick_count = 5
-    num_probes = 3
+        chunks_copy: List[ChunkObject] = copy.deepcopy(self.chunk_sequence.chunks)
+        chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2):int(len(chunks_copy) * 0.8)]
+        random.shuffle(chunks_copy)
+        chunks = chunks_copy[:self.random_pick_count]
+        self.chunks: List[ChunkObject] = copy.deepcopy(chunks)
+
+    random_pick_count = 7
+    num_probes = 4
     max_bitrate = 4000
     simultaneous_probes = 3
 
@@ -83,38 +90,65 @@ class AutoBitrateLadder:
         point2 = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))
 
         # linear interpolation to find the bitrate that gives us the target vmaf
-        best_inter = point1[0] + (point2[0] - point1[0]) * (self.config.vmaf - point1[1]) / (point2[1] - point1[1])
-        if best_inter > self.max_bitrate:
-            best_inter = self.max_bitrate
+        # best_inter = point1[0] + (point2[0] - point1[0]) * (self.config.vmaf - point1[1]) / (point2[1] - point1[1])
+        # if best_inter > self.max_bitrate:
+        #     best_inter = self.max_bitrate
+        #
+        # if best_inter < 0:
+        #     print(f'{chunk.log_prefix()}vmaf linar interpolation failed, using most fitting point {point1[0]}')
+        #     best_inter = point1[0]
 
-        if best_inter < 0:
-            print(f'{chunk.log_prefix()} vmaf linar interpolation failed, using most fitting point {point1[0]}')
-            best_inter = point1[0]
+        best_inter = point1[0]
 
         print(f'[{chunk.chunk_index}] best interpolated bitrate {best_inter} kbps')
         return int(best_inter)
 
-    def get_target_ssimdb(self, bitrate: int, random_chunks: List[ChunkObject]):
+    def get_target_ssimdb(self, bitrate: int):
         """
         Since in the AutoBitrate we are targeting ssim dB values, we need to somehow translate vmaf to ssim dB
         :param bitrate: bitrate in kbps
         :return: target ssimdb
         """
+        print(f'Getting target ssim dB for {bitrate} kbps')
+        cache_path = f'{self.config.temp_folder}/adapt/bitrate/ssim_translate/{bitrate}.pl'
+        if os.path.exists(cache_path):
+            try:
+                target_ssimdb = pickle.load(open(cache_path, 'rb'))
+                print(f'cached ssim dB for {bitrate}: {target_ssimdb}dB')
+                return target_ssimdb
+            except:
+                pass
         dbs = []
-        for chunk in random_chunks:
-            encoder = AbstractEncoderSvtenc()
-            encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
-            encoder.update(speed=6, passes=3, svt_grain_synth=self.config.grain_synth,
-                           rate_distribution=RateDistribution.VBR, threads=1)
-            encoder.bias_pct = 90
-            encoder.update(bitrate=bitrate)
-            encoder.run(timeout_value=300)
-            (ssim, ssim_db) = get_video_ssim(chunk.chunk_path, chunk, get_db=True,
-                                             crop_string=self.config.crop_string)
-            print(f'[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb')
-            dbs.append(ssim_db)
+        os.makedirs(f'{self.config.temp_folder}/adapt/bitrate/ssim_translate', exist_ok=True)
 
-        return sum(dbs) / len(dbs)
+        with ThreadPoolExecutor(max_workers=self.simultaneous_probes) as executor:
+            for chunk in self.chunks:
+                executor.submit(self.calulcate_ssimdb, bitrate, chunk, dbs)
+            executor.shutdown()
+
+        target_ssimdb = sum(dbs) / len(dbs)
+
+        print(f'Avg ssim dB for {bitrate}: {target_ssimdb}dB')
+        try:
+            pickle.dump(target_ssimdb, open(cache_path, 'wb'))
+        except:
+            pass
+        return target_ssimdb
+
+    def calulcate_ssimdb(self, bitrate, chunk, dbs):
+        encoder = AbstractEncoderSvtenc()
+        encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        encoder.update(speed=6, passes=3, svt_grain_synth=self.config.grain_synth,
+                       rate_distribution=RateDistribution.VBR, threads=1)
+        encoder.update(
+            output_path=f'{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}.ivf')
+        encoder.bias_pct = 90
+        encoder.update(bitrate=bitrate)
+        encoder.run(timeout_value=300)
+        (ssim, ssim_db) = get_video_ssim(encoder.output_path, chunk, get_db=True,
+                                         crop_string=self.config.crop_string)
+        print(f'[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb')
+        dbs.append(ssim_db)
 
     def get_best_bitrate(self, cache_file: str = 'cache.pt', skip_cache=False) -> int:
         """
@@ -138,17 +172,10 @@ class AutoBitrateLadder:
         shutil.rmtree(probe_folder, ignore_errors=True)
         os.makedirs(probe_folder)
 
-        # binary search on three random chunks (in the middle) to find a bitrate that gives us the target vmaf
-        chunks_copy: List[ChunkObject] = copy.deepcopy(self.chunk_sequence.chunks)
-        chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2):int(len(chunks_copy) * 0.8)]
-        random.shuffle(chunks_copy)
-        chunks = chunks_copy[:self.random_pick_count]
-        chunks: List[ChunkObject] = copy.deepcopy(chunks)
-
-        print(f'Probing chunks {" ".join([str(chunk.chunk_index) for chunk in chunks])}')
+        print(f'Probing chunks: {" ".join([str(chunk.chunk_index) for chunk in self.chunks])}')
 
         # add proper paths
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate(self.chunks):
             chunk.chunk_index = i
             chunk.chunk_path = f'{probe_folder}{i}.ivf'
 
@@ -157,7 +184,7 @@ class AutoBitrateLadder:
         # to do that for every chunk and avg the bitrate
         chunk_runs_bitrates = []
         pool = ThreadPool(processes=self.simultaneous_probes)
-        for result in pool.imap_unordered(self.best_bitrate_single, chunks):
+        for result in pool.imap_unordered(self.best_bitrate_single, self.chunks):
             chunk_runs_bitrates.append(result)
         pool.close()
         pool.join()
@@ -166,15 +193,71 @@ class AutoBitrateLadder:
 
         print(f'Best avg bitrate: {avg_best} kbps')
 
-        print(f'Translating to ssimdb')
-        target_ssimdb = self.get_target_ssimdb(avg_best, chunks)
-        print(f'Target ssimdb: {target_ssimdb}')
-        self.config.ssim_db_target = target_ssimdb
+        if self.config.crf_bitrate_mode:
+            print(f'Using crf bitrate mode, finding crf that matches the target bitrate')
+            target_crf = self.get_target_crf(avg_best)
+            print(f'Avg crf for {avg_best}Kpbs: {target_crf}')
+            self.config.crf = target_crf
+            self.config.max_bitrate = int(avg_best * 1.6)
+        else:
+            print(f'Translating bitrate to ssim dB for quality targeting')
+            target_ssimdb = self.get_target_ssimdb(avg_best)
+
+            self.config.ssim_db_target = target_ssimdb
+
+        self.config.bitrate = avg_best
 
         try:
-            print('Saving cache file')
+            print('Saving bitrate ladder detection cache file')
             pickle.dump(avg_best, open(probe_folder + cache_file, "wb"))
         except:
             print('Failed to save cache file for best average bitrate')
 
         return avg_best
+
+    def get_target_crf(self, bitrate: int):
+        crfs = []
+        for chunk in self.chunks:
+            encoder = AbstractEncoderSvtenc()
+            encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+            encoder.update(speed=4, passes=1, svt_grain_synth=self.config.grain_synth,
+                           rate_distribution=RateDistribution.CQ, threads=os.cpu_count())
+
+            probe_folder = f'{self.config.temp_folder}/adapt/bitrate/'
+            os.makedirs(probe_folder, exist_ok=True)
+
+            max_probes = 4
+            left = 0
+            right = 40
+            num_probes = 0
+
+            runs = []
+
+            while left <= right and num_probes < max_probes:
+                num_probes += 1
+                mid = (left + right) // 2
+                encoder.update(crf=mid, output_path=f'{probe_folder}{chunk.chunk_index}_{mid}.ivf')
+                stats = encoder.run(timeout_value=500)
+
+                print(f'[{chunk.chunk_index}] {mid} crf -> {stats.bitrate} K')
+
+                runs.append((mid, stats.bitrate))
+
+                if stats.bitrate > bitrate:
+                    left = mid + 1
+                else:
+                    right = mid - 1
+
+            # find two points that are closest to the target bitrate
+            point1 = min(runs, key=lambda x: abs(x[1] - bitrate))
+            runs.remove(point1)
+            point2 = min(runs, key=lambda x: abs(x[1] - bitrate))
+
+            # linear interpolation to find the bitrate that gives us the target bitrate
+            best_inter = point1[0] + (point2[0] - point1[0]) * (bitrate - point1[1]) / (
+                    point2[1] - point1[1])
+            best_inter = int(best_inter)
+            print(f'[{chunk.chunk_index}] {best_inter} crf -> {bitrate} bitrate')
+            crfs.append(best_inter)
+
+        return int(sum(crfs) / len(crfs))

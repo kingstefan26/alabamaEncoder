@@ -8,7 +8,7 @@ from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 
 class VideoConcatenator:
     mux_audio = True
-    nessesary = ['ffmpeg', 'mkvmerge']
+    nessesary = ['ffmpeg']
 
     def __init__(self, files: List[str] = None, output: str = None, file_with_audio: str = None,
                  audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on'):
@@ -64,16 +64,14 @@ class VideoConcatenator:
         if self.mux_audio:
             print('Muxing audio into the output')
             commands = [
-                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" {cuttoff} -map 0:v -map 1:a {self.audio_param_override} -movflags +faststart -c:v copy temp_{self.output}',
-                f'mkvmerge -o {self.output} temp_{self.output}',
-                f'rm temp_{self.output} {concat_file_path}'
+                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" {cuttoff} -map 0:v -map 1:a -map 1:s {self.audio_param_override} -movflags +faststart -c:v copy {self.output}',
+                f'rm {concat_file_path}'
             ]
         else:
             print('Not muxing audio')
             commands = [
-                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart temp_{self.output}',
-                f'mkvmerge -o {self.output} temp_{self.output}',
-                f'rm temp_{self.output} {concat_file_path}'
+                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart {self.output}',
+                f'rm {self.output} {concat_file_path}'
             ]
 
         for command in commands:
@@ -86,7 +84,7 @@ def test():
     temp_dir = tempfile.mkdtemp()
     for i in range(20):
         with open(os.path.join(temp_dir, f'{i}.ivf'), 'w') as f:
-            pass
+            f.write(' ')
 
     # test the file discovery
     vc = VideoConcatenator()
@@ -99,7 +97,7 @@ def test():
     os.mkdir(sub_dir)
     for i in range(20):
         with open(os.path.join(sub_dir, f'{i}.ivf'), 'w') as f:
-            pass
+            f.write(' ')
 
     # there still should be 20 files
     vc = VideoConcatenator()
@@ -109,6 +107,7 @@ def test():
 
     # remove temp dir
     os.system(f'rm -rf {temp_dir}')
+
 
 if __name__ == '__main__':
     test()

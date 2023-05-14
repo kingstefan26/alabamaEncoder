@@ -3,6 +3,7 @@ from abc import abstractmethod
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 
+
 # abstract class
 class CommandObject:
     def __init__(self):
@@ -18,6 +19,7 @@ class CommandObject:
         self.job = job
         self.chunk = job.chunk
         self.config = config
+
 
 def run_command(command: CommandObject):
     command.run()
