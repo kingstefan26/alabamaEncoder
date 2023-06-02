@@ -1,9 +1,9 @@
 import shutil
 
-from tqdm.contrib.concurrent import process_map
-
 from hoeEncode.bitrateAdapt.AutoBitrate import ConvexEncoder
 from hoeEncode.bitrateAdapt.tests.TestUtil import get_test_scenes, path_setup
+from tqdm.contrib.concurrent import process_map
+
 from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob

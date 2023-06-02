@@ -2,8 +2,7 @@ import os
 import tempfile
 from typing import List
 
-from hoeEncode.ffmpegUtil import doesBinaryExist, get_frame_count
-from hoeEncode.utils.getvideoframerate import get_video_frame_rate
+from hoeEncode.ffmpegUtil import doesBinaryExist, check_for_invalid, get_video_lenght
 
 
 class VideoConcatenator:
@@ -11,11 +10,13 @@ class VideoConcatenator:
     nessesary = ['ffmpeg']
 
     def __init__(self, files: List[str] = None, output: str = None, file_with_audio: str = None,
-                 audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on'):
+                 audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on', start_offset=-1, end_offset=-1):
         self.files = files
         self.output = output
         self.file_with_audio = file_with_audio
         self.audio_param_override = audio_param_override
+        self.start_offset = start_offset
+        self.end_offset = end_offset
         for n in self.nessesary:
             if not doesBinaryExist(n):
                 print(f'Could not find {n} in PATH')
@@ -34,7 +35,7 @@ class VideoConcatenator:
 
         self.files = files
 
-    def concat_videos(self, do_cuttoff=False):
+    def concat_videos(self):
         if not self.output:
             print('If muxing please provide an output path')
             return
@@ -49,30 +50,40 @@ class VideoConcatenator:
             for file in self.files:
                 f.write(f'file \'{file}\'\n')
 
-        total_duration = 0
-        for file in self.files:
-            total_duration += get_frame_count(file)
+        vid_output = self.output + '.videoonly.mkv'
+        concat_command = f'ffmpeg -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy "{vid_output}"'
 
-        cuttoff = ''
-        if do_cuttoff:
-            cuttoff = total_duration / get_video_frame_rate(self.files[0])
-            print(f'Cuttoff is {cuttoff}')
-            print(f'Frame rate is {get_video_frame_rate(self.files[0])}')
-            print(f'Total duration is {total_duration} frames')
-            cuttoff = f'-t {cuttoff}'
+        print('Concating Video')
+        print(f'running: {concat_command}')
+        os.system(concat_command)
+        if check_for_invalid(vid_output):
+            print('Invalid file found, exiting')
+            return
 
         if self.mux_audio:
+
+            print('Getting video length')
+            start_offset_command = f'-ss {self.start_offset}' if self.start_offset != -1 else ''
+            end_offset_command = f'-t {get_video_lenght(vid_output)}' if self.end_offset != -1 else ''
+
+            print('Encoding a audio track')
+            audio_output = self.output + '.audioonly.mkv'
+            encode_audio = f'ffmpeg -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} {audio_output}'
+            print(f'running: {encode_audio}')
+            os.system(encode_audio)
+            if check_for_invalid(audio_output):
+                print('Invalid file found, exiting')
+                return
+
             print('Muxing audio into the output')
+
             commands = [
-                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -i "{self.file_with_audio}" {cuttoff} -map 0:v -map 1:a -map 1:s {self.audio_param_override} -movflags +faststart -c:v copy {self.output}',
-                f'rm {concat_file_path}'
+                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:v -map 1:a -map 2:s -movflags +faststart -c:v copy -c:a copy {self.output}'
+                , f'rm {concat_file_path} {vid_output} {audio_output}'
             ]
         else:
             print('Not muxing audio')
-            commands = [
-                f'ffmpeg -v error -f concat -safe 0 -i {concat_file_path} -c copy -movflags +faststart {self.output}',
-                f'rm {self.output} {concat_file_path}'
-            ]
+            commands = [f'mv {vid_output} {self.output}', f'rm {concat_file_path} {vid_output}']
 
         for command in commands:
             print('Running: ' + command)

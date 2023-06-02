@@ -4,6 +4,7 @@ import time
 
 from hoeEncode.bitrateAdapt.AutoGrain import AutoGrain
 from hoeEncode.bitrateAdapt.tests.TestUtil import get_test_scenes, get_a_chunk, path_setup
+
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
@@ -62,7 +63,7 @@ if __name__ == '__main__':
 
         enc = AbstractEncoderSvtenc()
         enc.eat_job_config(job, config)
-        enc.bias_pct = 1
+        enc.svt_bias_pct = 1
         enc.run()
 
         (ssim, ssim_db) = get_video_ssim(job.chunk.chunk_path, chunk, get_db=True)

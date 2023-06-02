@@ -2,8 +2,6 @@ import os
 import pickle
 import time
 
-from tqdm import tqdm
-
 from hoeEncode.adaptiveEncoding.util import get_probe_file_base
 from hoeEncode.encoders import EncoderConfig
 from hoeEncode.encoders.RateDiss import RateDistribution
@@ -13,7 +11,7 @@ from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 
 
 def get_ideal_bitrate(chunk: ChunkObject, config: EncoderConfig, convex_speed=10, show_rate_calc_log=False,
-                      complexity_clamp_down=0.90, complexity_clamp_up=2, clamp_complexity=True) -> int:
+                      clamp_complexity=True) -> int:
     """
     Gets the ideal bitrate for a chunk
     """
@@ -37,23 +35,14 @@ def get_ideal_bitrate(chunk: ChunkObject, config: EncoderConfig, convex_speed=10
 
         enc = AbstractEncoderSvtenc()
 
-        enc.update(speed=convex_speed,
-                   passes=1,
-                   temp_folder=config.temp_folder,
-                   chunk=chunk,
-                   svt_grain_synth=0,
-                   current_scene_index=chunk.chunk_index,
-                   output_path=test_probe_path,
-                   threads=1,
-                   crop_string=config.crop_string,
-                   bitrate=config.bitrate,
-                   rate_distribution=RateDistribution.VBR)
+        enc.update(speed=convex_speed, passes=1, temp_folder=config.temp_folder, chunk=chunk, svt_grain_synth=0,
+                   current_scene_index=chunk.chunk_index, output_path=test_probe_path, threads=1,
+                   crop_string=config.crop_string, bitrate=config.bitrate, rate_distribution=RateDistribution.VBR)
 
         enc.run(override_if_exists=False)
 
         try:
-            (ssim, ssim_db) = get_video_ssim(test_probe_path, chunk, get_db=True,
-                                             crop_string=config.crop_string)
+            (ssim, ssim_db) = get_video_ssim(test_probe_path, chunk, get_db=True, crop_string=config.crop_string)
         except Exception as e:
             print(f'Error calculating ssim for complexity rate estimation: {e}')
             # this happens when the scene is fully black, the best solution here is just setting the complexity to 0,
@@ -65,21 +54,19 @@ def get_ideal_bitrate(chunk: ChunkObject, config: EncoderConfig, convex_speed=10
 
         # Clamp the ratio to the complexity clamp
         if clamp_complexity:
-            ratio = max(min(ratio, 1 + complexity_clamp_up), 1 - complexity_clamp_down)
+            ratio = max(min(ratio, 1 + config.bitrate_overshoot), 1 - config.bitrate_undershoot)
 
         # Interpolate the ideal rate using the ratio
         ideal_rate = config.bitrate * ratio
         ideal_rate = int(ideal_rate)
 
         if show_rate_calc_log:
-            print(
-                f'{chunk.log_prefix()}===============\n'
-                f'{chunk.log_prefix()} encode rate: {config.bitrate}k/s\n'
-                f'{chunk.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {config.ssim_db_target})\n'
-                f'{chunk.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n'
-                f'{chunk.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n'
-                f'{chunk.log_prefix()}==============='
-            )
+            print(f'{chunk.log_prefix()}===============\n'
+                  f'{chunk.log_prefix()} encode rate: {config.bitrate}k/s\n'
+                  f'{chunk.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {config.ssim_db_target})\n'
+                  f'{chunk.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n'
+                  f'{chunk.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n'
+                  f'{chunk.log_prefix()}===============')
 
         try:
             pickle.dump(ideal_rate, open(cache_filename, 'wb'))
@@ -89,8 +76,7 @@ def get_ideal_bitrate(chunk: ChunkObject, config: EncoderConfig, convex_speed=10
     if ideal_rate == -1:
         raise Exception('ideal_rate is -1')
 
-    tqdm.write(
-        f'{chunk.log_prefix()}rate search took: {int(time.time() - rate_search_start)}s, ideal bitrate: {ideal_rate}'
-    )
+    config.log(
+        f'{chunk.log_prefix()}rate search took: {int(time.time() - rate_search_start)}s, ideal bitrate: {ideal_rate}')
 
     return int(ideal_rate)

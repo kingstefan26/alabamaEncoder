@@ -10,6 +10,7 @@ from hoeEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
 from hoeEncode.adaptiveEncoding.sub.grain import get_best_avg_grainsynth
 from hoeEncode.adaptiveEncoding.sub.param import AutoParam
 from hoeEncode.encoders import EncoderConfig
+from hoeEncode.encoders.Encoders import EncodersEnum
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 
 
@@ -26,32 +27,34 @@ def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, d
             pass
     else:
         start = time.time()
-        if do_bitrate_ladder:
-            ab = AutoBitrateLadder(chunk_sequence, config)
+        ab = AutoBitrateLadder(chunk_sequence, config)
 
+        if do_bitrate_ladder:
             ab.get_best_bitrate()
 
-        if config.convexhull and do_bitrate_ladder == False:
-            ab = AutoBitrateLadder(chunk_sequence, config)
+        if config.convexhull:
             config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)
 
-        if do_grain:
-            if config.crf_bitrate_mode:
-                config.grain_synth = get_best_avg_grainsynth(input_file=chunk_sequence.input_file,
-                                                             scenes=chunk_sequence,
-                                                             temp_folder=config.temp_folder,
-                                                             cache_filename=config.temp_folder + '/adapt/ideal_grain.pt',
-                                                             crf=config.crf,
-                                                             scene_pick_seed=2)
-            else:
-                config.grain_synth = get_best_avg_grainsynth(input_file=chunk_sequence.input_file,
-                                                             scenes=chunk_sequence,
-                                                             temp_folder=config.temp_folder,
-                                                             cache_filename=config.temp_folder + '/adapt/ideal_grain.pt',
-                                                             bitrate=config.bitrate,
-                                                             scene_pick_seed=2)
+            # if config.bitrate_adjust_mode == 'all':
+            #     ab.ration_bitrate(chunk_sequence)
 
-        if do_qm:
+        if do_grain and config.encoder.supports_grain_synth():
+            param = {
+                'input_file': chunk_sequence.input_file,
+                'scenes': chunk_sequence,
+                'temp_folder': config.temp_folder,
+                'cache_filename': config.temp_folder + '/adapt/ideal_grain.pt',
+                'scene_pick_seed': 2,
+                'video_filters': config.crop_string
+            }
+            if config.crf_bitrate_mode:
+                param['crf'] = config.crf
+            else:
+                param['bitrate'] = config.bitrate
+
+            config.grain_synth = get_best_avg_grainsynth(**param)
+
+        if do_qm and config.encoder == EncodersEnum.SVT_AV1:
             ab = AutoParam(chunk_sequence, config)
 
             best_qm = ab.get_best_qm()
@@ -64,4 +67,4 @@ def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, d
         time_taken = int(time.time() - start)
         print(f'Finished adaptive content analysis in {time_taken}s. Caching results')
 
-    return config
+    return config, chunk_sequence

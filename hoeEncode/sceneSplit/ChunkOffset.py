@@ -28,6 +28,7 @@ class ChunkObject:
         self.chunk_index = chunk_index
         self.chunk_path = ''
         self.chunk_done = False
+        self.ideal_bitrate = -1
 
     def __str__(self):
         return f"ChunkObject({self.first_frame_index}, {self.last_frame_index}, {self.path}, {self.framerate})"

@@ -15,7 +15,7 @@ def do_runs():
     zero_dbrate = -1
     for chroma_thing in [0, -2, -1]:
         print(f'\nRunning chroma thing {chroma_thing}')
-        svtenc.chroma_thing = chroma_thing
+        svtenc.svt_chroma_thing = chroma_thing
         svtenc.update(output_path=f'{test_env}chrm{chroma_thing}.ivf')
         if svtenc.rate_distribution != RateDistribution.VBR:
             return
@@ -72,8 +72,8 @@ if __name__ == '__main__':
         svtenc.update(crf=18, speed=4, passes=1, chunk=chunk, current_scene_index=0, threads=8,
                       crop_string=crope_stringe, svt_grain_synth=3)
         svtenc.keyint = -2
-        svtenc.chroma_thing = 0
-        svtenc.open_gop = False
+        svtenc.svt_chroma_thing = 0
+        svtenc.svt_open_gop = False
 
         print('\nCrf 18:')
         do_runs()
@@ -99,5 +99,5 @@ if __name__ == '__main__':
         svtenc.update(rate_distribution=RateDistribution.VBR, bitrate=2000, passes=3)
         print(f'\nVbr {svtenc.bitrate}:')
         svtenc.keyint = 999
-        svtenc.bias_pct = 50
+        svtenc.svt_bias_pct = 50
         do_runs()

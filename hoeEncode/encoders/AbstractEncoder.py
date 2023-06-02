@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 from abc import abstractmethod, ABC
@@ -7,12 +8,16 @@ from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.RateDiss import RateDistribution
 from hoeEncode.encoders.encodeStats import EncodeStats, EncodeStatus
-from hoeEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate
+from hoeEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate, doesBinaryExist
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
+from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 from hoeEncode.utils.execute import syscmd
 
 
 class AbstractEncoder(ABC):
+    """
+    owo
+    """
     chunk: ChunkObject = None
     temp_folder: str
     bitrate: int = None
@@ -25,17 +30,36 @@ class AbstractEncoder(ABC):
     first_pass_speed = 8
     svt_grain_synth = 10
     threads = 1
-    tune = 0
     rate_distribution: RateDistribution = RateDistribution.CQ  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
     qm_enabled = False
     qm_min = 8
     qm_max = 15
     film_grain_denoise: (0 | 1) = 1
     max_bitrate = 0
+    content_type = 'live_action'
+    config: EncoderConfigObject = None
+
+    bit_override = 10
+
+    svt_bias_pct = 50  # 100 vbr like, 0 cbr like
+    svt_open_gop = True
+    keyint: int = 9999
+    svt_sdc: int = 0
+    svt_chroma_thing = -2
+    svt_supperres_mode = 0
+    svt_superres_denom = 8
+    svt_superres_kf_denom = 8
+    svt_superres_qthresh = 43
+    svt_superres_kf_qthresh = 43
+    svt_sframe_interval = 0
+    svt_sframe_mode = 2
+    svt_cli_path = 'SvtAv1EncApp'
+    svt_tune = 0  # tune for PsychoVisual Optimization by default
 
     running_on_celery = False
 
     def eat_job_config(self, job: EncoderJob, config: EncoderConfigObject):
+        self.config = copy.deepcopy(config)
         self.update(
             chunk=job.chunk,
             temp_folder=config.temp_folder,
@@ -51,7 +75,8 @@ class AbstractEncoder(ABC):
             threads=config.threads,
             qm_enabled=config.qm_enabled,
             qm_min=config.qm_min,
-            qm_max=config.qm_max
+            qm_max=config.qm_max,
+            content_type=config.content_type
         )
 
     def update(self, **kwargs):
@@ -59,7 +84,7 @@ class AbstractEncoder(ABC):
         Update the encoder with new values, with type checking
         """
         if 'chunk' in kwargs:
-            self.chunk = kwargs.get('chunk')
+            self.chunk: ChunkObject = kwargs.get('chunk')
             if not isinstance(self.chunk, ChunkObject):
                 raise Exception('FATAL: chunk must be a ChunkObject')
         if 'temp_folder' in kwargs:
@@ -107,8 +132,8 @@ class AbstractEncoder(ABC):
             if not isinstance(self.threads, int):
                 raise Exception('FATAL: threads must be an int')
         if 'tune' in kwargs:
-            self.tune = kwargs.get('tune')
-            if not isinstance(self.tune, int):
+            self.svt_tune = kwargs.get('tune')
+            if not isinstance(self.svt_tune, int):
                 raise Exception('FATAL: tune must be an int')
         if 'rate_distribution' in kwargs:
             self.rate_distribution = kwargs.get('rate_distribution')
@@ -126,6 +151,10 @@ class AbstractEncoder(ABC):
             self.qm_max = kwargs.get('qm_max')
             if not isinstance(self.qm_max, int):
                 raise Exception('FATAL: qm_max must be an int')
+        if 'content_type' in kwargs:
+            self.content_type = kwargs.get('content_type')
+            if not isinstance(self.content_type, str):
+                raise Exception('FATAL: content_type must be an str')
 
     def run(self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False) -> EncodeStats:
         """
@@ -136,12 +165,42 @@ class AbstractEncoder(ABC):
         """
         stats = EncodeStats()
 
+        for command in self.get_needed_path():
+            if not doesBinaryExist(command):
+                raise Exception(f'Could not find {command} in path')
+
         if os.path.exists(self.output_path) and not override_if_exists:
             stats.status = EncodeStatus.DONE
         else:
+
+            if self.chunk.path is None or self.chunk.path == '':
+                raise Exception('FATAL: output_path is None or empty')
+
+            if not os.path.exists(self.chunk.path):
+                raise Exception('FATAL: input file does not exist')
+            if self.chunk is None:
+                raise Exception('FATAL: chunk is None')
+            if self.chunk.chunk_index is None:
+                raise Exception('FATAL: current_scene_index is None')
+
+            original_path = copy.deepcopy(self.output_path)
+
+            if self.running_on_celery:
+                temp_celery_path = '/tmp/celery/'
+                os.makedirs(temp_celery_path, exist_ok=True)
+                self.output_path = f'{temp_celery_path}{self.chunk.chunk_index}{self.get_chunk_file_extension()}'
+
             out = []
             start = time.time()
-            for command in self.get_encode_commands():
+            commands = self.get_encode_commands()
+
+            if self.running_on_celery:
+                commands.append(f'cp {self.output_path} {original_path}')
+                commands.append(f'rm {self.output_path} {self.output_path}.stat')
+
+            self.output_path = original_path
+
+            for command in commands:
                 output = syscmd(command, timeout_value=timeout_value)
                 out.append(output)
 
@@ -151,7 +210,6 @@ class AbstractEncoder(ABC):
                 stats.status = EncodeStatus.FAILED
                 print('Encode command failed, output:')
                 for o in out:
-                    # check for string
                     if isinstance(o, str):
                         o = o.replace('\x08', '')
                         print(o)
@@ -178,3 +236,21 @@ class AbstractEncoder(ABC):
         :return: A list of cli commands to encode, according to class fields
         """
         pass
+
+    @abstractmethod
+    def get_needed_path(self) -> List[str]:
+        """
+        return needed path items for encoding eg `aomenc` or `SvtAv1EncApp`
+        """
+        return ['ffmpeg', 'ffprobe']
+
+    def get_ffmpeg_pipe_command(self) -> str:
+        """
+        return cli command that pipes a y4m stream into stdout
+        """
+        return create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk,
+                                                            crop_string=self.crop_string,
+                                                            bit_depth=self.bit_override)
+
+    def get_chunk_file_extension(self) -> str:
+        return '.mkv'

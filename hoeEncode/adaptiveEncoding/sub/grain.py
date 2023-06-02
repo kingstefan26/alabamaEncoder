@@ -46,11 +46,12 @@ def find_lowest_x(x_list: List[float], y_list: List[float]) -> float:
 
 class AutoGrain:
 
-    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13):
+    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13, vf=''):
         self.encoded_scene_path = test_file_path
         self.chunk = chunk
         self.crf = crf
         self.bitrate = bitrate
+        self.vf = vf
 
     keep_avifs = False  # keep the avif's after we're done measuring their stats
     remove_files_after_use = True  # don't keep the png's since they can get big
@@ -61,6 +62,9 @@ class AutoGrain:
         if os.path.exists(test_cache_filename):
             # read the file and return
             return pickle.load(open(test_cache_filename, "rb"))
+
+        if 'vf' not in self.vf and self.vf != '':
+            self.vf = f'-vf {self.vf}'
 
         avif_enc = AvifEncoderSvtenc()
 
@@ -74,9 +78,11 @@ class AutoGrain:
         # Create a reference png
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
-            cvmand = f"ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 " + ref_png
+            cvmand = f"ffmpeg -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 {ref_png}"
+
             out = syscmd(cvmand)
             if not os.path.exists(ref_png):
+                print(cvmand)
                 raise Exception("Could not create reference png: " + out)
 
         avif_enc.update(in_path=ref_png)
@@ -140,7 +146,8 @@ def wrapper(obj):
 
 
 def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkSequence,
-                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=6, bitrate=-1, crf=20) -> int:
+                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=6, bitrate=-1, crf=20,
+                            video_filters: str = '') -> int:
     if cache_filename is not None and os.path.exists(cache_filename):
         return pickle.load(open(cache_filename, "rb"))
 
@@ -177,12 +184,14 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
     if bitrate == -1:
         autograin_objects = [AutoGrain(chunk=chunk,
                                        test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
-                                       crf=crf)
+                                       crf=crf,
+                                       vf=video_filters)
                              for chunk in chunks_for_processing]
     else:
         autograin_objects = [AutoGrain(chunk=chunk,
                                        test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
-                                       bitrate=bitrate)
+                                       bitrate=bitrate,
+                                       vf=video_filters)
                              for chunk in chunks_for_processing]
 
     # using multiprocessing to do the experiments on all the scenes

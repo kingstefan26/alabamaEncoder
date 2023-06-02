@@ -114,7 +114,7 @@ def get_video_vmeth(distorted_path, in_chunk=None, phone_model=False, disable_en
         lafi = f"-lavfi libvmaf=model_path={links[2][1]}"
 
     null_ += f' -i {distorted_path} {lafi} -f null - '
-    result_string = syscmd(null_, "utf8")
+    result_string = syscmd(null_)
     try:
         vmafRegex = re.compile(r'VMAF score: ([0-9]+\.[0-9]+)')
         match = vmafRegex.search(result_string)

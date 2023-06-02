@@ -40,8 +40,7 @@ def at_exit(loop):
     loop.create_task(cancel_all_tasks())
 
 
-async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigObject, celeryless_encoding: bool,
-                         multiprocess_workers: int, chunk_order='sequential'):
+async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigObject, chunk_order='sequential'):
     command_objects = []
 
     for chunk in tqdm(chunk_list.chunks, desc='Preparing scenes', unit='scene'):
@@ -65,6 +64,8 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
         command_objects.sort(key=lambda x: x.job.chunk.length, reverse=True)
     elif chunk_order == 'sequential':
         pass
+    elif chunk_order == 'sequential_reverse':
+        command_objects.reverse()
     else:
         raise ValueError(f'Invalid chunk order: {chunk_order}')
 
@@ -73,17 +74,24 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
 
     print(f'Starting encoding of {len(command_objects)} scenes')
 
-    if encdr_config.dry_run:
-        for command in command_objects:
-            print(command.get_dry_run())
+    await execute_commands(encdr_config.use_celery, command_objects, encdr_config.multiprocess_workers)
 
-    elif len(command_objects) < 10:
+
+async def execute_commands(use_celery, command_objects, multiprocess_workers, override_sequential=True):
+    """
+    Execute a list of commands in parallel
+    :param use_celery: execute on a celery cluster
+    :param command_objects: objects with a `run()` method to execute
+    :param multiprocess_workers: number of workers in multiprocess mode, -1 for auto adjust
+    :param override_sequential: if true, will run sequentially if there are less than 10 scenes
+    """
+    if len(command_objects) < 10 and override_sequential == True:
         print('Less than 10 scenes, running encodes sequentially')
 
         for command in command_objects:
             run_command(command)
 
-    elif celeryless_encoding:
+    elif not use_celery:
 
         total_scenes = len(command_objects)
         futures = []
@@ -104,12 +112,7 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
                 # Start new tasks if there are available slots
                 while len(futures) < max_concurrent_jobs and completed_count + len(futures) < total_scenes:
                     command = command_objects[completed_count + len(futures)]
-                    futures.append(
-                        loop.run_in_executor(
-                            executor,
-                            command.run
-                        )
-                    )
+                    futures.append(loop.run_in_executor(executor, command.run))
 
                 # Wait for any task to complete
                 done, _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
@@ -138,14 +141,13 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
                     if new_max != max_concurrent_jobs:
                         max_concurrent_jobs = new_max
                         tqdm.write(
-                            f"CPU load: {(cpu_utilization * 100):.2f}%, adjusting workers to {max_concurrent_jobs} "
-                        )
+                            f"CPU load: {(cpu_utilization * 100):.2f}%, adjusting workers to {max_concurrent_jobs} ")
     else:
         for a in command_objects:
             a.run_on_celery = True
 
         results = []
-        with tqdm(total=len(command_objects), desc='Encoding', unit='scene', dynamic_ncols=True) as pbar:
+        with tqdm(total=len(command_objects), desc='Encoding', unit='scene', dynamic_ncols=True, smoothing=0) as pbar:
             for command in command_objects:
                 result = run_command_on_celery.delay(command)
 
@@ -153,7 +155,7 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
 
             while True:
                 num_workers = len(app.control.inspect().active_queues())
-                if num_workers < 0:
+                if num_workers is None or num_workers < 0:
                     print('No workers available, waiting for workers to become available')
                 if all(result.ready() for result in results):
                     break
@@ -217,6 +219,7 @@ def check_chunk(c: ChunkObject):
     expected_frame_count = c.last_frame_index - c.first_frame_index
 
     if actual_frame_count != expected_frame_count:
+        tqdm.write(f'chunk {c.chunk_path} has the wrong number of frames 🤕')
         return c.chunk_path
 
     c.chunk_done = True
@@ -283,68 +286,92 @@ def main():
     parser.add_argument('input', type=str, help='Input video file')
     parser.add_argument('output', type=str, help='Output video file')
     parser.add_argument('temp_dir', help='Temp directory', nargs='?', default='temp/', type=str, metavar='temp_dir')
+
     parser.add_argument('--audio', help='Mux audio', action='store_true', default=True)
+
     parser.add_argument('--audio_params', help='Audio params', type=str,
                         default='-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1')
+
     parser.add_argument('--celery', help='Encode on a celery cluster, that is at localhost', action='store_true',
                         default=False)
-    parser.add_argument('--dry', help='Dry run, dont actually encode', action='store_true', default=False)
+
     parser.add_argument('--autocrop', help='Automatically crop the video', action='store_true')
-    parser.add_argument('--crop_override', type=str, default='',
+
+    parser.add_argument('--video_filters', type=str, default='',
                         help='Override the crop, put your vf ffmpeg there, example '
                              'scale=-2:1080:flags=lanczos,zscale=t=linear...'
-                             ' just make sure ffmpeg on all workers has support')
-    parser.add_argument('--bitrate', help='Bitrate to use, ignored if using auto bitrate ladder', type=str,
+                             ' make sure ffmpeg on all workers has support for the filters you use')
+
+    parser.add_argument('--bitrate', help='Bitrate to use, `auto` for auto bitrate selection', type=str,
                         default='2000k')
-    parser.add_argument('--autobitrate', help='Enable automatic bitrate optimisation per chunk', action='store_true',
-                        default=False)
+
+    parser.add_argument('--overshoot', help='How much proc the bitrate_adjust is allowed to overshoot', type=int,
+                        default=200)
+
+    parser.add_argument('--undershoot', help='How much proc the bitrate_adjust is allowed to undershoot', type=int,
+                        default=90)
+
+    parser.add_argument('--bitrate_adjust', help='Enable automatic bitrate optimisation per chunk', action='store_true',
+                        default=True)
+
     parser.add_argument('--multiprocess_workers',
-                        help='Number of workers to use for multiprocessing, if -1 the progran will auto scale',
-                        type=int,
-                        default=-1)
+                        help='Number of workers to use for multiprocessing, if -1 the program will auto scale',
+                        type=int, default=-1)
+
     parser.add_argument('--ssim-db-target', type=float, default=20,
                         help='What ssim dB to target when using auto bitrate,'
-                             ' 22 is pretty lossless, generally recommend 21, 20 lowkey blurry,'
-                             ' bellow 19.5 is bad')
+                             ' not recommended to set manually, otherwise 20 is a good starting'
+                             ' point')
 
-    parser.add_argument('--autograin', help="Automagicly pick grainsynth value", action='store_true', default=False)
+    parser.add_argument('--encoder', help='What encoder to use', type=str, default='svt_av1',
+                        choices=['svt_av1', 'x265'])
 
-    parser.add_argument('--grain_override', help="Manually give the grainsynth value, 0 to disable", type=int,
-                        default=7, choices=range(0, 63))
+    parser.add_argument('--content_type',
+                        help='What content for guided tuning (will be replaced with ml down the line)', type=str,
+                        default='animation', choices=['anime', 'live-action'])
+
+    parser.add_argument('--grain', help="Manually give the grainsynth value, 0 to disable, -1 for auto", type=int,
+                        default=-1, choices=range(-1, 63))
 
     parser.add_argument('--autoparam', help='Automagicly chose params', action='store_true', default=True)
 
-    parser.add_argument('--auto_bitrate_ladder', help='Automatically chose bitrate based on quality',
-                        action='store_true', default=False)
-    parser.add_argument('--vmaf_target', help='What vmaf to target when using autobitrate ladder', default=96)
+    parser.add_argument('--vmaf_target', help='What vmaf to target when using bitrate auto', default=96)
 
     parser.add_argument('--max_scene_length', help="If a scene is longer then this, it will recursively cut in the"
                                                    " middle it to get until each chunk is within the max", type=int,
                         default=10, metavar='max_scene_length')
+
     parser.add_argument('--auto_crf', help='Alternative to auto bitrate tuning, that uses crf', action='store_true',
                         default=False)
-    # encode chunks oerder, possbile values: 'random', 'sequential', 'length_desc', 'length_asc'
-    parser.add_argument('--chunk_order', help='Encode chunks in a specific order', type=str, default='sequential',
-                        choices=['random', 'sequential', 'length_desc', 'length_asc'])
 
-    parser.add_argument('--from',
+    parser.add_argument('--chunk_order', help='Encode chunks in a specific order', type=str, default='sequential',
+                        choices=['random', 'sequential', 'length_desc', 'length_asc', 'sequential_reverse'])
+
+    parser.add_argument('--start_offset',
                         help='Offset from the beginning of the video (in seconds), useful for cutting intros etc',
-                        default=-1)
-    parser.add_argument('--to',
+                        default=-1, type=int)
+
+    parser.add_argument('--end_offset',
                         help='Offset from the end of the video (in seconds), useful for cutting end credits outtros etc',
-                        default=-1)
+                        default=-1, type=int)
+
+    parser.add_argument('--bitrate_adjust_mode', help='do a complexity analysis on each chunk individually and adjust '
+                                                      'bitrate based on that, can overshoot/undershoot a lot, '
+                                                      'otherwise do complexity analysis on all chunks ahead of time'
+                                                      ' and budget it to hit target by normalizing the bitrate',
+                        type=str, default='chunk', choices=['chunk', 'global'])
+
+    parser.add_argument('--log_level', help='Set the log level', type=str, default='QUIET', choices=['NORMAL', 'QUIET'])
 
     args = parser.parse_args()
 
     input_path = args.input
 
+    log_level = 0 if args.log_level == 'QUIET' else 1
+
     # check if input is an absolute path
     if input_path[0] != '/':
         print('Input video is not absolute, please use absolute paths')
-
-    if args.autograin and not doesBinaryExist('butteraugli'):
-        print('Autograin requires butteraugli in path, please install it')
-        quit()
 
     host_adrees = get_lan_ip()
     print(f'Got lan ip: {host_adrees}')
@@ -355,12 +382,11 @@ def main():
 
     dont_use_celery = False if args.celery else True
 
-    if args.dry and not dont_use_celery:
-        print('Dryrun can only work locally using multiprocessing mode')
-        quit()
-
     if not dont_use_celery:
         num_workers = app.control.inspect().active_queues()
+        if num_workers is None:
+            print('No workers detected, please start some')
+            quit()
         print(f'Number of available workers: {len(num_workers)}')
     else:
         print('Using multiprocessing instead of celery')
@@ -374,8 +400,12 @@ def main():
     if not os.path.exists(input_file):
         os.system(f'ln -s "{input_path}" "{input_file}"')
 
+    if args.encoder == 'x265' and args.auto_crf == False:
+        print('x265 only supports auto crf, set `--auto_crf true`')
+        quit()
+
     # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
-    croppy_floppy = args.crop_override
+    croppy_floppy = args.video_filters
     if args.autocrop and croppy_floppy == '':
         cropdetect = do_cropdetect(ChunkObject(path=input_file))
         if cropdetect != '':
@@ -383,26 +413,53 @@ def main():
 
     scenes_skinny: ChunkSequence = get_video_scene_list_skinny(input_file=input_file,
                                                                cache_file_path=tempfolder + 'sceneCache.pt',
-                                                               max_scene_length=args.max_scene_length)
+                                                               max_scene_length=args.max_scene_length,
+                                                               start_offset=args.start_offset,
+                                                               end_offset=args.end_offset)
     for xyz in scenes_skinny.chunks:
         xyz.chunk_path = f'{tempfolder}{xyz.chunk_index}.ivf'
 
-    config = EncoderConfigObject(crop_string=croppy_floppy, convexhull=args.autobitrate, temp_folder=tempfolder,
-                                 server_ip=host_adrees, remote_path=tempfolder, dry_run=args.dry,
-                                 ssim_db_target=args.ssim_db_target, passes=3, vmaf=args.vmaf_target, speed=4)
+    config = EncoderConfigObject(crop_string=croppy_floppy, convexhull=args.bitrate_adjust, temp_folder=tempfolder,
+                                 server_ip=host_adrees, remote_path=tempfolder, ssim_db_target=args.ssim_db_target,
+                                 passes=3, vmaf=args.vmaf_target, speed=4, encoder=args.encoder,
+                                 content_type=args.content_type, log_level=log_level)
+    config.use_celery = not dont_use_celery
+    config.multiprocess_workers = args.multiprocess_workers
+    config.bitrate_adjust_mode = args.bitrate_adjust_mode
+    config.bitrate_undershoot = args.undershoot / 100
+    config.bitrate_overshoot = args.overshoot / 100
+
     config.crf_bitrate_mode = args.auto_crf
-    try:
-        config.bitrate = int(args.bitrate[:-1])
-    except ValueError:
-        raise ValueError('Bitrate must be in k\'s, example: 2000k')
 
-    config.grain_synth = args.grain_override
+    auto_bitrate_ladder = False
 
-    config = do_adaptive_analasys(scenes_skinny, config, do_grain=args.autograin,
-                                  do_bitrate_ladder=args.auto_bitrate_ladder, do_qm=args.autoparam)
-    # if config.grain_synth > 8 or config.bitrate < 1400:
-    #     print('Turning off grain denoise because bitrate is too low')
-    #     config.film_grain_denoise = 0
+    if 'auto' in args.bitrate or '-1' in args.bitrate:
+        auto_bitrate_ladder = True
+    else:
+        if 'M' in args.bitrate or 'm' in args.bitrate:
+            config.bitrate = args.bitrate.replace('M', '')
+            config.bitrate = int(config.bitrate) * 1000
+        else:
+            config.bitrate = args.bitrate.replace('k', '')
+            config.bitrate = args.bitrate.replace('K', '')
+
+            try:
+                config.bitrate = int(args.bitrate)
+            except ValueError:
+                raise ValueError('Bitrate must be in k\'s, example: 2000k')
+
+    autograin = False
+    if args.grain == -1:
+        autograin = True
+
+    if autograin and not doesBinaryExist('butteraugli'):
+        print('Autograin requires butteraugli in path, please install it')
+        quit()
+
+    config.grain_synth = args.grain
+
+    config, scenes_skinny = do_adaptive_analasys(scenes_skinny, config, do_grain=autograin,
+                                                 do_bitrate_ladder=auto_bitrate_ladder, do_qm=args.autoparam)
 
     if config.grain_synth == 0 and config.bitrate < 2000:
         print('Film grain less then 0 and bitrate is low, overriding to 2 film grain')
@@ -420,20 +477,15 @@ def main():
             asyncio.set_event_loop(loop)
 
         try:
-            loop.run_until_complete(process_chunks(scenes_skinny, config, celeryless_encoding=dont_use_celery,
-                                                   multiprocess_workers=args.multiprocess_workers,
-                                                   chunk_order=args.chunk_order))
+            loop.run_until_complete(process_chunks(scenes_skinny, config, chunk_order=args.chunk_order))
         finally:
             at_exit(loop)
             loop.close()
 
-    # if we are doing a dry run the process, chunks will spit out the commands, so we quit here
-    if args.dry:
-        quit()
-
     try:
         concat = VideoConcatenator(output=args.output, file_with_audio=input_file,
-                                   audio_param_override=args.audio_params)
+                                   audio_param_override=args.audio_params, start_offset=args.start_offset,
+                                   end_offset=args.end_offset)
         concat.find_files_in_dir(folder_path=tempfolder, extension='.ivf')
         concat.concat_videos()
     except:

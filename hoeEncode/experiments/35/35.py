@@ -38,10 +38,10 @@ if __name__ == '__main__':
         svtenc = AbstractEncoderSvtenc()
 
         svtenc.update()
-        svtenc.chroma_thing = 0
+        svtenc.svt_chroma_thing = 0
         svtenc.keyint = 9999
-        svtenc.bias_pct = 50
-        svtenc.open_gop = False
+        svtenc.svt_bias_pct = 50
+        svtenc.svt_open_gop = False
 
         test_env = './tstVBR' + path.split('/')[-1].split('.')[0] + '/'
         # shutil.rmtree(test_env, ignore_errors=True)
@@ -81,7 +81,7 @@ if __name__ == '__main__':
         nosres_time = -1
         for sframe_dist in [0, 240]:
             svtenc.update(output_path=f'{test_env}sframe_dist{sframe_dist}.ivf')
-            svtenc.sframe_interval = sframe_dist
+            svtenc.svt_sframe_interval = sframe_dist
             stats = svtenc.run(override_if_exists=False, calculate_vmaf=True)
 
             curr_db_rate = stats.size / stats.vmaf

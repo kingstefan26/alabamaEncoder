@@ -21,11 +21,3 @@ class EncoderKommand(CommandObject):
         self.encoder_impl.run()
         if not os.path.exists(self.job.chunk.chunk_path):
             raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + self.job.chunk.chunk_path)
-
-    def get_dry_run(self):
-        enc = self.encoder_impl
-        enc.eat_job_config(self.job, self.config)
-        command = ''
-        for k in enc.get_encode_commands():
-            command += k + ' && '
-        return command

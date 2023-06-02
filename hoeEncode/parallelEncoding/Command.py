@@ -1,18 +1,26 @@
 from abc import abstractmethod
+from typing import Any
 
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 
 
+class BaseCommandObject(object):
+
+    @abstractmethod
+    def run(self) -> Any:
+        pass
+
+
 # abstract class
-class CommandObject:
+class CommandObject(BaseCommandObject):
     def __init__(self):
         self.config: EncoderConfigObject = None
         self.job: EncoderJob = None
         self.chunk = None
 
     @abstractmethod
-    def run(self):
+    def run(self) -> Any:
         pass
 
     def setup(self, job: EncoderJob, config: EncoderConfigObject):
@@ -21,5 +29,5 @@ class CommandObject:
         self.config = config
 
 
-def run_command(command: CommandObject):
-    command.run()
+def run_command(command: BaseCommandObject):
+    return command.run()

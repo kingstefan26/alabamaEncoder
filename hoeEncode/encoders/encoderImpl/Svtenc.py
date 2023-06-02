@@ -1,10 +1,8 @@
-import copy
 import os.path
 from typing import List
 
 from hoeEncode.encoders.AbstractEncoder import AbstractEncoder
 from hoeEncode.encoders.RateDiss import RateDistribution
-from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
 from hoeEncode.utils.execute import syscmd
 
 
@@ -14,6 +12,7 @@ class AvifEncoderSvtenc:
     """
 
     def __init__(self, **kwargs):
+        self.vf = kwargs.get('vf', ' ')
         self.in_path = kwargs.get('in_path')
         self.grain_synth = kwargs.get('grain_synth', 0)
         self.output_path = kwargs.get('output_path')
@@ -43,6 +42,8 @@ class AvifEncoderSvtenc:
             self.passes = kwargs.get('passes')
         if 'threads' in kwargs:
             self.threads = kwargs.get('threads')
+        if 'vf' in kwargs:
+            self.vf = kwargs.get('vf')
 
     in_path: str
     grain_synth: int
@@ -73,96 +74,78 @@ class AvifEncoderSvtenc:
         else:
             ratebit = f'-crf {self.crf}'
 
-        return f'ffmpeg -y -i {self.in_path} -c:v libsvtav1 {ratebit} -svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth} -preset {self.speed} -pix_fmt {pix_fmt} {self.output_path}'
+        return f'ffmpeg -hide_banner -y -i {self.in_path} {self.vf} -c:v libsvtav1 {ratebit} ' \
+               f'-svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth}' \
+               f' -preset {self.speed} -pix_fmt {pix_fmt} {self.output_path}'
 
     def run(self):
         out = syscmd(self.get_encode_commands())
-        if not os.path.exists(self.output_path) or os.path.getsize(self.output_path) < 1000:
+        if not os.path.exists(self.output_path) or os.path.getsize(self.output_path) < 1:
+            print(self.get_encode_commands())
             raise Exception(f'FATAL: SVTENC ({self.get_encode_commands()}) FAILED with ' + out)
 
 
 class AbstractEncoderSvtenc(AbstractEncoder):
-    bias_pct = 50
-    open_gop = True
-
-    keyint: int = 9999
-    sdc: int = 0
-    chroma_thing = -2
-    supperres_mode = 0
-    superres_denom = 8
-    superres_kf_denom = 8
-    superres_qthresh = 43
-    superres_kf_qthresh = 43
-
-    sframe_interval = 0
-    sframe_mode = 2
 
     def get_encode_commands(self) -> List[str]:
-        if self.chunk is None:
-            raise Exception('FATAL: chunk is None')
-        if self.output_path is None or self.output_path == '':
-            raise Exception('FATAL: output_path is None or empty')
-        if self.current_scene_index is None:
-            raise Exception('FATAL: current_scene_index is None')
-
         if (self.keyint == -1 or self.keyint == -2) and self.rate_distribution == RateDistribution.VBR:
             print('WARNING: keyint must be set for VBR, setting to 240')
             self.keyint = 240
 
-        self.chunk = copy.deepcopy(self.chunk)
-
-        original_path = copy.deepcopy(self.output_path)
-
-        if self.running_on_celery:
-            temp_celery_path = '/tmp/celery/'
-            os.makedirs(temp_celery_path, exist_ok=True)
-            self.output_path = f'{temp_celery_path}{self.current_scene_index}.ivf'
-
-        kommand = f'{create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk, crop_string=self.crop_string)} | ' \
-                  f'SvtAv1EncApp' \
+        kommand = f'{self.get_ffmpeg_pipe_command()} | ' \
+                  f'{self.svt_cli_path}' \
                   f' -i stdin' \
-                  f' --input-depth 10' \
+                  f' --input-depth {self.bit_override}' \
                   f' --keyint {self.keyint}'
 
-        if self.crf is not None and self.crf > 63:
-            raise Exception('FATAL: crf must be less than 63')
+        def crf_check():
+            """
+            validate crf fields
+            """
+            if self.crf is None or self.crf == -1:
+                raise Exception('FATAL: crf is not set')
+            if self.crf > 63:
+                raise Exception('FATAL: crf must be less than 63')
+
+        def bitrate_check():
+            """
+            validate bitrate fields
+            """
+            if self.bitrate is None or self.bitrate == -1:
+                raise Exception('FATAL: bitrate is not set')
 
         match self.rate_distribution:
             case RateDistribution.CQ:
                 if self.passes != 1:
                     print('WARNING: passes must be 1 for CQ, setting to 1')
                     self.passes = 1
-                if self.crf is None or self.crf == -1:
-                    raise Exception('FATAL: crf must be set for CQ')
+                crf_check()
                 kommand += f' --crf {self.crf}'
             case RateDistribution.VBR:
-                if self.bitrate is None or self.bitrate == -1:
-                    raise Exception('FATAL: bitrate must be set for VBR')
-                kommand += f' --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 35 '
+                bitrate_check()
+                kommand += f' --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 '
             case RateDistribution.CQ_VBV:
-                if self.crf is None or self.crf == -1:
-                    raise Exception('FATAL: crf must be set for CQ_VBV')
-                if self.bitrate is None or self.bitrate == -1:
-                    raise Exception('FATAL: bitrate must be set for CQ_VBV')
+                bitrate_check()
+                crf_check()
                 kommand += f' --crf {self.crf} --mbr {self.max_bitrate}'
             case RateDistribution.VBR_VBV:
-                if self.bitrate is None or self.bitrate == -1:
-                    raise Exception('FATAL: bitrate must be set for VBR_VBV')
+                bitrate_check()
                 kommand += f' --tbr {self.bitrate} --mbr {self.bitrate * 1.5}'
 
-        kommand += f' --tune 0'  # tune for PsychoVisual Optimization
-        kommand += f' --bias-pct {self.bias_pct}'  # 100 vbr like, 0 cbr like
-        kommand += f' --lp {self.threads}'  # threads
-        if self.supperres_mode != 0:
-            kommand += f' --superres-mode {self.supperres_mode}'  # superres mode
-            kommand += f' --superres-denom {self.superres_denom}'  # superres denom
-            kommand += f' --superres-kf-denom {self.superres_kf_denom}'  # superres kf denom
-            kommand += f' --superres-qthres {self.superres_qthresh}'  # superres qthresh
-            kommand += f' --superres-kf-qthres {self.superres_kf_qthresh}'  # superres kf qthresh
+        kommand += f' --tune {self.svt_tune}'
+        kommand += f' --bias-pct {self.svt_bias_pct}'
+        kommand += f' --lp {self.threads}'
 
-        if self.sframe_interval > 0:
-            kommand += f' --sframe-dist {self.sframe_interval}'
-            kommand += f' --sframe-mode {self.sframe_mode}'
+        if self.svt_supperres_mode != 0:
+            kommand += f' --superres-mode {self.svt_supperres_mode}'  # superres mode
+            kommand += f' --superres-denom {self.svt_superres_denom}'  # superres denom
+            kommand += f' --superres-kf-denom {self.svt_superres_kf_denom}'  # superres kf denom
+            kommand += f' --superres-qthres {self.svt_superres_qthresh}'  # superres qthresh
+            kommand += f' --superres-kf-qthres {self.svt_superres_kf_qthresh}'  # superres kf qthresh
+
+        if self.svt_sframe_interval > 0:
+            kommand += f' --sframe-dist {self.svt_sframe_interval}'
+            kommand += f' --sframe-mode {self.svt_sframe_mode}'
 
         if 0 <= self.svt_grain_synth <= 50:
             kommand += f' --film-grain {self.svt_grain_synth}'  # grain synth
@@ -177,40 +160,47 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         else:
             kommand += ' --enable-qm 0'
 
-        kommand += f' --scd {self.sdc}'  # scene detection
+        if self.svt_sdc != 0:
+            kommand += f' --scd {self.svt_sdc}'  # scene detection
 
         stats_bit = ''
 
         if self.passes > 1:
             stats_bit = f'--stats {self.output_path}.stat'
 
-        if self.open_gop and self.passes == 1:
+        if self.svt_open_gop and self.passes == 1:
             kommand += ' --irefresh-type 1'
 
-        commands = []
+        if self.passes == 1:
+            kommand += ' --enable-overlays 1'
 
-        if self.passes == 2:
-            commands = [
-                f'{kommand} --pass 1 {stats_bit}',
-                f'{kommand} --pass 2 {stats_bit} -b {self.output_path}'
-            ]
-        elif self.passes == 1:
-            commands = [
-                f'{kommand} --enable-overlays 1 -b "{self.output_path}"'
-            ]
-        elif self.passes == 3:
-            commands = [
-                f'{kommand} --pass 1 {stats_bit}',
-                f'{kommand} --pass 2 {stats_bit}',
-                f'{kommand} --pass 3 {stats_bit} -b {self.output_path}'
-            ]
-        else:
-            raise Exception(f'FATAL: invalid passes count {self.passes}')
-
-        if self.running_on_celery:
-            commands.append(f'cp {self.output_path} {original_path}')
-            commands.append(f'rm {self.output_path} {self.output_path}.stat')
-
-        self.output_path = original_path
+        match self.passes:
+            case 2:
+                commands = [
+                    f'{kommand} --pass 1 {stats_bit}',
+                    f'{kommand} --pass 2 {stats_bit} -b {self.output_path}'
+                ]
+            case 1:
+                commands = [
+                    f'{kommand} -b "{self.output_path}"'
+                ]
+            case 3:
+                commands = [
+                    f'{kommand} --pass 1 {stats_bit}',
+                    f'{kommand} --pass 2 {stats_bit}',
+                    f'{kommand} --pass 3 {stats_bit} -b {self.output_path}'
+                ]
+            case _:
+                raise Exception(f'FATAL: invalid passes count {self.passes}')
 
         return commands
+
+    def get_chunk_file_extension(self) -> str:
+        return '.ivf'
+
+    def get_needed_path(self) -> List[str]:
+        """
+
+        :return:
+        """
+        return ['ffmpeg', 'SvtAv1EncApp', 'ffprobe']

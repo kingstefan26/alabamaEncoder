@@ -86,10 +86,10 @@ if __name__ == '__main__':
         svtenc = AbstractEncoderSvtenc()
 
         svtenc.update()
-        svtenc.chroma_thing = 0
+        svtenc.svt_chroma_thing = 0
         svtenc.keyint = -2
-        svtenc.bias_pct = 50
-        svtenc.open_gop = False
+        svtenc.svt_bias_pct = 50
+        svtenc.svt_open_gop = False
 
         svtenc.update(
             rate_distribution=RateDistribution.CQ,
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         nosres_time = -1
         for superres in [0, 1, 3]:
             svtenc.update(output_path=f'{test_env}superres{superres}.ivf')
-            svtenc.supperres_mode = superres
+            svtenc.svt_supperres_mode = superres
             stats = svtenc.run(override_if_exists=False, calculate_vmaf=True)
             stats.time_encoding = round(stats.time_encoding, 2)
 

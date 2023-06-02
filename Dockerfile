@@ -29,4 +29,4 @@ WORKDIR /app
 # Allow celery to run as root
 ENV C_FORCE_ROOT="true"
 # run celery app
-CMD ["celery", "-A", "paraliezeMeHoe.ThaVaidioEncoda", "worker", "--loglevel=info", "--autoscale","1"]
+CMD ["celery", "-A", "paraliezeMeHoe.ThaVaidioEncoda", "worker", "--loglevel=info", "--concurrency", "4"]
