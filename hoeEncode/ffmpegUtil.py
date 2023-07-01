@@ -38,16 +38,22 @@ def get_frame_count(path):
     return int(result)
 
 
-def get_video_lenght(path) -> float:
+def get_video_lenght(path, sexagesimal=False) -> float | str:
     """
     Returns the video length in seconds
     :param path: path to the video
     :return: float
     """
-    result = syscmd(f'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "{path}"')
+    sex = ''
+    if sexagesimal:
+        sex = '-sexagesimal'
+    result = syscmd(
+        f'ffprobe -v error -show_entries format=duration {sex} -of default=noprint_wrappers=1:nokey=1 "{path}"')
     if isinstance(result, str):
         if 'N/A' in result or 'Invalid data found' in result:
             raise ValueError(f"File {path} is invalid, (encoded with aomenc?)")
+    if sex:
+        return result
     return float(result)
 
 

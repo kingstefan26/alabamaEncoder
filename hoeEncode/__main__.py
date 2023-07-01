@@ -19,7 +19,8 @@ from hoeEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
-from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, do_cropdetect, doesBinaryExist
+from hoeEncode.ffmpegUtil import check_for_invalid, get_frame_count, do_cropdetect, doesBinaryExist, get_total_bitrate, \
+    get_video_lenght
 from hoeEncode.parallelEncoding.Command import run_command
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
@@ -40,10 +41,11 @@ def at_exit(loop):
     loop.create_task(cancel_all_tasks())
 
 
-async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigObject, chunk_order='sequential'):
+async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigObject, chunk_order='sequential',
+                         use_celery=False):
     command_objects = []
 
-    for chunk in tqdm(chunk_list.chunks, desc='Preparing scenes', unit='scene'):
+    for chunk in chunk_list.chunks:
         job = EncoderJob(chunk)
 
         if not os.path.exists(job.chunk.chunk_path):
@@ -74,7 +76,7 @@ async def process_chunks(chunk_list: ChunkSequence, encdr_config: EncoderConfigO
 
     print(f'Starting encoding of {len(command_objects)} scenes')
 
-    await execute_commands(encdr_config.use_celery, command_objects, encdr_config.multiprocess_workers)
+    await execute_commands(use_celery, command_objects, encdr_config.multiprocess_workers)
 
 
 async def execute_commands(use_celery, command_objects, multiprocess_workers, override_sequential=True):
@@ -91,7 +93,28 @@ async def execute_commands(use_celery, command_objects, multiprocess_workers, ov
         for command in command_objects:
             run_command(command)
 
-    elif not use_celery:
+    elif use_celery:
+        for a in command_objects:
+            a.run_on_celery = True
+
+        results = []
+        with tqdm(total=len(command_objects), desc='Encoding', unit='scene', dynamic_ncols=True, smoothing=0) as pbar:
+            for command in command_objects:
+                result = run_command_on_celery.delay(command)
+
+                results.append(result)
+
+            while True:
+                num_workers = len(app.control.inspect().active_queues())
+                if num_workers is None or num_workers < 0:
+                    print('No workers available, waiting for workers to become available')
+                if all(result.ready() for result in results):
+                    break
+                for result in results:
+                    if result.ready():
+                        pbar.update()
+                        results.remove(result)
+    else:
 
         total_scenes = len(command_objects)
         futures = []
@@ -142,27 +165,6 @@ async def execute_commands(use_celery, command_objects, multiprocess_workers, ov
                         max_concurrent_jobs = new_max
                         tqdm.write(
                             f"CPU load: {(cpu_utilization * 100):.2f}%, adjusting workers to {max_concurrent_jobs} ")
-    else:
-        for a in command_objects:
-            a.run_on_celery = True
-
-        results = []
-        with tqdm(total=len(command_objects), desc='Encoding', unit='scene', dynamic_ncols=True, smoothing=0) as pbar:
-            for command in command_objects:
-                result = run_command_on_celery.delay(command)
-
-                results.append(result)
-
-            while True:
-                num_workers = len(app.control.inspect().active_queues())
-                if num_workers is None or num_workers < 0:
-                    print('No workers available, waiting for workers to become available')
-                if all(result.ready() for result in results):
-                    break
-                for result in results:
-                    if result.ready():
-                        pbar.update()
-                        results.remove(result)
 
 
 def get_lan_ip() -> str:
@@ -272,6 +274,59 @@ def integrity_check(seq: ChunkSequence, temp_folder: str) -> bool:
     return False
 
 
+def print_stats(tempfolder: str, output: str, config_bitrate: int, input_file: str, grain_synth: int):
+    # Load all ./temp/stats/*.json object
+    stats = []
+    for file in glob.glob(f'{tempfolder}stats/*.json'):
+        with open(file) as f:
+            stats.append(json.load(f))
+
+    # sum up all the time_encoding variables
+    time_encoding = 0
+    for stat in stats:
+        time_encoding += stat['time_encoding']
+
+    print(f'Total encoding time across chunks: {time_encoding} seconds\n\n')
+
+    # get the worst/best/med target_miss_proc
+    target_miss_proc = []
+    for stat in stats:
+        # turn the string into a float then round to two places
+        target_miss_proc.append(round(float(stat['target_miss_proc']), 2))
+    target_miss_proc.sort()
+    print('Target miss from encode per chunk encode bitrate:')
+    print(f'Average target_miss_proc: {round(sum(target_miss_proc) / len(target_miss_proc), 2)}')
+    print(f'Worst target_miss_proc: {target_miss_proc[-1]}')
+    print(f'Best target_miss_proc: {target_miss_proc[0]}')
+    print(f'Median target_miss_proc: {target_miss_proc[int(len(target_miss_proc) / 2)]}')
+
+    print('\n\n')
+
+    total_bitrate = int(get_total_bitrate(output)) / 1000
+    print(f'Total bitrate: {total_bitrate} kb/s, config bitrate: {config_bitrate} kb/s')
+    # vid_bitrate, _ = get_source_bitrates(output)
+    bitrate_miss = round((total_bitrate - config_bitrate) / config_bitrate * 100, 2)
+    print(f'Bitrate miss from config bitrate: {bitrate_miss}%')
+
+    print('\n\n')
+
+    def sizeof_fmt(num, suffix="B"):
+        for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
+            if abs(num) < 1024.0:
+                return f"{num:3.1f}{unit}{suffix}"
+            num /= 1024.0
+        return f"{num:.1f}Yi{suffix}"
+
+    print(f'- total bitrate `{total_bitrate} kb/s`')
+    print(f'- total size `{sizeof_fmt(os.path.getsize(output))}`')
+    print(f'- length `{get_video_lenght(output, sexagesimal=True)}`')
+    size_decrease = round((os.path.getsize(output) - os.path.getsize(input_file)) / (os.path.getsize(input_file)) * 100,
+                          2)
+    print(
+        f'- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease from source `{size_decrease}%`')
+    print(f'- grain synth `{grain_synth}`')
+
+
 def main():
     """
     Main entry point
@@ -363,6 +418,9 @@ def main():
 
     parser.add_argument('--log_level', help='Set the log level', type=str, default='QUIET', choices=['NORMAL', 'QUIET'])
 
+    parser.add_argument('--status_update_token', type=str)
+    parser.add_argument('--status_update_domain', type=str, default='encodestatus.kokoniara.software')
+
     args = parser.parse_args()
 
     input_path = args.input
@@ -380,9 +438,7 @@ def main():
     tempfolder = os.path.abspath(args.temp_dir) + '/'
     input_file = tempfolder + 'temp.mkv'
 
-    dont_use_celery = False if args.celery else True
-
-    if not dont_use_celery:
+    if args.celery:
         num_workers = app.control.inspect().active_queues()
         if num_workers is None:
             print('No workers detected, please start some')
@@ -423,7 +479,7 @@ def main():
                                  server_ip=host_adrees, remote_path=tempfolder, ssim_db_target=args.ssim_db_target,
                                  passes=3, vmaf=args.vmaf_target, speed=4, encoder=args.encoder,
                                  content_type=args.content_type, log_level=log_level)
-    config.use_celery = not dont_use_celery
+    config.use_celery = args.celery
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100
@@ -458,6 +514,19 @@ def main():
 
     config.grain_synth = args.grain
 
+    if os.path.exists(args.output):
+        print('Output file already exists, attempting to print stats & exiting')
+        print_stats(tempfolder=tempfolder,
+                    output=args.output,
+                    config_bitrate=config.bitrate,
+                    input_file=args.input,
+                    grain_synth=-1)
+        quit()
+
+    # FINISH SETTING UP CONFIG OBJECT
+    # -------------------------------
+    # ENCODE START
+
     config, scenes_skinny = do_adaptive_analasys(scenes_skinny, config, do_grain=autograin,
                                                  do_bitrate_ladder=auto_bitrate_ladder, do_qm=args.autoparam)
 
@@ -477,7 +546,8 @@ def main():
             asyncio.set_event_loop(loop)
 
         try:
-            loop.run_until_complete(process_chunks(scenes_skinny, config, chunk_order=args.chunk_order))
+            loop.run_until_complete(
+                process_chunks(scenes_skinny, config, chunk_order=args.chunk_order, use_celery=args.celery))
         finally:
             at_exit(loop)
             loop.close()
@@ -492,28 +562,13 @@ def main():
         print('Concat at the end failed sobbing 😷')
         quit()
 
-    # Load all ./temp/stats/*.json object
-    stats = []
-    for file in glob.glob(f'{tempfolder}stats/*.json'):
-        with open(file) as f:
-            stats.append(json.load(f))
+    # ENCODE END
 
-    # sum up all the time_encoding variables
-    time_encoding = 0
-    for stat in stats:
-        time_encoding += stat['time_encoding']
-
-    print(f'Total encoding time across chunks: {time_encoding} seconds')
-
-    # get the worst/best/med target_miss_proc
-    target_miss_proc = []
-    for stat in stats:
-        # turn the string into a float then round to two places
-        target_miss_proc.append(round(float(stat['target_miss_proc']), 2))
-    target_miss_proc.sort()
-    print(f'Worst target_miss_proc: {target_miss_proc[-1]}')
-    print(f'Best target_miss_proc: {target_miss_proc[0]}')
-    print(f'Median target_miss_proc: {target_miss_proc[int(len(target_miss_proc) / 2)]}')
+    print_stats(tempfolder=tempfolder,
+                output=args.output,
+                config_bitrate=config.bitrate,
+                input_file=args.input,
+                grain_synth=config.grain_synth)
 
 
 if __name__ == "__main__":

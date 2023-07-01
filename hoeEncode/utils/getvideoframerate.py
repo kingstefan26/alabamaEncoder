@@ -15,5 +15,7 @@ def get_video_frame_rate(filename) -> float:
         filename,
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     result_string = result.stdout.decode('utf-8').split()[0].split('/')
+    if result_string == '':
+        raise Exception('Could not get frame rate')
     fps = float(result_string[0]) / float(result_string[1])
     return fps
