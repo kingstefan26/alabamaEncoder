@@ -5,9 +5,9 @@ import copy
 import os
 from typing import List
 
-from hoeEncode.adaptiveEncoding.helpers import get_test_chunks_out_of_a_sequence
 from hoeEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
 from hoeEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
+from hoeEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence

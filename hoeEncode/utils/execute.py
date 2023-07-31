@@ -1,14 +1,19 @@
 import subprocess
 
 
-def syscmd(cmd, encoding='utf8', timeout_value=-1):
+def syscmd(cmd, encoding="utf8", timeout_value=-1):
     """
     Runs a command on the system, waits for the command to finish, and then
     returns the text output of the command. If the command produces no text
     output, the command's return code will be returned instead.
     """
-    p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         close_fds=True)
+    p = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     if timeout_value > 0:
         p.wait(timeout=timeout_value)
     else:

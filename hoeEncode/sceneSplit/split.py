@@ -6,13 +6,19 @@ from scenedetect import detect, AdaptiveDetector
 from hoeEncode.ffmpegUtil import get_video_lenght
 from hoeEncode.sceneSplit.ChunkOffset import ChunkObject
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
-from hoeEncode.utils.getheight import get_height
-from hoeEncode.utils.getvideoframerate import get_video_frame_rate
-from hoeEncode.utils.getwidth import get_width
+from hoeEncode.utils.getFramerate import get_video_frame_rate
+from hoeEncode.utils.getHeight import get_height
+from hoeEncode.utils.getWidth import get_width
 
 
-def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene_length: int, start_offset=-1,
-                                end_offset=-1, override_bad_wrong_cache_path=False) -> ChunkSequence:
+def get_video_scene_list_skinny(
+    input_file: str,
+    cache_file_path: str,
+    max_scene_length: int,
+    start_offset=-1,
+    end_offset=-1,
+    override_bad_wrong_cache_path=False,
+) -> ChunkSequence:
     """
     :param override_bad_wrong_cache_path:
     :param start_offset:
@@ -24,32 +30,34 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
     :return:
     """
     if os.path.exists(cache_file_path):
-        print('Found scene cache... loading')
-        seq: ChunkSequence = pickle.load(open(cache_file_path, 'rb'))
+        print("Found scene cache... loading")
+        seq: ChunkSequence = pickle.load(open(cache_file_path, "rb"))
 
         # Ensure input file matches the cached sequence
         if seq.input_file != input_file and not override_bad_wrong_cache_path:
             raise Exception(
-                f'Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),'
-                f' please correct this (wrong temp folder?), use --override-bad-wrong-cache-path to override.'
+                f"Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),"
+                f" please correct this (wrong temp folder?), use --override_bad_wrong_cache_path to override."
             )
     else:
-        print('Creating scene cache')
+        print("Creating scene cache")
 
-        untouched_scene_list = cache_file_path + '.untouched'
+        untouched_scene_list = cache_file_path + ".untouched"
         scene_list = None
         if os.path.exists(untouched_scene_list):
             try:
-                scene_list = pickle.load(open(untouched_scene_list, 'rb'))
+                scene_list = pickle.load(open(untouched_scene_list, "rb"))
             except:
                 pass
 
         if scene_list is None:
-            scene_list = detect(video_path=input_file,
-                                detector=AdaptiveDetector(window_width=10, adaptive_threshold=2.5),
-                                show_progress=True)
+            scene_list = detect(
+                video_path=input_file,
+                detector=AdaptiveDetector(window_width=10, adaptive_threshold=2.5),
+                show_progress=True,
+            )
             try:
-                pickle.dump(scene_list, open(untouched_scene_list, 'wb'))
+                pickle.dump(scene_list, open(untouched_scene_list, "wb"))
             except:
                 pass
 
@@ -73,8 +81,15 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
             # if the scene duration is shorter than max_scene_length, add it as a chunk to the sequence
             if duration <= max_duration_frames:
                 seq.chunks.append(
-                    ChunkObject(start_frame, end_frame, path=input_file, framerate=framerate, width=width,
-                                height=height))
+                    ChunkObject(
+                        start_frame,
+                        end_frame,
+                        path=input_file,
+                        framerate=framerate,
+                        width=width,
+                        height=height,
+                    )
+                )
             else:
                 # otherwise, split the scene into multiple chunks that are shorter than max_scene_length
                 num_chunks = int(duration / max_duration_frames) + 1
@@ -85,7 +100,15 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
                     if j == num_chunks - 1:
                         end = end_frame  # add any remaining frames to the last chunk
                     seq.chunks.append(
-                        ChunkObject(start, end, path=input_file, framerate=framerate, width=width, height=height))
+                        ChunkObject(
+                            start,
+                            end,
+                            path=input_file,
+                            framerate=framerate,
+                            width=width,
+                            height=height,
+                        )
+                    )
 
         for i, chunk in enumerate(seq.chunks):
             chunk.chunk_index = i
@@ -95,7 +118,9 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
             new_chunks = []
             current_position = 0
             total_duration = get_video_lenght(input_file)
-            end_offset = total_duration - end_offset if end_offset != -1 else total_duration
+            end_offset = (
+                total_duration - end_offset if end_offset != -1 else total_duration
+            )
 
             kept_chunks = []
             discarded_chunks = []
@@ -110,7 +135,8 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
 
                 # Check if the chunk is entirely outside the bounds
                 if (start_offset != -1 and chunk_end <= start_offset) or (
-                        end_offset != -1 and chunk_start >= end_offset):
+                    end_offset != -1 and chunk_start >= end_offset
+                ):
                     # Chunk is entirely outside the bounds, discard it
                     current_position += chunk_duration
                     discarded_chunks.append(chunk.chunk_index)
@@ -119,7 +145,8 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
 
                 # Check if the chunk is entirely within the bounds
                 if (start_offset == -1 or chunk_start >= start_offset) and (
-                        end_offset == -1 or chunk_end <= end_offset):
+                    end_offset == -1 or chunk_end <= end_offset
+                ):
                     # Chunk is entirely within the bounds, include it in the new chunks
                     kept_chunks.append(chunk.chunk_index)
                     # print(f'Keeping chunk {chunk.chunk_index}')
@@ -136,21 +163,34 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
 
                     # Calculate the new chunk duration and frame indexes
                     new_chunk_duration = chunk_end - chunk_start
-                    new_start_frame = int(chunk.first_frame_index + (chunk_start - current_position) * framerate)
-                    new_end_frame = int(new_start_frame + new_chunk_duration * framerate)
+                    new_start_frame = int(
+                        chunk.first_frame_index
+                        + (chunk_start - current_position) * framerate
+                    )
+                    new_end_frame = int(
+                        new_start_frame + new_chunk_duration * framerate
+                    )
 
-                    print(f'Cutting chunk {chunk.chunk_index} to {new_start_frame} - {new_end_frame}')
+                    print(
+                        f"Cutting chunk {chunk.chunk_index} to {new_start_frame} - {new_end_frame}"
+                    )
 
                     # Create a new chunk object with the updated values
-                    new_chunk = ChunkObject(new_start_frame, new_end_frame, path=input_file, framerate=framerate,
-                                            width=width, height=height)
+                    new_chunk = ChunkObject(
+                        new_start_frame,
+                        new_end_frame,
+                        path=input_file,
+                        framerate=framerate,
+                        width=width,
+                        height=height,
+                    )
                     new_chunks.append(new_chunk)
 
                 # Update the current position for the next chunk
                 current_position = chunk_end
 
-            print(f'keeping chunks {min(kept_chunks)}-{max(kept_chunks)}')
-            print(f'discarding chunks {min(discarded_chunks)}-{max(discarded_chunks)}')
+            print(f"keeping chunks {min(kept_chunks)}-{max(kept_chunks)}")
+            print(f"discarding chunks {min(discarded_chunks)}-{max(discarded_chunks)}")
 
             # Replace the old list of chunks with the new one
             seq.chunks = new_chunks
@@ -176,8 +216,8 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
         for i, chunk in enumerate(seq.chunks):
             chunk.chunk_index = i
 
-        print(f'Saving scene cache to {cache_file_path}')
-        pickle.dump(seq, open(cache_file_path, 'wb'))
+        print(f"Saving scene cache to {cache_file_path}")
+        pickle.dump(seq, open(cache_file_path, "wb"))
 
-    print(f'Found {len(seq)} scenes')
+    print(f"Found {len(seq)} scenes")
     return seq

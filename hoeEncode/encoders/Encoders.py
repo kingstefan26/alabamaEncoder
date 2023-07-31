@@ -12,12 +12,12 @@ class EncodersEnum(Enum):
         :param encoder_name:
         :return:
         """
-        if encoder_name == 'SVT-AV1' or encoder_name == 'svt_av1':
+        if encoder_name == "SV T-AV1" or encoder_name == "svt_av1":
             return EncodersEnum.SVT_AV1
-        elif encoder_name == 'x265':
+        elif encoder_name == "x265":
             return EncodersEnum.X265
         else:
-            raise Exception('FATAL: Unknown encoder name: ' + encoder_name)
+            raise Exception("FATAL: Unknown encoder name: " + encoder_name)
 
     def supports_grain_synth(self) -> bool:
         """

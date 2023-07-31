@@ -16,12 +16,13 @@ class AbstractEncoderAomEnc(AbstractEncoder):
 
     def get_encode_commands(self) -> List[str]:
         self.speed = min(self.speed, 9)
-        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(in_chunk=self.chunk,
-                                                                      crop_string=self.crop_string)
-        encode_command += ' | '
+        encode_command = create_chunk_ffmpeg_pipe_command_using_chunk(
+            in_chunk=self.chunk, crop_string=self.crop_string
+        )
+        encode_command += " | "
         encode_command += f"aomenc - "
         encode_command += " --quiet "
-        encode_command += f"-o \"{self.output_path}\" "
+        encode_command += f'-o "{self.output_path}" '
 
         encode_command += f"--cpu-used={self.speed} "
         encode_command += f"--bit-depth=10 "
@@ -83,24 +84,24 @@ class AbstractEncoderAomEnc(AbstractEncoder):
         # encode_command += f"--enable-keyframe-filtering=2 "
 
         if self.use_webm:
-            encode_command += ' --webm'
+            encode_command += " --webm"
         else:
-            encode_command += ' --ivf'
+            encode_command += " --ivf"
 
         # speed while blah blah vmaf
-        encode_command += ' --vmaf-resize-factor=1'
+        encode_command += " --vmaf-resize-factor=1"
 
         # encode_command += ' --tune=ssim'
         if self.use_fast_lavis:
-            encode_command += ' --tune=lavish_fast'
+            encode_command += " --tune=lavish_fast"
         else:
             # encode_command += ' --tune=lavish_vmaf_rd'
-            encode_command += ' --tune=vmaf_psy_qp'
+            encode_command += " --tune=vmaf_psy_qp"
             # encode_command += ' --vmaf-quantization=1'
             # encode_command += ' --vmaf-preprocessing=1'
 
         if self.use_sharpness:
-            encode_command += f' --sharpness=1'
+            encode_command += f" --sharpness=1"
             # pass
 
         match self.rate_distribution:
@@ -122,7 +123,7 @@ class AbstractEncoderAomEnc(AbstractEncoder):
             encode_command += self.extra_param
 
         if self.photon_noise_path == "":
-            encode_command += f' --enable-dnl-denoising=1 --denoise-noise-level={self.svt_grain_synth}'
+            encode_command += f" --enable-dnl-denoising=1 --denoise-noise-level={self.svt_grain_synth}"
         else:
             encode_command += f' --enable-dnl-denoising=0 --film-grain-table="{self.photon_noise_path}"'
 

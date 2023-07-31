@@ -10,7 +10,7 @@ class ChunkSequence:
 
     def __init__(self, chunks: List[ChunkObject]):
         self.chunks = chunks
-        self.input_file = ''
+        self.input_file = ""
 
     def get_specific_chunk(self, index: int) -> ChunkObject:
         return self.chunks[index]

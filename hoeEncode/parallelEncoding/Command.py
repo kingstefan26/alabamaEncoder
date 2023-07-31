@@ -6,7 +6,6 @@ from hoeEncode.encoders.EncoderJob import EncoderJob
 
 
 class BaseCommandObject(object):
-
     @abstractmethod
     def run(self) -> Any:
         pass

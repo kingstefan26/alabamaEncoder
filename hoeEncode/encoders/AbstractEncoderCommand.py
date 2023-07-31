@@ -20,4 +20,6 @@ class EncoderKommand(CommandObject):
     def run(self):
         self.encoder_impl.run()
         if not os.path.exists(self.job.chunk.chunk_path):
-            raise RuntimeError("FATAL: ENCODE FAILED, PATH: " + self.job.chunk.chunk_path)
+            raise RuntimeError(
+                "FATAL: ENCODE FAILED, PATH: " + self.job.chunk.chunk_path
+            )

@@ -1,7 +1,7 @@
 from hoeEncode.sceneSplit.ChunkUtil import create_chunk_ffmpeg_pipe_command_using_chunk
-from hoeEncode.utils.getheight import get_height
-from hoeEncode.utils.getvideoframerate import get_video_frame_rate
-from hoeEncode.utils.getwidth import get_width
+from hoeEncode.utils.getFramerate import get_video_frame_rate
+from hoeEncode.utils.getHeight import get_height
+from hoeEncode.utils.getWidth import get_width
 
 
 class ChunkObject:
@@ -15,8 +15,16 @@ class ChunkObject:
     THIS IS FRAME ACCURATE AS OF FFMPEG FROM 2012 OR SUMTFN
     """
 
-    def __init__(self, first_frame_index=-1, last_frame_index=-1, path="", framerate=-1, chunk_index=-1, height=-1,
-                 width=-1):
+    def __init__(
+        self,
+        first_frame_index=-1,
+        last_frame_index=-1,
+        path="",
+        framerate=-1,
+        chunk_index=-1,
+        height=-1,
+        width=-1,
+    ):
         self.path = path
         self.last_frame_index = last_frame_index
         self.first_frame_index = first_frame_index
@@ -26,7 +34,7 @@ class ChunkObject:
         self.length = self.last_frame_index - self.first_frame_index
         self.end_override = -1  # ends the chunk after `end_override` frames if set
         self.chunk_index = chunk_index
-        self.chunk_path = ''
+        self.chunk_path = ""
         self.chunk_done = False
         self.ideal_bitrate = -1
 
@@ -44,8 +52,8 @@ class ChunkObject:
         if self.end_override != -1 and self.length > self.end_override:
             local_overriden_end = self.first_frame_index + self.end_override
 
-        end_thingy = (float(local_overriden_end) / self.framerate)
-        start_time = (float(self.first_frame_index) / self.framerate)
+        end_thingy = float(local_overriden_end) / self.framerate
+        start_time = float(self.first_frame_index) / self.framerate
         return end_thingy - start_time
 
     def get_ss_ffmpeg_command_pair(self) -> str:
@@ -65,9 +73,9 @@ class ChunkObject:
         if self.end_override != -1 and self.length > self.end_override:
             local_overriden_end = self.first_frame_index + self.end_override
 
-        end_thingy = (float(local_overriden_end) / self.framerate)
-        start_time = (float(self.first_frame_index) / self.framerate)
-        duration = (end_thingy - start_time)
+        end_thingy = float(local_overriden_end) / self.framerate
+        start_time = float(self.first_frame_index) / self.framerate
+        duration = end_thingy - start_time
 
         return f' -ss {str(start_time)} -i "{self.path}" -t {str(duration)} '
 
@@ -89,7 +97,9 @@ class ChunkObject:
 
 
 def test_1():
-    chunk = ChunkObject(path="video.mkv", first_frame_index=100, last_frame_index=200, framerate=24)
+    chunk = ChunkObject(
+        path="video.mkv", first_frame_index=100, last_frame_index=200, framerate=24
+    )
     expected_1 = " -ss 4.166666666666667 -i video.mkv -t 4.166666666666667 "
     result_1 = chunk.get_ss_ffmpeg_command_pair()
     print(result_1)

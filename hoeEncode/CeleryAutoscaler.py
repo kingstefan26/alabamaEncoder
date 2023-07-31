@@ -9,6 +9,7 @@ from celery.worker.autoscale import Autoscaler as CeleryAutoscaler
 # never go above one worker = one core
 # if we have 12 cores then max is 12 workers
 
+
 class Load:
     def __init__(self):
         self.num_cpus = multiprocessing.cpu_count()
@@ -27,12 +28,15 @@ class Load:
     def get_free_mem(self):
         """Return percentage of free memory 0.0 to 1.0."""
         # If not, make it work for most linux distros.
-        with open('/proc/meminfo', 'rb') as f:
-            mem = f.read().decode('utf-8')
+        with open("/proc/meminfo", "rb") as f:
+            mem = f.read().decode("utf-8")
             print(self.re_free.search(mem).group("free"))
             print(self.re_total.search(mem).group("total"))
-            return (1.0 * int(self.re_free.search(mem).group("free")) /
-                    int(self.re_total.search(mem).group("total")))
+            return (
+                1.0
+                * int(self.re_free.search(mem).group("free"))
+                / int(self.re_total.search(mem).group("total"))
+            )
 
 
 class DAAutoscaler(CeleryAutoscaler):
@@ -61,12 +65,16 @@ class DAAutoscaler(CeleryAutoscaler):
         if cur_load < self.LOAD_MIN and mem_free > self.MEM_FREE_SCALE_UP:
             mul = int(self.LOAD_MAX / cur_load)
             mul = max(min(mul, self.MAX_SCALE_UP), self.MIN_SCALE_DOWN)
-            print(f"DAAutoscaler: Scale Up {mul}X {round(cur_load, 2)} free={round(100 * mem_free, 2)}%")
+            print(
+                f"DAAutoscaler: Scale Up {mul}X {round(cur_load, 2)} free={round(100 * mem_free, 2)}%"
+            )
             self.scale_up(mul)
             return True
         if cur_load > self.LOAD_MAX or mem_free < self.MEM_FREE_SCALE_DOWN:
             mul = int(cur_load / self.LOAD_MAX)
-            print(f"DAAutoscaler: Scale Down {mul}X {round(cur_load, 2)} free={round(100 * mem_free, 2)}%")
+            print(
+                f"DAAutoscaler: Scale Down {mul}X {round(cur_load, 2)} free={round(100 * mem_free, 2)}%"
+            )
             self.scale_down(mul)
             return True
 

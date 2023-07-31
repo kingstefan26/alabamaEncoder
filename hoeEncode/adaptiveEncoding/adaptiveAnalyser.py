@@ -14,15 +14,22 @@ from hoeEncode.encoders.Encoders import EncodersEnum
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 
 
-def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, do_grain=True, do_bitrate_ladder=False,
-                         do_qm=True):
-    print('Starting adaptive content analysis')
-    os.makedirs(f'{config.temp_folder}/adapt/', exist_ok=True)
+def do_adaptive_analasys(
+    chunk_sequence: ChunkSequence,
+    config: EncoderConfig,
+    do_grain=True,
+    do_bitrate_ladder=False,
+    do_qm=True,
+):
+    print("Starting adaptive content analysis")
+    os.makedirs(f"{config.temp_folder}/adapt/", exist_ok=True)
 
-    if os.path.exists(f'{config.temp_folder}/adapt/configCache.pt'):
+    if os.path.exists(f"{config.temp_folder}/adapt/configCache.pt"):
         try:
-            config = pickle.load(open(f'{config.temp_folder}/adapt/configCache.pt', 'rb'))
-            print('Loaded adaptive content analasys from cache')
+            config = pickle.load(
+                open(f"{config.temp_folder}/adapt/configCache.pt", "rb")
+            )
+            print("Loaded adaptive content analasys from cache")
         except:
             pass
     else:
@@ -40,17 +47,17 @@ def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, d
 
         if do_grain and config.encoder.supports_grain_synth():
             param = {
-                'input_file': chunk_sequence.input_file,
-                'scenes': chunk_sequence,
-                'temp_folder': config.temp_folder,
-                'cache_filename': config.temp_folder + '/adapt/ideal_grain.pt',
-                'scene_pick_seed': 2,
-                'video_filters': config.crop_string
+                "input_file": chunk_sequence.input_file,
+                "scenes": chunk_sequence,
+                "temp_folder": config.temp_folder,
+                "cache_filename": config.temp_folder + "/adapt/ideal_grain.pt",
+                "scene_pick_seed": 2,
+                "video_filters": config.crop_string,
             }
             if config.crf_bitrate_mode:
-                param['crf'] = config.crf
+                param["crf"] = config.crf
             else:
-                param['bitrate'] = config.bitrate
+                param["bitrate"] = config.bitrate
 
             config.grain_synth = get_best_avg_grainsynth(**param)
 
@@ -59,12 +66,12 @@ def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, d
 
             best_qm = ab.get_best_qm()
 
-            config.qm_enabled = best_qm['qm']
-            config.qm_min = best_qm['qm_min']
-            config.qm_max = best_qm['qm_max']
+            config.qm_enabled = best_qm["qm"]
+            config.qm_min = best_qm["qm_min"]
+            config.qm_max = best_qm["qm_max"]
 
-        pickle.dump(config, open(f'{config.temp_folder}/adapt/configCache.pt', 'wb'))
+        pickle.dump(config, open(f"{config.temp_folder}/adapt/configCache.pt", "wb"))
         time_taken = int(time.time() - start)
-        print(f'Finished adaptive content analysis in {time_taken}s. Caching results')
+        print(f"Finished adaptive content analysis in {time_taken}s. Caching results")
 
     return config, chunk_sequence

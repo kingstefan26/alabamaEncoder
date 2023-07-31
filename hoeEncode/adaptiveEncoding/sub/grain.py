@@ -45,8 +45,7 @@ def find_lowest_x(x_list: List[float], y_list: List[float]) -> float:
 
 
 class AutoGrain:
-
-    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13, vf=''):
+    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13, vf=""):
         self.encoded_scene_path = test_file_path
         self.chunk = chunk
         self.crf = crf
@@ -57,14 +56,13 @@ class AutoGrain:
     remove_files_after_use = True  # don't keep the png's since they can get big
 
     def grain_probes(self) -> List[RdPoint]:
-
         test_cache_filename = self.encoded_scene_path + ".grainButter.pt"
         if os.path.exists(test_cache_filename):
             # read the file and return
             return pickle.load(open(test_cache_filename, "rb"))
 
-        if 'vf' not in self.vf and self.vf != '':
-            self.vf = f'-vf {self.vf}'
+        if "vf" not in self.vf and self.vf != "":
+            self.vf = f"-vf {self.vf}"
 
         avif_enc = AvifEncoderSvtenc()
 
@@ -91,7 +89,10 @@ class AutoGrain:
 
         grain_probes = [0, 1, 4, 6, 11, 16, 21, 26]
         for grain in grain_probes:
-            avif_enc.update(grain_synth=grain, output_path=self.encoded_scene_path + ".grain" + str(grain) + ".avif")
+            avif_enc.update(
+                grain_synth=grain,
+                output_path=self.encoded_scene_path + ".grain" + str(grain) + ".avif",
+            )
             avif_enc.run()
 
             if not os.path.exists(avif_enc.output_path):
@@ -128,14 +129,15 @@ class AutoGrain:
         print("getting ideal grain using butteraugli")
         start = time.time()
 
-        if not doesBinaryExist('butteraugli'):
+        if not doesBinaryExist("butteraugli"):
             raise Exception("butteraugli not found in path, fix path/install it")
 
         runs: List[RdPoint] = self.grain_probes()
 
         # find the film-grain value that corresponds to the lowest butteraugli score
-        ideal_grain = find_lowest_x([point.grain for point in runs],
-                                    [point.butter for point in runs])
+        ideal_grain = find_lowest_x(
+            [point.grain for point in runs], [point.butter for point in runs]
+        )
 
         print(f"ideal grain is {ideal_grain}, in {int(time.time() - start)} seconds")
         return int(ideal_grain)
@@ -145,9 +147,17 @@ def wrapper(obj):
     return obj.get_ideal_grain_butteraugli()
 
 
-def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkSequence,
-                            scene_pick_seed: int, temp_folder='./grain_test', random_pick=6, bitrate=-1, crf=20,
-                            video_filters: str = '') -> int:
+def get_best_avg_grainsynth(
+    cache_filename: str,
+    input_file: str,
+    scenes: ChunkSequence,
+    scene_pick_seed: int,
+    temp_folder="./grain_test",
+    random_pick=6,
+    bitrate=-1,
+    crf=20,
+    video_filters: str = "",
+) -> int:
     if cache_filename is not None and os.path.exists(cache_filename):
         return pickle.load(open(cache_filename, "rb"))
 
@@ -157,7 +167,7 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
     # turn temp folder into a full path
     temp_folder = os.path.abspath(temp_folder)
     # make /adapt/grain dir
-    os.makedirs(f'{temp_folder}/adapt/grain', exist_ok=True)
+    os.makedirs(f"{temp_folder}/adapt/grain", exist_ok=True)
 
     if input_file is None:
         raise Exception("input_file is required")
@@ -167,10 +177,10 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
     # create a copy of the object, so it doesn't cause trouble
     scenes = copy.deepcopy(scenes)
 
-    print('starting autograin test')
+    print("starting autograin test")
 
     # bases on length, remove every x scene from the list so its shorter
-    scenes.chunks = scenes.chunks[::int(len(scenes.chunks) / 10)]
+    scenes.chunks = scenes.chunks[:: int(len(scenes.chunks) / 10)]
 
     # pick random x scenes from the list
     random.seed(scene_pick_seed)
@@ -182,17 +192,25 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
 
     # create the autograin objects
     if bitrate == -1:
-        autograin_objects = [AutoGrain(chunk=chunk,
-                                       test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
-                                       crf=crf,
-                                       vf=video_filters)
-                             for chunk in chunks_for_processing]
+        autograin_objects = [
+            AutoGrain(
+                chunk=chunk,
+                test_file_path=f"{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}",
+                crf=crf,
+                vf=video_filters,
+            )
+            for chunk in chunks_for_processing
+        ]
     else:
-        autograin_objects = [AutoGrain(chunk=chunk,
-                                       test_file_path=f'{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}',
-                                       bitrate=bitrate,
-                                       vf=video_filters)
-                             for chunk in chunks_for_processing]
+        autograin_objects = [
+            AutoGrain(
+                chunk=chunk,
+                test_file_path=f"{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}",
+                bitrate=bitrate,
+                vf=video_filters,
+            )
+            for chunk in chunks_for_processing
+        ]
 
     # using multiprocessing to do the experiments on all the scenes
     with Pool() as p:
@@ -202,7 +220,9 @@ def get_best_avg_grainsynth(cache_filename: str, input_file: str, scenes: ChunkS
         p.join()
 
     # get the results
-    print(f"for {random_pick} random scenes, the average ideal grain is {int(mean(results))}")
+    print(
+        f"for {random_pick} random scenes, the average ideal grain is {int(mean(results))}"
+    )
     if cache_filename is not None:
         pickle.dump(int(mean(results)), open(cache_filename, "wb"))
     return int(mean(results))

@@ -6,12 +6,11 @@ import copy
 import os
 import pickle
 import shutil
-import statistics
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
-from hoeEncode.adaptiveEncoding.helpers import get_test_chunks_out_of_a_sequence
 from hoeEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
+from hoeEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
 from hoeEncode.encoders import EncoderConfig
 from hoeEncode.encoders.EncoderJob import EncoderJob
 from hoeEncode.encoders.RateDiss import RateDistribution
@@ -44,7 +43,9 @@ class AutoBitrateLadder:
         self.chunk_sequence = chunk_sequence
         self.config: EncoderConfig = config
 
-        self.chunks = get_test_chunks_out_of_a_sequence(self.chunk_sequence, self.random_pick_count)
+        self.chunks = get_test_chunks_out_of_a_sequence(
+            self.chunk_sequence, self.random_pick_count
+        )
 
     random_pick_count = 7
     num_probes = 6
@@ -55,7 +56,7 @@ class AutoBitrateLadder:
         """
         Delete the cache file for get_best_bitrate
         """
-        path = f'{self.config.temp_folder}/adapt/bitrate/cache.pt'
+        path = f"{self.config.temp_folder}/adapt/bitrate/cache.pt"
         if os.path.exists(path):
             os.remove(path)
 
@@ -64,15 +65,15 @@ class AutoBitrateLadder:
         Doing a binary search on chunks, to find a bitrate that, on average, will yield config.vmaf
         :return: bitrate in kbps e.g., 2420
         """
-        print('Finding best bitrate')
-        probe_folder = f'{self.config.temp_folder}/adapt/bitrate/'
+        print("Finding best bitrate")
+        probe_folder = f"{self.config.temp_folder}/adapt/bitrate/"
 
         if not skip_cache:
-            if os.path.exists(probe_folder + 'cache.pt'):
+            if os.path.exists(probe_folder + "cache.pt"):
                 try:
-                    print('Found cache file, reading')
-                    avg_best = pickle.load(open(probe_folder + 'cache.pt', "rb"))
-                    print(f'Best avg bitrate: {avg_best} kbps')
+                    print("Found cache file, reading")
+                    avg_best = pickle.load(open(probe_folder + "cache.pt", "rb"))
+                    print(f"Best avg bitrate: {avg_best} kbps")
                     return avg_best
                 except:
                     pass
@@ -80,14 +81,16 @@ class AutoBitrateLadder:
         shutil.rmtree(probe_folder, ignore_errors=True)
         os.makedirs(probe_folder)
 
-        print(f'Probing chunks: {" ".join([str(chunk.chunk_index) for chunk in self.chunks])}')
+        print(
+            f'Probing chunks: {" ".join([str(chunk.chunk_index) for chunk in self.chunks])}'
+        )
 
         chunks = copy.deepcopy(self.chunks)
 
         # add proper paths
         for i, chunk in enumerate(chunks):
             chunk.chunk_index = i
-            chunk.chunk_path = f'{probe_folder}{i}.ivf'
+            chunk.chunk_path = f"{probe_folder}{i}.ivf"
 
         # chunk_runs_bitrates = []
         # pool = ThreadPool(processes=self.simultaneous_probes)
@@ -99,28 +102,37 @@ class AutoBitrateLadder:
         commands = [GetBestBitrate(self, chunk) for chunk in chunks]
 
         from hoeEncode.__main__ import execute_commands
+
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(execute_commands(self.config.use_celery, commands, self.config.multiprocess_workers,
-                                                 override_sequential=False))
+        loop.run_until_complete(
+            execute_commands(
+                self.config.use_celery,
+                commands,
+                self.config.multiprocess_workers,
+                override_sequential=False,
+            )
+        )
 
         chunk_runs_bitrates = [command.best_bitrate for command in commands]
 
         avg_best = int(sum(chunk_runs_bitrates) / len(chunk_runs_bitrates))
 
-        print(f'Best avg bitrate: {avg_best} kbps')
+        print(f"Best avg bitrate: {avg_best} kbps")
 
         if self.config.crf_bitrate_mode:
-            print(f'Using crf bitrate mode, finding crf that matches the target bitrate')
+            print(
+                f"Using crf bitrate mode, finding crf that matches the target bitrate"
+            )
             target_crf = self.get_target_crf(avg_best)
-            print(f'Avg crf for {avg_best}Kpbs: {target_crf}')
+            print(f"Avg crf for {avg_best}Kpbs: {target_crf}")
             self.config.crf = target_crf
             self.config.max_bitrate = int(avg_best * 1.6)
 
         try:
-            print('Saving bitrate ladder detection cache file')
-            pickle.dump(avg_best, open(probe_folder + 'cache.pt', "wb"))
+            print("Saving bitrate ladder detection cache file")
+            pickle.dump(avg_best, open(probe_folder + "cache.pt", "wb"))
         except:
-            print('Failed to save cache file for best average bitrate')
+            print("Failed to save cache file for best average bitrate")
 
         return avg_best
 
@@ -131,8 +143,13 @@ class AutoBitrateLadder:
         """
         encoder = AbstractEncoderSvtenc()
         encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
-        encoder.update(speed=6, passes=3, svt_grain_synth=self.config.grain_synth,
-                       rate_distribution=RateDistribution.VBR, threads=1)
+        encoder.update(
+            speed=6,
+            passes=3,
+            svt_grain_synth=self.config.grain_synth,
+            rate_distribution=RateDistribution.VBR,
+            threads=1,
+        )
         encoder.svt_bias_pct = 90
 
         runs = []
@@ -146,9 +163,14 @@ class AutoBitrateLadder:
             mid = (left + right) // 2
             encoder.update(bitrate=mid)
             encoder.run(timeout_value=300)
-            mid_vmaf = get_video_vmeth(chunk.chunk_path, chunk, crop_string=self.config.crop_string,
-                                       disable_enchancment_gain=True, uhd_model=True)
-            self.config.log(f'[{chunk.chunk_index}] {mid} kbps -> {mid_vmaf} vmaf')
+            mid_vmaf = get_video_vmeth(
+                chunk.chunk_path,
+                chunk,
+                crop_string=self.config.crop_string,
+                disable_enchancment_gain=True,
+                uhd_model=True,
+            )
+            self.config.log(f"[{chunk.chunk_index}] {mid} kbps -> {mid_vmaf} vmaf")
 
             runs.append((mid, mid_vmaf))
 
@@ -174,14 +196,17 @@ class AutoBitrateLadder:
 
         best_inter = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))[0]
 
-        self.config.log(f'[{chunk.chunk_index}] best interpolated bitrate {best_inter} kbps', level=1)
+        self.config.log(
+            f"[{chunk.chunk_index}] best interpolated bitrate {best_inter} kbps",
+            level=1,
+        )
         return int(best_inter)
 
     def remove_ssim_translate_cache(self):
         """
         Removes the ssim translate cache
         """
-        shutil.rmtree(f'{self.config.temp_folder}/adapt/bitrate/ssim_translate')
+        shutil.rmtree(f"{self.config.temp_folder}/adapt/bitrate/ssim_translate")
 
     def get_target_ssimdb(self, bitrate: int):
         """
@@ -189,17 +214,21 @@ class AutoBitrateLadder:
         :param bitrate: bitrate in kbps
         :return: target ssimdb
         """
-        print(f'Getting target ssim dB for {bitrate} kbps')
-        cache_path = f'{self.config.temp_folder}/adapt/bitrate/ssim_translate/{bitrate}.pl'
+        print(f"Getting target ssim dB for {bitrate} kbps")
+        cache_path = (
+            f"{self.config.temp_folder}/adapt/bitrate/ssim_translate/{bitrate}.pl"
+        )
         if os.path.exists(cache_path):
             try:
-                target_ssimdb = pickle.load(open(cache_path, 'rb'))
-                print(f'cached ssim dB for {bitrate}: {target_ssimdb}dB')
+                target_ssimdb = pickle.load(open(cache_path, "rb"))
+                print(f"cached ssim dB for {bitrate}: {target_ssimdb}dB")
                 return target_ssimdb
             except:
                 pass
         dbs = []
-        os.makedirs(f'{self.config.temp_folder}/adapt/bitrate/ssim_translate', exist_ok=True)
+        os.makedirs(
+            f"{self.config.temp_folder}/adapt/bitrate/ssim_translate", exist_ok=True
+        )
 
         with ThreadPoolExecutor(max_workers=self.simultaneous_probes) as executor:
             for chunk in self.chunks:
@@ -208,9 +237,9 @@ class AutoBitrateLadder:
 
         target_ssimdb = sum(dbs) / len(dbs)
 
-        print(f'Avg ssim dB for {bitrate}Kbps: {target_ssimdb}dB')
+        print(f"Avg ssim dB for {bitrate}Kbps: {target_ssimdb}dB")
         try:
-            pickle.dump(target_ssimdb, open(cache_path, 'wb'))
+            pickle.dump(target_ssimdb, open(cache_path, "wb"))
         except:
             pass
         return target_ssimdb
@@ -224,14 +253,23 @@ class AutoBitrateLadder:
         """
         encoder = AbstractEncoderSvtenc()
         encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
-        encoder.update(speed=6, passes=3, svt_grain_synth=self.config.grain_synth,
-                       rate_distribution=RateDistribution.VBR, threads=1)
-        encoder.update(output_path=f'{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}.ivf')
+        encoder.update(
+            speed=6,
+            passes=3,
+            svt_grain_synth=self.config.grain_synth,
+            rate_distribution=RateDistribution.VBR,
+            threads=1,
+        )
+        encoder.update(
+            output_path=f"{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}.ivf"
+        )
         encoder.svt_bias_pct = 90
         encoder.update(bitrate=bitrate)
         encoder.run(timeout_value=300)
-        (ssim, ssim_db) = get_video_ssim(encoder.output_path, chunk, get_db=True, crop_string=self.config.crop_string)
-        self.config.log(f'[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb')
+        (ssim, ssim_db) = get_video_ssim(
+            encoder.output_path, chunk, get_db=True, crop_string=self.config.crop_string
+        )
+        self.config.log(f"[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb")
         dbs.append(ssim_db)
 
     def get_target_crf(self, bitrate: int) -> int:
@@ -244,10 +282,15 @@ class AutoBitrateLadder:
         for chunk in self.chunks:
             encoder = AbstractEncoderSvtenc()
             encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
-            encoder.update(speed=4, passes=1, svt_grain_synth=self.config.grain_synth,
-                           rate_distribution=RateDistribution.CQ, threads=os.cpu_count())
+            encoder.update(
+                speed=4,
+                passes=1,
+                svt_grain_synth=self.config.grain_synth,
+                rate_distribution=RateDistribution.CQ,
+                threads=os.cpu_count(),
+            )
 
-            probe_folder = f'{self.config.temp_folder}/adapt/bitrate/'
+            probe_folder = f"{self.config.temp_folder}/adapt/bitrate/"
             os.makedirs(probe_folder, exist_ok=True)
 
             max_probes = 4
@@ -260,10 +303,12 @@ class AutoBitrateLadder:
             while left <= right and num_probes < max_probes:
                 num_probes += 1
                 mid = (left + right) // 2
-                encoder.update(crf=mid, output_path=f'{probe_folder}{chunk.chunk_index}_{mid}.ivf')
+                encoder.update(
+                    crf=mid, output_path=f"{probe_folder}{chunk.chunk_index}_{mid}.ivf"
+                )
                 stats = encoder.run(timeout_value=500)
 
-                print(f'[{chunk.chunk_index}] {mid} crf -> {stats.bitrate} K')
+                print(f"[{chunk.chunk_index}] {mid} crf -> {stats.bitrate} K")
 
                 runs.append((mid, stats.bitrate))
 
@@ -278,128 +323,14 @@ class AutoBitrateLadder:
             point2 = min(runs, key=lambda x: abs(x[1] - bitrate))
 
             # linear interpolation to find the bitrate that gives us the target bitrate
-            best_inter = point1[0] + (point2[0] - point1[0]) * (bitrate - point1[1]) / (point2[1] - point1[1])
+            best_inter = point1[0] + (point2[0] - point1[0]) * (bitrate - point1[1]) / (
+                point2[1] - point1[1]
+            )
             best_inter = int(best_inter)
-            print(f'[{chunk.chunk_index}] {best_inter} crf -> {bitrate} bitrate')
+            print(f"[{chunk.chunk_index}] {best_inter} crf -> {bitrate} bitrate")
             crfs.append(best_inter)
 
         return int(sum(crfs) / len(crfs))
-
-    def ration_bitrate(self, chunk_sequence: ChunkSequence, cache_file_name: str = 'cache.pt'):
-        """
-        Ration bitrate between chunks
-        :return:
-        """
-        print('Rationing bitrate')
-        normalised_bitrate = []  # [(index, normalised_bitrate)...]
-        # if not skip_cache:
-        #     if os.path.exists(cache_file_name):
-        #         try:
-        #             print('Found cache file, reading')
-        #             normalised_bitratees = pickle.load(open(cache_file_name, "rb"))
-        #             for chunk in chunk_sequence.chunks:
-        #                 for normalised_bitrate in normalised_bitratees:
-        #                     if normalised_bitrate[0] == chunk.chunk_index:
-        #                         chunk.bitrate = normalised_bitrate[1]
-        #
-        #             return
-        #         except:
-        #             pass
-
-        # simple wrapper around get_ideal_bitrate to execute on our framework
-
-        # populate chunk complexity
-        commands = []
-        for chunk in chunk_sequence.chunks:
-            commands.append(GetComplexity(copy.deepcopy(chunk), self.config))
-
-        # run in parallel
-        from hoeEncode.__main__ import execute_commands
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(execute_commands(self.config.use_celery, commands, self.config.multiprocess_workers))
-
-        chunk_complexity = []  # [(index, complexity)...]
-        # get results
-        for command in commands:
-            if command.ideal_bitrate == -1:
-                raise Exception("chunk complexity not calculated for chunk " + str(command.chunk.chunk_index))
-            chunk_complexity.append((command.chunk.chunk_index, command.ideal_bitrate))
-
-        # Step 1: Calculate size estimates for each chunk
-        total_length = 0
-        size_estimates = []  # [(index, size_estimate)...]
-        over_target_indices = []  # Record indices that go above the target
-        for index, ideal_bitrate in chunk_complexity:
-            # turn ideal bitrate into bit's per second
-
-            # ideal rate = kilobits / second
-            # turn to bits per second
-            ideal_bitrate *= 100
-
-            # get chunk length from chunk in the original list
-            chunk_length = chunk_sequence.chunks[index].get_lenght()
-            # round to 4 decimal places
-            chunk_length = round(chunk_length, 4)
-            total_length += chunk_length
-
-            chunk_size_estimate = round(ideal_bitrate * chunk_length)
-
-            print(
-                f'[{index}] ideal bitrate is {str(ideal_bitrate / 100)} kbps => {str(ideal_bitrate)} bps;'
-                f' size estimate: {ideal_bitrate} bps * {chunk_length} s = {round(ideal_bitrate * chunk_length)} '
-                f'bits => {round(ideal_bitrate * chunk_length / 1000)} kb')
-
-            size_estimates.append((index, chunk_size_estimate))
-
-            if ideal_bitrate > self.config.bitrate:
-                over_target_indices.append(index)
-
-            # print( f'[{index}] bitrate: {ideal_bitrate}, estimated {chunk_size_estimate} bytes at {ideal_bitrate} bps'
-            #        f' for {chunk_length} seconds')
-
-        total_size_estimate = sum(size_estimate for _, size_estimate in size_estimates)
-
-        print(f'Total length: {total_length}, {total_length / 60} minutes,'
-              f' size at target bitrate: {round((total_length * self.config.bitrate) / 1000 / 8)}MB,'
-              f' size w complexity estimation per chunk: {round(total_size_estimate / 100000 / 8)}MB')
-
-        # Step 2: Calculate the factor based on predicted size overshoot
-
-        factor = 1.0  # Default factor (no adjustment needed)
-        if over_target_indices:
-            total_overshoot = sum(size_estimate - self.config.bitrate * 1000 for _, size_estimate in size_estimates if
-                                  size_estimate > self.config.bitrate * 1000)
-            average_overshoot = total_overshoot / len(over_target_indices)
-            factor = self.config.bitrate * 1000 / (self.config.bitrate * 1000 + average_overshoot)
-
-        print(f'Peek Factor: {factor}')
-        # Step 3: Adjust ideal bitrates using the calculated factor
-        if factor < 1.0:
-            for index, ideal_bitrate in chunk_complexity:
-                if ideal_bitrate > self.config.bitrate:
-                    adjusted_bitrate = ideal_bitrate * factor
-                    normalised_bitrate.append((index,
-                                               adjusted_bitrate))
-                    # print(f'Normalised bitrate for chunk {index} to {adjusted_bitrate}')
-
-        median_bitrate = statistics.median([bitrate for _, bitrate in normalised_bitrate])
-        avg_bitrate = statistics.mean([bitrate for _, bitrate in normalised_bitrate])
-        print(f'Median bitrate: {median_bitrate}, Average bitrate: {avg_bitrate}')
-
-        # save cache
-        try:
-            print('Saving cache file')
-            pickle.dump(normalised_bitrate, open(cache_file_name, "wb"))
-        except:
-            print('Failed to save cache file')
-
-        # Step 4: Set the bitrate for each chunk
-        for chunk in chunk_sequence.chunks:
-            for normalised_bitrate in normalised_bitrate:
-                if normalised_bitrate[0] == chunk.chunk_index:
-                    chunk.bitrate = normalised_bitrate[1]
-
-        return
 
 
 class GetBestBitrate(BaseCommandObject):
