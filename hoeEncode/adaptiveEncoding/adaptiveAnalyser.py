@@ -8,9 +8,7 @@ import time
 
 from hoeEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
 from hoeEncode.adaptiveEncoding.sub.grain import get_best_avg_grainsynth
-from hoeEncode.adaptiveEncoding.sub.param import AutoParam
 from hoeEncode.encoders import EncoderConfig
-from hoeEncode.encoders.Encoders import EncodersEnum
 from hoeEncode.sceneSplit.Chunks import ChunkSequence
 
 
@@ -61,14 +59,18 @@ def do_adaptive_analasys(
 
             config.grain_synth = get_best_avg_grainsynth(**param)
 
-        if do_qm and config.encoder == EncodersEnum.SVT_AV1:
-            ab = AutoParam(chunk_sequence, config)
+        # if do_qm and config.encoder == EncodersEnum.SVT_AV1:
+        #     ab = AutoParam(chunk_sequence, config)
+        #
+        #     best_qm = ab.get_best_qm()
+        #
+        #     config.qm_enabled = best_qm["qm"]
+        #     config.qm_min = best_qm["qm_min"]
+        #     config.qm_max = best_qm["qm_max"]
 
-            best_qm = ab.get_best_qm()
-
-            config.qm_enabled = best_qm["qm"]
-            config.qm_min = best_qm["qm_min"]
-            config.qm_max = best_qm["qm_max"]
+        config.qm_enabled = True
+        config.qm_min = 0
+        config.qm_max = 7
 
         pickle.dump(config, open(f"{config.temp_folder}/adapt/configCache.pt", "wb"))
         time_taken = int(time.time() - start)

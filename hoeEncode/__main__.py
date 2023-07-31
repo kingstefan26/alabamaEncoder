@@ -34,6 +34,9 @@ from hoeEncode.sceneSplit.Chunks import ChunkSequence
 from hoeEncode.sceneSplit.VideoConcatenator import VideoConcatenator
 from hoeEncode.sceneSplit.split import get_video_scene_list_skinny
 from hoeEncode.utils.execute import syscmd
+from hoeEncode.utils.getHeight import get_height
+from hoeEncode.utils.getWidth import get_width
+from hoeEncode.utils.isHDR import is_hdr
 
 
 async def cancel_all_tasks():
@@ -313,6 +316,12 @@ def print_stats(
     config_bitrate: int,
     input_file: str,
     grain_synth: int,
+    title: str,
+    tonemaped: bool,
+    croped: bool,
+    scaled: bool,
+    cut_intro: bool,
+    cut_credits: bool,
 ):
     # Load all ./temp/stats/*.json object
     stats = []
@@ -371,9 +380,15 @@ def print_stats(
             num /= 1024.0
         return f"{num:.1f}Yi{suffix}"
 
+    print("Encode finished message \n\n")
+
+    print_and_save(f"## {title}")
+
     print_and_save(f"- total bitrate `{total_bitrate} kb/s`")
-    print_and_save(f"- total size `{sizeof_fmt(os.path.getsize(output))}`")
-    print_and_save(f"- length `{get_video_lenght(output, sexagesimal=True)}`")
+    print_and_save(f"- total size `{sizeof_fmt(os.path.getsize(output)).strip()}`")
+    print_and_save(
+        f"- length `{get_video_lenght(output, sexagesimal=True).split('.')[0]}`"
+    )
     size_decrease = round(
         (os.path.getsize(output) - os.path.getsize(input_file))
         / (os.path.getsize(input_file))
@@ -384,6 +399,33 @@ def print_stats(
         f"- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease from source `{size_decrease}%`"
     )
     print_and_save(f"- grain synth `{grain_synth}`")
+
+    string = ""
+
+    if tonemaped:
+        string += "tonemaped "
+    if croped:
+        string += " & croped "
+    if scaled:
+        string += " & scaled"
+
+    print_and_save(f"- {string}")
+
+    if cut_intro and cut_credits == False:
+        print_and_save(f"- intro cut")
+    elif cut_intro == False and cut_credits:
+        print_and_save(f"- credits cut")
+    elif cut_intro and cut_credits:
+        print_and_save(f"- intro & credits cut")
+
+    print_and_save("\n")
+    print_and_save(
+        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url &w={get_width(output)}&h={get_height(output)}"
+    )
+    print_and_save("\n")
+    print_and_save("ALABAMAENCODES © 2024")
+
+    print("\n\n Finished!")
 
 
 def generate_previews(
@@ -403,7 +445,7 @@ def generate_previews(
 
     for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
         syscmd(
-            f'ffmpeg -ss {offset} -i "{input_file}" -t {preview_length} -c copy "{output_folder}preview_{i}.avif"'
+            f'ffmpeg -y -ss {offset} -i "{input_file}" -t {preview_length} -c copy "{output_folder}preview_{i}.avif"'
         )
 
 
@@ -439,6 +481,8 @@ def create_torrent_file(video: str, encoder_name: str, output_folder: str):
 
     t.generate()
 
+    if os.path.exists(os.path.join(output_folder, "torrent.torrent")):
+        os.remove(os.path.join(output_folder, "torrent.torrent"))
     t.write(os.path.join(output_folder, "torrent.torrent"))
 
 
@@ -535,7 +579,7 @@ def main():
         type=float,
         default=20,
         help="What ssim dB to target when using auto bitrate,"
-        " not recommended to set manually, otherwise 20 is a good starting"
+        " not recommended to set manually, otherwise 21.2 is a good starting"
         " point",
     )
 
@@ -545,14 +589,6 @@ def main():
         type=str,
         default="svt_av1",
         choices=["svt_av1", "x265"],
-    )
-
-    parser.add_argument(
-        "--content_type",
-        help="What content for guided tuning (will be replaced with ml down the line)",
-        type=str,
-        default="animation",
-        choices=["anime", "live-action"],
     )
 
     parser.add_argument(
@@ -656,6 +692,27 @@ def main():
         default=False,
     )
 
+    parser.add_argument(
+        "--hdr",
+        help="Encode in HDR, if off and input is HDR, it will be tone mapped to SDR",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--crop_string",
+        help="Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter",
+        type=str,
+        default="",
+    )
+
+    parser.add_argument(
+        "--scale_string",
+        help="Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`",
+        type=str,
+        default="",
+    )
+
     parser.add_argument("--title", help="Title of the video", type=str, default="")
 
     encoder_name = "SouAV1R"
@@ -669,6 +726,15 @@ def main():
     # check if input is an absolute path
     if input_path[0] != "/":
         print("Input video is not absolute, please use absolute paths")
+
+    # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
+    if args.video_filters != "" and (
+        args.hdr or args.crop_string != "" or args.scale_string != ""
+    ):
+        print(
+            "--video_filters is mutually exclusive with --hdr --crop_string --scale_string"
+        )
+        quit()
 
     host_adrees = get_lan_ip()
     print(f"Got lan ip: {host_adrees}")
@@ -705,13 +771,6 @@ def main():
         print("x265 only supports auto crf, set `--auto_crf true`")
         quit()
 
-    # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
-    croppy_floppy = args.video_filters
-    if args.autocrop and croppy_floppy == "":
-        cropdetect = do_cropdetect(ChunkObject(path=input_file))
-        if cropdetect != "":
-            croppy_floppy = f"crop={cropdetect}"
-
     scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
         input_file=input_file,
         cache_file_path=tempfolder + "sceneCache.pt",
@@ -724,7 +783,6 @@ def main():
         xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}.ivf"
 
     config = EncoderConfigObject(
-        crop_string=croppy_floppy,
         convexhull=args.bitrate_adjust,
         temp_folder=tempfolder,
         server_ip=host_adrees,
@@ -734,9 +792,36 @@ def main():
         vmaf=args.vmaf_target,
         speed=4,
         encoder=args.encoder,
-        content_type=args.content_type,
         log_level=log_level,
     )
+
+    # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
+    config.crop_string = args.video_filters
+    if args.autocrop and config.crop_string == "":
+        cropdetect = do_cropdetect(ChunkObject(path=input_file))
+        if cropdetect != "":
+            config.crop_string = f"crop={cropdetect}"
+
+    if config.crop_string == "":
+        final = ""
+
+        if args.crop_string != "":
+            final += f"crop={args.crop_string}"
+
+        if args.scale_string != "":
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += f"scale={args.scale_string}:flags=lanczos"
+
+        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv"
+
+        if not args.hdr and is_hdr(input_file):
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += tonemap_string
+
+        config.crop_string = final
+
     config.use_celery = args.celery
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
@@ -780,6 +865,12 @@ def main():
             config_bitrate=config.bitrate,
             input_file=args.input,
             grain_synth=-1,
+            title=args.title,
+            cut_intro=True if args.start_offset > 0 else False,
+            cut_credits=True if args.end_offset > 0 else False,
+            croped=True if args.crop_string != "" else False,
+            scaled=True if args.scale_string != "" else False,
+            tonemaped=True if not args.hdr and is_hdr(input_file) else False,
         )
         if args.generate_previews:
             print("Generating previews")
@@ -859,7 +950,13 @@ def main():
         output=args.output,
         config_bitrate=config.bitrate,
         input_file=args.input,
-        grain_synth=config.grain_synth,
+        grain_synth=-1,
+        title=args.title,
+        cut_intro=True if args.start_offset > 0 else False,
+        cut_credits=True if args.end_offset > 0 else False,
+        croped=True if args.crop_string != "" else False,
+        scaled=True if args.scale_string != "" else False,
+        tonemaped=True if not args.hdr and is_hdr(input_file) else False,
     )
 
     if args.generate_previews:

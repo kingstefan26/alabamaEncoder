@@ -43,8 +43,11 @@ def get_test_chunks_out_of_a_sequence(
     """
     chunks_copy: List[ChunkObject] = copy.deepcopy(chunk_sequence.chunks)
     chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2) : int(len(chunks_copy) * 0.8)]
-    # bases on length, remove every x scene from the list so its shorter
-    chunks_copy = chunks_copy[:: int(len(chunks_copy) / 10)]
+
+    if len(chunks_copy) > 10:
+        # bases on length, remove every x scene from the list so its shorter
+        chunks_copy = chunks_copy[:: int(len(chunks_copy) / 10)]
+
     random.shuffle(chunks_copy)
     chunks = chunks_copy[:random_pick_count]
     return copy.deepcopy(chunks)
