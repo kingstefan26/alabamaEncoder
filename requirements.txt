@@ -4,3 +4,5 @@ celery
 redis
 psutil
 opencv-python
+setuptools
+torf

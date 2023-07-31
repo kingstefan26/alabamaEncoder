@@ -10,13 +10,16 @@ class VideoConcatenator:
     nessesary = ['ffmpeg']
 
     def __init__(self, files: List[str] = None, output: str = None, file_with_audio: str = None,
-                 audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on', start_offset=-1, end_offset=-1):
+                 audio_param_override='-c:a libopus -ac 2 -b:v 96k -vbr on', start_offset=-1, end_offset=-1,
+                 title='', encoder_name='TestHoeEncode'):
         self.files = files
         self.output = output
         self.file_with_audio = file_with_audio
         self.audio_param_override = audio_param_override
         self.start_offset = start_offset
         self.end_offset = end_offset
+        self.title = title
+        self.encoder_name = encoder_name
         for n in self.nessesary:
             if not doesBinaryExist(n):
                 print(f'Could not find {n} in PATH')
@@ -51,7 +54,7 @@ class VideoConcatenator:
                 f.write(f'file \'{file}\'\n')
 
         vid_output = self.output + '.videoonly.mkv'
-        concat_command = f'ffmpeg -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy "{vid_output}"'
+        concat_command = f'ffmpeg -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy -map_metadata -1 "{vid_output}"'
 
         print('Concating Video')
         print(f'running: {concat_command}')
@@ -68,7 +71,7 @@ class VideoConcatenator:
 
             print('Encoding a audio track')
             audio_output = self.output + '.audioonly.mkv'
-            encode_audio = f'ffmpeg -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} {audio_output}'
+            encode_audio = f'ffmpeg -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 {audio_output}'
             print(f'running: {encode_audio}')
             os.system(encode_audio)
             if check_for_invalid(audio_output):
@@ -77,8 +80,12 @@ class VideoConcatenator:
 
             print('Muxing audio into the output')
 
+            title_bit = F' -metadata description="encoded by {self.encoder_name}" '
+            if self.title:
+                title_bit += f' -metadata title="{self.title}"'
+
             commands = [
-                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:v -map 1:a -map 2:s -movflags +faststart -c:v copy -c:a copy {self.output}'
+                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map 2:s -movflags +faststart -c:v copy -c:a copy {self.output}'
                 , f'rm {concat_file_path} {vid_output} {audio_output}'
             ]
         else:

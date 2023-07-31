@@ -9,6 +9,7 @@ import sys
 from concurrent.futures.thread import ThreadPoolExecutor
 from multiprocessing.pool import ThreadPool
 
+from torf import Torrent
 from tqdm import tqdm
 
 from hoeEncode.CeleryApp import app, run_command_on_celery
@@ -123,7 +124,7 @@ async def execute_commands(use_celery, command_objects, multiprocess_workers, ov
         load = Load()
         target_cpu_utilization = 1.1
         cpu_threshold = 0.3
-        max_concurrent_jobs = os.cpu_count()  # Initial value to be adjusted dynamically
+        max_concurrent_jobs = 2  # Initial value to be adjusted dynamically
         if multiprocess_workers != -1:
             max_concurrent_jobs = multiprocess_workers
 
@@ -274,10 +275,10 @@ def integrity_check(seq: ChunkSequence, temp_folder: str) -> bool:
     return False
 
 
-def print_stats(tempfolder: str, output: str, config_bitrate: int, input_file: str, grain_synth: int):
+def print_stats(output_folder: str, output: str, config_bitrate: int, input_file: str, grain_synth: int):
     # Load all ./temp/stats/*.json object
     stats = []
-    for file in glob.glob(f'{tempfolder}stats/*.json'):
+    for file in glob.glob(f'{output_folder}temp/stats/*.json'):
         with open(file) as f:
             stats.append(json.load(f))
 
@@ -286,7 +287,16 @@ def print_stats(tempfolder: str, output: str, config_bitrate: int, input_file: s
     for stat in stats:
         time_encoding += stat['time_encoding']
 
-    print(f'Total encoding time across chunks: {time_encoding} seconds\n\n')
+    # remove old stat.txt
+    if os.path.exists(f'{output_folder}stat.txt'):
+        os.remove(f'{output_folder}stat.txt')
+
+    def print_and_save(string: str):
+        print(string)
+        with open(f'{output_folder}stat.txt', 'a') as f:
+            f.write(string + '\n')
+
+    print_and_save(f'Total encoding time across chunks: {time_encoding} seconds\n\n')
 
     # get the worst/best/med target_miss_proc
     target_miss_proc = []
@@ -294,21 +304,21 @@ def print_stats(tempfolder: str, output: str, config_bitrate: int, input_file: s
         # turn the string into a float then round to two places
         target_miss_proc.append(round(float(stat['target_miss_proc']), 2))
     target_miss_proc.sort()
-    print('Target miss from encode per chunk encode bitrate:')
-    print(f'Average target_miss_proc: {round(sum(target_miss_proc) / len(target_miss_proc), 2)}')
-    print(f'Worst target_miss_proc: {target_miss_proc[-1]}')
-    print(f'Best target_miss_proc: {target_miss_proc[0]}')
-    print(f'Median target_miss_proc: {target_miss_proc[int(len(target_miss_proc) / 2)]}')
+    print_and_save('Target miss from encode per chunk encode bitrate:')
+    print_and_save(f'Average target_miss_proc: {round(sum(target_miss_proc) / len(target_miss_proc), 2)}')
+    print_and_save(f'Worst target_miss_proc: {target_miss_proc[-1]}')
+    print_and_save(f'Best target_miss_proc: {target_miss_proc[0]}')
+    print_and_save(f'Median target_miss_proc: {target_miss_proc[int(len(target_miss_proc) / 2)]}')
 
-    print('\n\n')
+    print_and_save('\n\n')
 
     total_bitrate = int(get_total_bitrate(output)) / 1000
-    print(f'Total bitrate: {total_bitrate} kb/s, config bitrate: {config_bitrate} kb/s')
+    print_and_save(f'Total bitrate: {total_bitrate} kb/s, config bitrate: {config_bitrate} kb/s')
     # vid_bitrate, _ = get_source_bitrates(output)
     bitrate_miss = round((total_bitrate - config_bitrate) / config_bitrate * 100, 2)
-    print(f'Bitrate miss from config bitrate: {bitrate_miss}%')
+    print_and_save(f'Bitrate miss from config bitrate: {bitrate_miss}%')
 
-    print('\n\n')
+    print_and_save('\n\n')
 
     def sizeof_fmt(num, suffix="B"):
         for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
@@ -317,14 +327,64 @@ def print_stats(tempfolder: str, output: str, config_bitrate: int, input_file: s
             num /= 1024.0
         return f"{num:.1f}Yi{suffix}"
 
-    print(f'- total bitrate `{total_bitrate} kb/s`')
-    print(f'- total size `{sizeof_fmt(os.path.getsize(output))}`')
-    print(f'- length `{get_video_lenght(output, sexagesimal=True)}`')
+    print_and_save(f'- total bitrate `{total_bitrate} kb/s`')
+    print_and_save(f'- total size `{sizeof_fmt(os.path.getsize(output))}`')
+    print_and_save(f'- length `{get_video_lenght(output, sexagesimal=True)}`')
     size_decrease = round((os.path.getsize(output) - os.path.getsize(input_file)) / (os.path.getsize(input_file)) * 100,
                           2)
-    print(
+    print_and_save(
         f'- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease from source `{size_decrease}%`')
-    print(f'- grain synth `{grain_synth}`')
+    print_and_save(f'- grain synth `{grain_synth}`')
+
+
+def generate_previews(input_file: str, output_folder: str, num_previews: int, preview_length: int):
+    # get total video length
+    total_length = get_video_lenght(input_file)
+
+    # create x number of offsets that are evenly spaced and fit in the video
+    offsets = []
+    # for i in range(num_previews):
+    #     offsets.append(int(i * total_length / num_previews))
+
+    # pick x randomly and evenly offseted offsets
+    for i in range(num_previews):
+        offsets.append(int(random.uniform(0, total_length)))
+
+    for i, offset in tqdm(enumerate(offsets), desc='Generating previews'):
+        syscmd(f'ffmpeg -ss {offset} -i "{input_file}" -t {preview_length} -c copy "{output_folder}preview_{i}.avif"')
+
+
+def create_torrent_file(video: str, encoder_name: str, output_folder: str):
+    trackers = ["udp://tracker.opentrackr.org:1337/announce",
+                "https://tracker2.ctix.cn:443/announce",
+                "https://tracker1.520.jp:443/announce",
+                "udp://opentracker.i2p.rocks:6969/announce",
+                "udp://tracker.openbittorrent.com:6969/announce",
+                "http://tracker.openbittorrent.com:80/announce",
+                "udp://open.demonii.com:1337/announce",
+                "udp://open.stealth.si:80/announce",
+                "udp://exodus.desync.com:6969/announce",
+                "udp://tracker.torrent.eu.org:451/announce",
+                "udp://tracker.moeking.me:6969/announce",
+                "udp://explodie.org:6969/announce",
+                "udp://tracker.opentrackr.org:1337/announce",
+                "http://tracker.openbittorrent.com:80/announce",
+                "udp://opentracker.i2p.rocks:6969/announce",
+                "udp://tracker.internetwarriors.net:1337/announce",
+                "udp://tracker.leechers-paradise.org:6969/announce",
+                "udp://coppersurfer.tk:6969/announce",
+                "udp://tracker.zer0day.to:1337/announce"]
+
+    print('Creating torrent file')
+
+    t = Torrent(path=video, trackers=trackers)
+    t.comment = f'Encoded by {encoder_name}'
+
+    t.private = False
+
+    t.generate()
+
+    t.write(os.path.join(output_folder, 'torrent.torrent'))
 
 
 def main():
@@ -421,6 +481,18 @@ def main():
     parser.add_argument('--status_update_token', type=str)
     parser.add_argument('--status_update_domain', type=str, default='encodestatus.kokoniara.software')
 
+    parser.add_argument('--generate_previews', help='Generate previews for encoded file', action='store_true',
+                        default=True)
+
+    parser.add_argument('--override_bad_wrong_cache_path',
+                        help='Override the check for input file path matching in scene cache loading',
+                        action='store_true',
+                        default=False)
+
+    parser.add_argument('--title', help='Title of the video', type=str, default='')
+
+    encoder_name = 'SouAV1R'
+
     args = parser.parse_args()
 
     input_path = args.input
@@ -434,8 +506,14 @@ def main():
     host_adrees = get_lan_ip()
     print(f'Got lan ip: {host_adrees}')
 
+    output_folder = os.path.abspath(args.temp_dir) + '/'
+
     # turn tempfolder into a full path
-    tempfolder = os.path.abspath(args.temp_dir) + '/'
+    tempfolder = output_folder + 'temp/'
+
+    if not os.path.exists(tempfolder):
+        os.makedirs(tempfolder)
+
     input_file = tempfolder + 'temp.mkv'
 
     if args.celery:
@@ -471,7 +549,8 @@ def main():
                                                                cache_file_path=tempfolder + 'sceneCache.pt',
                                                                max_scene_length=args.max_scene_length,
                                                                start_offset=args.start_offset,
-                                                               end_offset=args.end_offset)
+                                                               end_offset=args.end_offset,
+                                                               override_bad_wrong_cache_path=args.override_bad_wrong_cache_path)
     for xyz in scenes_skinny.chunks:
         xyz.chunk_path = f'{tempfolder}{xyz.chunk_index}.ivf'
 
@@ -516,11 +595,15 @@ def main():
 
     if os.path.exists(args.output):
         print('Output file already exists, attempting to print stats & exiting')
-        print_stats(tempfolder=tempfolder,
+        print_stats(output_folder=output_folder,
                     output=args.output,
                     config_bitrate=config.bitrate,
                     input_file=args.input,
                     grain_synth=-1)
+        if args.generate_previews:
+            print('Generating previews')
+            generate_previews(input_file=args.output, output_folder=output_folder, num_previews=4, preview_length=5)
+            create_torrent_file(video=args.output, encoder_name=encoder_name, output_folder=output_folder)
         quit()
 
     # FINISH SETTING UP CONFIG OBJECT
@@ -555,7 +638,7 @@ def main():
     try:
         concat = VideoConcatenator(output=args.output, file_with_audio=input_file,
                                    audio_param_override=args.audio_params, start_offset=args.start_offset,
-                                   end_offset=args.end_offset)
+                                   end_offset=args.end_offset, title=args.title, encoder_name=encoder_name)
         concat.find_files_in_dir(folder_path=tempfolder, extension='.ivf')
         concat.concat_videos()
     except:
@@ -564,11 +647,16 @@ def main():
 
     # ENCODE END
 
-    print_stats(tempfolder=tempfolder,
+    print_stats(output_folder=output_folder,
                 output=args.output,
                 config_bitrate=config.bitrate,
                 input_file=args.input,
                 grain_synth=config.grain_synth)
+
+    if args.generate_previews:
+        print('Generating previews')
+        generate_previews(input_file=args.output, output_folder=output_folder, num_previews=4, preview_length=5)
+        create_torrent_file(video=args.output, encoder_name=encoder_name, output_folder=output_folder)
 
 
 if __name__ == "__main__":

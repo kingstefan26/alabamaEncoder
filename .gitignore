@@ -17,3 +17,6 @@ temp/
 **.pt
 **.ivf.stat
 .ruff_cache
+dist
+video_encoder.egg-info
+build

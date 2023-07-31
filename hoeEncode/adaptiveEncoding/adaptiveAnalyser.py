@@ -30,7 +30,7 @@ def do_adaptive_analasys(chunk_sequence: ChunkSequence, config: EncoderConfig, d
         ab = AutoBitrateLadder(chunk_sequence, config)
 
         if do_bitrate_ladder:
-            ab.get_best_bitrate()
+            config.bitrate = ab.get_best_bitrate()
 
         if config.convexhull:
             config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)

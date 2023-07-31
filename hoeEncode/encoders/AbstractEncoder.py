@@ -90,7 +90,7 @@ class AbstractEncoder(ABC):
         if 'temp_folder' in kwargs:
             self.temp_folder = kwargs.get('temp_folder')
             if not os.path.isdir(self.temp_folder):
-                raise Exception('FATAL: temp_folder must be a valid directory')
+                raise Exception(f'FATAL: temp_folder ({self.temp_folder}) must be a valid directory')
         if 'bitrate' in kwargs:
             self.bitrate = kwargs.get('bitrate')
             if not isinstance(self.bitrate, int):

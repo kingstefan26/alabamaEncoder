@@ -11,9 +11,10 @@ from hoeEncode.utils.getvideoframerate import get_video_frame_rate
 from hoeEncode.utils.getwidth import get_width
 
 
-def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene_length: int,
-                                start_offset=-1, end_offset=-1) -> ChunkSequence:
+def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene_length: int, start_offset=-1,
+                                end_offset=-1, override_bad_wrong_cache_path=False) -> ChunkSequence:
     """
+    :param override_bad_wrong_cache_path:
     :param start_offset:
     :param end_offset:
     :param input_file: input file
@@ -27,10 +28,10 @@ def get_video_scene_list_skinny(input_file: str, cache_file_path: str, max_scene
         seq: ChunkSequence = pickle.load(open(cache_file_path, 'rb'))
 
         # Ensure input file matches the cached sequence
-        if seq.input_file != input_file:
+        if seq.input_file != input_file and not override_bad_wrong_cache_path:
             raise Exception(
                 f'Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),'
-                f' please correct this (wrong temp folder?)'
+                f' please correct this (wrong temp folder?), use --override-bad-wrong-cache-path to override.'
             )
     else:
         print('Creating scene cache')

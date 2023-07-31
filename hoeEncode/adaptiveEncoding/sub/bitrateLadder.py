@@ -5,12 +5,12 @@ import asyncio
 import copy
 import os
 import pickle
-import random
 import shutil
 import statistics
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+from hoeEncode.adaptiveEncoding.helpers import get_test_chunks_out_of_a_sequence
 from hoeEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
 from hoeEncode.encoders import EncoderConfig
 from hoeEncode.encoders.EncoderJob import EncoderJob
@@ -44,15 +44,7 @@ class AutoBitrateLadder:
         self.chunk_sequence = chunk_sequence
         self.config: EncoderConfig = config
 
-        # get x random chunks to test on later
-
-        chunks_copy: List[ChunkObject] = copy.deepcopy(self.chunk_sequence.chunks)
-        chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2):int(len(chunks_copy) * 0.8)]
-        # bases on length, remove every x scene from the list so its shorter
-        chunks_copy = chunks_copy[::int(len(chunks_copy) / 10)]
-        random.shuffle(chunks_copy)
-        chunks = chunks_copy[:self.random_pick_count]
-        self.chunks: List[ChunkObject] = copy.deepcopy(chunks)
+        self.chunks = get_test_chunks_out_of_a_sequence(self.chunk_sequence, self.random_pick_count)
 
     random_pick_count = 7
     num_probes = 6
@@ -123,8 +115,6 @@ class AutoBitrateLadder:
             print(f'Avg crf for {avg_best}Kpbs: {target_crf}')
             self.config.crf = target_crf
             self.config.max_bitrate = int(avg_best * 1.6)
-
-        self.config.bitrate = avg_best
 
         try:
             print('Saving bitrate ladder detection cache file')

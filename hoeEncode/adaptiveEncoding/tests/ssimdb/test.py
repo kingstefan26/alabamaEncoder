@@ -3,9 +3,9 @@ Testing the ssim dB targeting technique
 """
 import copy
 import os
-import random
 from typing import List
 
+from hoeEncode.adaptiveEncoding.helpers import get_test_chunks_out_of_a_sequence
 from hoeEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
 from hoeEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
 from hoeEncode.encoders.EncoderConfig import EncoderConfigObject
@@ -34,11 +34,7 @@ def test():
     config = EncoderConfigObject(temp_folder=testing_env, ssim_db_target=ssim_db_target,
                                  bitrate=bitrate_being_evaluated)
 
-    chunks_copy: List[ChunkObject] = copy.deepcopy(chunk_sequence.chunks)
-    chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2):int(len(chunks_copy) * 0.8)]
-    chunks_copy = chunks_copy[::int(len(chunks_copy) / 10)]
-    random.shuffle(chunks_copy)
-    chunks = chunks_copy[:10]
+    chunks = get_test_chunks_out_of_a_sequence(chunk_sequence, 10)
     test_chunks: List[ChunkObject] = copy.deepcopy(chunks)
     for i, chunk in enumerate(test_chunks):
         chunk.chunk_index = i
