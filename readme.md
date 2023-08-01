@@ -1,84 +1,63 @@
 # My vadeio encoda
 
-this is my attempt at encoding in a multi pc setup, currently supports svtav1, altho aomenc/its forks could be added in
-like two lines _(get real, the efficiency from cpu0-tuneLavish-sb-qp-sweep1 aomenc is hot air stop using ur cpu as a
-space heater)_
+this is my attempt at encoding in a multi pc setup, currently supports svtav1
 
 ![lovely screenshot of the worker](Screenshotidfk.png)
 
 ## **WARNING: THIS IS A WORK IN PROGRESS, IT MAY NOT WORK, IT MAY EAT YOUR FILES, IT MAY EAT YOUR PC
 
-# Cli interface
+# Installation
+
+* pull this repo
+* `python setup.py bdist_wheel`
+* `pip install --force-reinstall dist/video_encoder-0.1-py3-none-any.whl`
+* For basic usage make sure `SvtAv1EncApp`/`ffmpeg`/`ffprobe` are available on your path (you can use them in cli),
+  otherwise the program will crash if something is missing
+* enjoy
+
+# CLI
+
+if running celery the celery broker ip should be under `REDIS_HOST` env var,
+eg `REDIS_HOST=192.168.1.10 alabamaEncoder worker 10`  
+otherwise assumed to be `localhost`
+
+for workers:
 
 ````
-usage: ./main.py [-h] [INPUT] [OUTPUT] [TEMP DIR PATH] [flags]
+alabamaEncoder worker [# of worker processes] 
 ````
 
-| argument                     | description                                                                |
-|------------------------------|----------------------------------------------------------------------------|
-| -h, --help                   | show help                                                                  |
-| --audio                      | mux+transcode audio into the final video                                   |
-| --audio_params [str]         | params for audio, eg `-c:v libopus`                                        |
-| --celery                     | run on celery cluster                                                      |
-| --dry                        | if running without automatic enchancements, will print cli encode commands |
-| --autocrop                   | autocrop the video black bars                                              |
-| --crop_override [str]        | override ffmpeg vf params, put your `-vf crop=...` or filter_graph even    |
-| --bitrate [int]k             | specify a bitrate to follow, eg `--bitrate 1000k` in kpbs end with k       |
-| --autobitrate                | set individual chunks bitrate lower or higher depending on its complexity  |
-| --multiprocess_workers [int] | when not using celery, how many encode processes to run at once            |
-| --ssim-db-target [float]     | when doing autobirate what ssim dB should the bitrate target               |
-| --autograin                  | auto test and add best grain parameters                                    |
-| --grain_override             | manually specify a film grain value                                        |
-| --autoparam                  | automatically set some parameters based on the input video                 |
-| --auto_bitrate_ladder        | automatically find a bitrate that suits ur video, based on target vmaf     |
-| --vmaf_target [float]        | what vmaf to target with auto ladder, default 96                           |
-| --max_scene_length [int]     | dont allow scenes longer than this, in seconds                             |
+for general:
 
-# **OUT OF DATE READ THE CODE!**
-
-````~~guide to get started (NOT COMPLETE, YOU MAY NEED TO INSTALL MORE PACKAGES, TELL ME IF YOU DO):
-
-# Getting started
-before you start: you need to have docker installed and working [https://docs.docker.com/engine/install/]()
-
-1. Install requirements ```pip install -r requirements.txt```
-2. Create `temp` dir (```mkdir temp```)
-3. If you only want to encode on a single system, skip to step 8 and edit `DontUseCelery` to True in `main.py`
-4. Create nfs file share pointing at temp dir
-    - manual way for ubuntu: `sudo apt install nfs-kernel-server` -> `sudo nano /etc/exports` ->
-      put `/point/at/the/temp/dir *(rw,sync,no_subtree_check,no_root_squash)` at the
-      bottom -> `sudo exportfs -a` -> `sudo systemctl restart nfs-server`
-    - or using a docker container, sample command in `nfsMountDocker` just swap the dir to temp_dir_full_path
-5. Run redis
-    - i recommend just ```docker run -d -p 6379:6379 --name videoEncoderRedis redis```
-6. Build the docker image ```DOCKER_BUILDKIT=1 docker build -t vadeio-encoda .```
-    - if you want a multi pc setup just to guide bellow now
-7. Run the docker image
-    - example in `runTheDocker`. Swap `NFS_SERVER` and `REDIS_HOST` to ip_of_the_master e.g. 192.168.1.2, `NFS_MNT` to
-      temp_dir_full_path
-8. Edit `main.py`,
-    - scroll to bottom, in there you provide a input file nad few variables to change
-    - will be cli in the near future
-9. run ```REDIS_HOST=ip_of_the_master python3 main.py```
-10. it will create a scene cache (can hang for high-resolution) and then start encoding on the worker[s]
-11. after encoding is done, we check for errors+merge
-    - run ```python3 concat.py output.mp4```, it will tell us if any files are broken, if so remove them and go back to
-      step 9
-12. BOOM you have a video, you can mux it with audio etc etc
-
-## Multi PC Setup
-
-in the case that you want to do this on multiple pc's
-
-1. transfer the docker container and run it
-    - after step 6 of above guide, do ```docker save vadeio-encoda:latest | gzip > ./myimage_latest.tar.gz```
-    - on x pcs:
-        - transfer the tar ball `myimage_latest.tar.gz`
-        - load the image ```docker load < myimage_latest.tar.gz```
-        - do step 7 of above guide
-2. repeat on as many pc's as you want, just make sure they can reach each-other
-3. after all the docker images are running, go back to step 8 of the above guide
 ````
+alabamaEncoder [-h] [INPUT] [OUTPUT] [TEMP DIR PATH] [flags from bellow]
+````
+
+To clear the celery queue: `alabamaEncoder clear`
+
+| argument               | type  | description                                                                                              |
+|------------------------|-------|----------------------------------------------------------------------------------------------------------|
+| -h, --help             |       | show help                                                                                                |
+| --audio                | bool  | mux+transcode audio into the final video                                                                 |
+| --audio_params         | str   | params for audio, eg `-c:v libopus -ac 6`                                                                |
+| --celery               | bool  | run encode on celery cluster                                                                             |
+| --video_filters        | str   | override ffmpeg vf params, put your `-vf crop=...` or filter_graph even                                  |
+| --bitrate              | int   | video bitrate, eg `--bitrate 1000k`, use `auto` for auto bitrate picking                                 |
+| --bitrate_adjust       | bool  | Ajust the bitrate per chunks, or run every chunk under vbr at specified bitrate                          |
+| --multiprocess_workers | int   | when not using celery, how many encode processes to run at once, `-1` for auto scale                     |
+| --ssim-db-target       | float | when doing autobirate what ssim dB should the bitrate target                                             |
+| --grain                | int   | SvtAv1 grain synth value, `-1` for auto                                                                  |
+| --autoparam            | bool  | automatically set some parameters based on the input video                                               |
+| --vmaf_target          | float | what vmaf to target with auto ladder, default 96                                                         |
+| --max_scene_length     | int   | dont allow scenes longer than this, in seconds                                                           |
+| --chunk_order          | str   | Encode order of scenes: `random`, `sequential`, `length_desc`, `length_asc`, `sequential_reverse`        |
+| --start_offset         | int   | Offset from the beginning of the video (in seconds), useful for cutting intros etc                       |
+| --end_offset           | int   | Offset from the end of the video (in seconds), useful for cutting end credits outtros etc                |
+| --generate_previews    | int   | Generate .avif previews for encoded file                                                                 |
+| --hdr                  | bool  | Encode in HDR, if off and input is HDR, it will be tonemapped to SDR                                     |
+| --crop_string          | str   | Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter |
+| --scale_string         | str   | Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`        |
+| --title                | str   | Title to use in encode's metadata                                                                        |
 
 ## Notes
 

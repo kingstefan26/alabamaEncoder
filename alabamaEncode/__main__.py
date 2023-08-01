@@ -717,7 +717,7 @@ def main():
 
     parser.add_argument(
         "--hdr",
-        help="Encode in HDR, if off and input is HDR, it will be tone mapped to SDR",
+        help="Encode in HDR, if off and input is HDR, it will be tonemapped to SDR",
         action="store_true",
         default=False,
     )
