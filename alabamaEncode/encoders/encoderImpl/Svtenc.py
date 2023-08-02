@@ -8,83 +8,51 @@ from alabamaEncode.utils.execute import syscmd
 
 class AvifEncoderSvtenc:
     """
-    This will encode the first frame of the chunk to a PNG, then encode the PNG to AVIF.
+    AVIF Encoder but SvtAv1 inside ffmpeg.
     """
 
     def __init__(self, **kwargs):
-        self.vf = kwargs.get("vf", " ")
-        self.in_path = kwargs.get("in_path")
-        self.grain_synth = kwargs.get("grain_synth", 0)
-        self.output_path = kwargs.get("output_path")
-        self.speed = kwargs.get("speed", 3)
-        self.bitrate = kwargs.get("bitrate", None)
-        self.bit_depth = kwargs.get("bit_depth", 8)
-        self.crf = kwargs.get("crf", 13)
-        self.passes = kwargs.get("passes", 1)
-        self.threads = kwargs.get("threads", 1)
+        self.DEFAULT_PARAMS = {
+            "vf": " ",
+            "grain_synth": 0,
+            "speed": 3,
+            "bit_depth": 8,
+            "crf": 13,
+            "passes": 1,
+            "threads": 1,
+        }
+
+        self.params = {**self.DEFAULT_PARAMS, **kwargs}
 
     def update(self, **kwargs):
-        if "in_path" in kwargs:
-            self.in_path = kwargs.get("in_path")
-        if "grain_synth" in kwargs:
-            self.grain_synth = kwargs.get("grain_synth")
-        if "output_path" in kwargs:
-            self.output_path = kwargs.get("output_path")
-        if "speed" in kwargs:
-            self.speed = kwargs.get("speed")
-        if "bitrate" in kwargs:
-            self.bitrate = kwargs.get("bitrate")
-        if "bit_depth" in kwargs:
-            self.bit_depth = kwargs.get("bit_depth")
-        if "crf" in kwargs:
-            self.crf = kwargs.get("crf")
-        if "passes" in kwargs:
-            self.passes = kwargs.get("passes")
-        if "threads" in kwargs:
-            self.threads = kwargs.get("threads")
-        if "vf" in kwargs:
-            self.vf = kwargs.get("vf")
-
-    in_path: str
-    grain_synth: int
-    output_path: str
-    speed: int
-    bitrate: str
-    bit_depth: int
-    crf: int
-    passes: int
-    threads: int
+        self.params = {**self.params, **kwargs}
 
     def get_encode_commands(self) -> str:
-        if not self.output_path.endswith(".avif"):
+        if not self.params["output_path"].endswith(".avif"):
             raise Exception("FATAL: output_path must end with .avif")
 
-        if self.bit_depth != 8 and self.bit_depth != 10:
+        if self.params["bit_depth"] not in (8, 10):
             raise Exception("FATAL: bit must be 8 or 10")
 
-        if self.bit_depth == 8:
-            pix_fmt = "yuv420p"
-        elif self.bit_depth == 10:
-            pix_fmt = "yuv420p10le"
-        else:
-            raise Exception("FATAL: bit must be 8 or 10")
+        pix_fmt = "yuv420p" if self.params["bit_depth"] == 8 else "yuv420p10le"
 
-        if self.bitrate is not None and self.bitrate != -1:
-            ratebit = f"-b:v {self.bitrate}k"
-        else:
-            ratebit = f"-crf {self.crf}"
+        ratebit = (
+            f"-b:v {self.params['bitrate']}k"
+            if self.params["bitrate"] is not None and self.params["bitrate"] != -1
+            else f"-crf {self.params['crf']}"
+        )
 
         return (
-            f"ffmpeg -hide_banner -y -i {self.in_path} {self.vf} -c:v libsvtav1 {ratebit} "
-            f"-svtav1-params tune=0:lp={self.threads}:film-grain={self.grain_synth}"
-            f" -preset {self.speed} -pix_fmt {pix_fmt} {self.output_path}"
+            f"ffmpeg -hide_banner -y -i {self.params['in_path']} {self.params['vf']} -c:v libsvtav1 {ratebit} "
+            f"-svtav1-params tune=0:lp={self.params['threads']}:film-grain={self.params['grain_synth']}"
+            f" -preset {self.params['speed']} -pix_fmt {pix_fmt} {self.params['output_path']}"
         )
 
     def run(self):
         out = syscmd(self.get_encode_commands())
         if (
-            not os.path.exists(self.output_path)
-            or os.path.getsize(self.output_path) < 1
+            not os.path.exists(self.params["output_path"])
+            or os.path.getsize(self.params["output_path"]) < 1
         ):
             print(self.get_encode_commands())
             raise Exception(

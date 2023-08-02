@@ -85,80 +85,48 @@ class AbstractEncoder(ABC):
         """
         Update the encoder with new values, with type checking
         """
-        if "chunk" in kwargs:
-            self.chunk: ChunkObject = kwargs.get("chunk")
-            if not isinstance(self.chunk, ChunkObject):
-                raise Exception("FATAL: chunk must be a ChunkObject")
-        if "temp_folder" in kwargs:
-            self.temp_folder = kwargs.get("temp_folder")
-            if not os.path.isdir(self.temp_folder):
-                raise Exception(
-                    f"FATAL: temp_folder ({self.temp_folder}) must be a valid directory"
-                )
-        if "bitrate" in kwargs:
-            self.bitrate = kwargs.get("bitrate")
-            if not isinstance(self.bitrate, int):
-                raise Exception("FATAL: bitrate must be an int")
-        if "crf" in kwargs:
-            self.crf = kwargs.get("crf")
-            if not isinstance(self.crf, int):
-                raise Exception("FATAL: crf must be an int")
-        if "current_scene_index" in kwargs:
-            self.current_scene_index = kwargs.get("current_scene_index")
-            if not isinstance(self.current_scene_index, int):
-                raise Exception("FATAL: current_scene_index must be an int")
-        if "passes" in kwargs:
-            self.passes = kwargs.get("passes")
-            if not isinstance(self.passes, int):
-                raise Exception("FATAL: passes must be an int")
-        if "crop_string" in kwargs:
-            self.crop_string = kwargs.get("crop_string")
-            if not isinstance(self.crop_string, str):
-                raise Exception("FATAL: crop_string must be a str")
-        if "output_path" in kwargs:
-            self.output_path = kwargs.get("output_path")
-            if not isinstance(self.output_path, str):
-                raise Exception("FATAL: output_path must be a str")
-        if "speed" in kwargs:
-            self.speed = kwargs.get("speed")
-            if not isinstance(self.speed, int):
-                raise Exception("FATAL: speed must be an int")
-        if "first_pass_speed" in kwargs:
-            self.first_pass_speed = kwargs.get("first_pass_speed")
-            if not isinstance(self.first_pass_speed, int):
-                raise Exception("FATAL: first_pass_speed must be an int")
-        if "svt_grain_synth" in kwargs:
-            self.svt_grain_synth = kwargs.get("svt_grain_synth")
-            if not isinstance(self.svt_grain_synth, int):
-                raise Exception("FATAL: svt_grain_synth must be an int")
-        if "threads" in kwargs:
-            self.threads = kwargs.get("threads")
-            if not isinstance(self.threads, int):
-                raise Exception("FATAL: threads must be an int")
-        if "tune" in kwargs:
-            self.svt_tune = kwargs.get("tune")
-            if not isinstance(self.svt_tune, int):
-                raise Exception("FATAL: tune must be an int")
-        if "rate_distribution" in kwargs:
-            self.rate_distribution = kwargs.get("rate_distribution")
-            if not isinstance(self.rate_distribution, RateDistribution):
-                raise Exception("FATAL: rate_distribution must be an RateDistribution")
-        if "qm_enabled" in kwargs:
-            self.qm_enabled = kwargs.get("qm_enabled")
-            if not isinstance(self.qm_enabled, bool):
-                raise Exception("FATAL: qm_enabled must be an bool")
-        if "qm_min" in kwargs:
-            self.qm_min = kwargs.get("qm_min")
-            if not isinstance(self.qm_min, int):
-                raise Exception("FATAL: qm_min must be an int")
-        if "qm_max" in kwargs:
-            self.qm_max = kwargs.get("qm_max")
-            if not isinstance(self.qm_max, int):
-                raise Exception("FATAL: qm_max must be an int")
-        if "content_type" in kwargs:
-            self.content_type = kwargs.get("content_type")
-            if not isinstance(self.content_type, str):
-                raise Exception("FATAL: content_type must be an str")
+
+        # Define a dictionary mapping attribute names to their types
+        valid_attr_types = {
+            "chunk": ChunkObject,
+            "temp_folder": str,
+            "bitrate": int,
+            "crf": int,
+            "current_scene_index": int,
+            "passes": int,
+            "crop_string": str,
+            "output_path": str,
+            "speed": int,
+            "first_pass_speed": int,
+            "svt_grain_synth": int,
+            "threads": int,
+            "tune": int,
+            "rate_distribution": RateDistribution,
+            "qm_enabled": bool,
+            "qm_min": int,
+            "qm_max": int,
+            "content_type": str,
+        }
+
+        # Loop over the dictionary
+        for attr, attr_type in valid_attr_types.items():
+            # If the attribute is present in kwargs
+            if attr in kwargs:
+                # Get the value of the attribute
+                value = kwargs.get(attr)
+                # If the value is not an instance of the correct type, raise an Exception
+                if not isinstance(value, attr_type):
+                    raise Exception(f"FATAL: {attr} must be a {attr_type.__name__}")
+
+        # If temp_folder is in kwargs, and is not a valid directory, raise an Exception
+        if "temp_folder" in kwargs and not os.path.isdir(kwargs["temp_folder"]):
+            raise Exception(
+                f"FATAL: temp_folder ({kwargs['temp_folder']}) must be a valid directory"
+            )
+
+        # After all checks, update the attributes
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
 
     def run(
         self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False

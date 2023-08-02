@@ -176,7 +176,7 @@ async def execute_commands(
 
                 # Process completed tasks
                 for future in done:
-                    result = await future
+                    await future
                     # do something with the result
                     pbar.update()
                     completed_count += 1
@@ -486,39 +486,31 @@ def create_torrent_file(video: str, encoder_name: str, output_folder: str):
     t.write(os.path.join(output_folder, "torrent.torrent"))
 
 
-def main():
-    """
-    Main entry point
-    """
-    # if a user does 'python __main__.py clear' then clear the celery queue
-    if len(sys.argv) > 1 and sys.argv[1] == "clear":
-        print("Clearing celery queue")
-        app.control.purge()
-        quit()
+def worker():
+    print("Starting celery worker")
 
-    if len(sys.argv) > 1 and sys.argv[1] == "worker":
-        print("Starting celery worker")
+    concurrency = 2
 
-        concurrency = 2
+    # check if os.environ['CELERY_CONCURRENCY'] is set and set it as the concurrency
+    if "CELERY_CONCURRENCY" in os.environ:
+        concurrency = os.environ["CELERY_CONCURRENCY"]
 
-        # check if os.environ['CELERY_CONCURRENCY'] is set and set it as the concurrency
-        if "CELERY_CONCURRENCY" in os.environ:
-            concurrency = os.environ["CELERY_CONCURRENCY"]
+    # get the second argument that is the concurrency and set it as the concurrency
+    if len(sys.argv) > 2:
+        concurrency = sys.argv[2]
 
-        # get second argument that is the concurrency and set it as the concurrency
-        if len(sys.argv) > 2:
-            concurrency = sys.argv[2]
+    app.worker_main(
+        argv=[
+            "worker",
+            "--loglevel=info",
+            f"--concurrency={concurrency}",
+            "--without-gossip",
+        ]
+    )
+    quit()
 
-        app.worker_main(
-            argv=[
-                "worker",
-                "--loglevel=info",
-                f"--concurrency={concurrency}",
-                "--without-gossip",
-            ]
-        )
-        quit()
 
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Encode a video using SVT-AV1, and mux it with ffmpeg"
     )
@@ -738,9 +730,27 @@ def main():
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
 
+    args = parser.parse_args()
+
+    return args
+
+
+def main():
+    """
+    Main entry point
+    """
+    # if a user does 'python __main__.py clear' then clear the celery queue
+    if len(sys.argv) > 1 and sys.argv[1] == "clear":
+        print("Clearing celery queue")
+        app.control.purge()
+        quit()
+
+    if len(sys.argv) > 1 and sys.argv[1] == "worker":
+        worker()
+
     encoder_name = "SouAV1R"
 
-    args = parser.parse_args()
+    args = parse_args()
 
     input_path = args.input
 
@@ -870,9 +880,7 @@ def main():
             except ValueError:
                 raise ValueError("Bitrate must be in k's, example: 2000k")
 
-    autograin = False
-    if args.grain == -1:
-        autograin = True
+    autograin = True if args.grain == -1 else False
 
     if autograin and not doesBinaryExist("butteraugli"):
         print("Autograin requires butteraugli in path, please install it")
@@ -880,8 +888,62 @@ def main():
 
     config.grain_synth = args.grain
 
-    if os.path.exists(args.output):
-        print("Output file already exists, attempting to print stats & exiting")
+    if not os.path.exists(args.output):
+        config, scenes_skinny = do_adaptive_analasys(
+            scenes_skinny,
+            config,
+            do_grain=autograin,
+            do_bitrate_ladder=auto_bitrate_ladder,
+            do_qm=args.autoparam,
+        )
+
+        if config.grain_synth == 0 and config.bitrate < 2000:
+            print(
+                "Film grain less then 0 and bitrate is low, overriding to 2 film grain"
+            )
+            config.film_grain = 2
+
+        iter_counter = 0
+        while integrity_check(scenes_skinny, tempfolder) is True:
+            iter_counter += 1
+            if iter_counter > 3:
+                print("Integrity check failed 3 times, aborting")
+                quit()
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+            try:
+                loop.run_until_complete(
+                    process_chunks(
+                        scenes_skinny,
+                        config,
+                        chunk_order=args.chunk_order,
+                        use_celery=args.celery,
+                    )
+                )
+            finally:
+                at_exit(loop)
+                loop.close()
+
+        try:
+            concat = VideoConcatenator(
+                output=args.output,
+                file_with_audio=input_file,
+                audio_param_override=args.audio_params,
+                start_offset=args.start_offset,
+                end_offset=args.end_offset,
+                title=args.title,
+                encoder_name=encoder_name,
+            )
+            concat.find_files_in_dir(folder_path=tempfolder, extension=".ivf")
+            concat.concat_videos()
+        except:
+            print("Concat at the end failed sobbing 😷")
+            quit()
+    else:
+        print("Output file exists, printing stats")
         print_stats(
             output_folder=output_folder,
             output=args.output,
@@ -908,91 +970,10 @@ def main():
                 encoder_name=encoder_name,
                 output_folder=output_folder,
             )
-        quit()
-
-    # FINISH SETTING UP CONFIG OBJECT
-    # -------------------------------
-    # ENCODE START
-
-    config, scenes_skinny = do_adaptive_analasys(
-        scenes_skinny,
-        config,
-        do_grain=autograin,
-        do_bitrate_ladder=auto_bitrate_ladder,
-        do_qm=args.autoparam,
-    )
-
-    if config.grain_synth == 0 and config.bitrate < 2000:
-        print("Film grain less then 0 and bitrate is low, overriding to 2 film grain")
-        config.film_grain = 2
-
-    iter_counter = 0
-    while integrity_check(scenes_skinny, tempfolder) is True:
-        iter_counter += 1
-        if iter_counter > 3:
-            print("Integrity check failed 3 times, aborting")
-            quit()
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            loop.run_until_complete(
-                process_chunks(
-                    scenes_skinny,
-                    config,
-                    chunk_order=args.chunk_order,
-                    use_celery=args.celery,
-                )
-            )
-        finally:
-            at_exit(loop)
-            loop.close()
-
-    try:
-        concat = VideoConcatenator(
-            output=args.output,
-            file_with_audio=input_file,
-            audio_param_override=args.audio_params,
-            start_offset=args.start_offset,
-            end_offset=args.end_offset,
-            title=args.title,
-            encoder_name=encoder_name,
-        )
-        concat.find_files_in_dir(folder_path=tempfolder, extension=".ivf")
-        concat.concat_videos()
-    except:
-        print("Concat at the end failed sobbing 😷")
-        quit()
-
-    # ENCODE END
-
-    print_stats(
-        output_folder=output_folder,
-        output=args.output,
-        config_bitrate=config.bitrate,
-        input_file=args.input,
-        grain_synth=-1,
-        title=args.title,
-        cut_intro=True if args.start_offset > 0 else False,
-        cut_credits=True if args.end_offset > 0 else False,
-        croped=True if args.crop_string != "" else False,
-        scaled=True if args.scale_string != "" else False,
-        tonemaped=True if not args.hdr and is_hdr(input_file) else False,
-    )
-
-    if args.generate_previews:
-        print("Generating previews")
-        generate_previews(
-            input_file=args.output,
-            output_folder=output_folder,
-            num_previews=4,
-            preview_length=5,
-        )
         create_torrent_file(
             video=args.output, encoder_name=encoder_name, output_folder=output_folder
         )
+        quit()
 
 
 if __name__ == "__main__":
