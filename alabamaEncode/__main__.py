@@ -730,9 +730,7 @@ def parse_args():
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 def main():
@@ -942,7 +940,8 @@ def main():
         except:
             print("Concat at the end failed sobbing 😷")
             quit()
-    else:
+
+    if os.path.exists(args.output):
         print("Output file exists, printing stats")
         print_stats(
             output_folder=output_folder,
@@ -970,9 +969,6 @@ def main():
                 encoder_name=encoder_name,
                 output_folder=output_folder,
             )
-        create_torrent_file(
-            video=args.output, encoder_name=encoder_name, output_folder=output_folder
-        )
         quit()
 
 
