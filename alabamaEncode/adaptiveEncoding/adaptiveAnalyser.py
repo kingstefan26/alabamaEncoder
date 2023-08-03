@@ -17,7 +17,6 @@ def do_adaptive_analasys(
     config: EncoderConfig,
     do_grain=True,
     do_bitrate_ladder=False,
-    do_qm=True,
 ):
     print("Starting adaptive content analysis")
     os.makedirs(f"{config.temp_folder}/adapt/", exist_ok=True)

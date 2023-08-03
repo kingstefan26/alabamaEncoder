@@ -892,7 +892,6 @@ def main():
             config,
             do_grain=autograin,
             do_bitrate_ladder=auto_bitrate_ladder,
-            do_qm=args.autoparam,
         )
 
         if config.grain_synth == 0 and config.bitrate < 2000:
@@ -941,35 +940,34 @@ def main():
             print("Concat at the end failed sobbing 😷")
             quit()
 
-    if os.path.exists(args.output):
-        print("Output file exists, printing stats")
-        print_stats(
+    print("Output file exists, printing stats")
+    print_stats(
+        output_folder=output_folder,
+        output=args.output,
+        config_bitrate=config.bitrate,
+        input_file=args.input,
+        grain_synth=-1,
+        title=args.title,
+        cut_intro=True if args.start_offset > 0 else False,
+        cut_credits=True if args.end_offset > 0 else False,
+        croped=True if args.crop_string != "" else False,
+        scaled=True if args.scale_string != "" else False,
+        tonemaped=True if not args.hdr and is_hdr(input_file) else False,
+    )
+    if args.generate_previews:
+        print("Generating previews")
+        generate_previews(
+            input_file=args.output,
             output_folder=output_folder,
-            output=args.output,
-            config_bitrate=config.bitrate,
-            input_file=args.input,
-            grain_synth=-1,
-            title=args.title,
-            cut_intro=True if args.start_offset > 0 else False,
-            cut_credits=True if args.end_offset > 0 else False,
-            croped=True if args.crop_string != "" else False,
-            scaled=True if args.scale_string != "" else False,
-            tonemaped=True if not args.hdr and is_hdr(input_file) else False,
+            num_previews=4,
+            preview_length=5,
         )
-        if args.generate_previews:
-            print("Generating previews")
-            generate_previews(
-                input_file=args.output,
-                output_folder=output_folder,
-                num_previews=4,
-                preview_length=5,
-            )
-            create_torrent_file(
-                video=args.output,
-                encoder_name=encoder_name,
-                output_folder=output_folder,
-            )
-        quit()
+        create_torrent_file(
+            video=args.output,
+            encoder_name=encoder_name,
+            output_folder=output_folder,
+        )
+    quit()
 
 
 if __name__ == "__main__":

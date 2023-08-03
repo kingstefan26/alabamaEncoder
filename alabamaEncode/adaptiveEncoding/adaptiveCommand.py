@@ -20,8 +20,6 @@ class AdaptiveCommand(CommandObject):
     # currently set to 10 minutes
     final_encode_timeout = 1000
 
-    calc_final_vmaf = False
-
     run_on_celery = False
 
     def run(self):
@@ -34,6 +32,8 @@ class AdaptiveCommand(CommandObject):
         enc.eat_job_config(job=self.job, config=self.config)
         enc.update(svt_grain_synth=self.config.grain_synth, speed=self.config.speed)
 
+        rate_search_time = -1
+
         if self.config.crf_bitrate_mode:
             enc.update(
                 passes=1,
@@ -44,8 +44,10 @@ class AdaptiveCommand(CommandObject):
             enc.svt_open_gop = True
             enc.max_bitrate = self.config.max_bitrate
         else:
+            rate_search_time = time.time()
             if self.config.bitrate_adjust_mode == "chunk":
                 self.chunk.ideal_bitrate = get_ideal_bitrate(self.chunk, self.config)
+            rate_search_time = time.time() - rate_search_time
 
             enc.update(
                 passes=3,
@@ -57,8 +59,17 @@ class AdaptiveCommand(CommandObject):
         try:
             stats: EncoderStats = enc.run(
                 timeout_value=self.final_encode_timeout,
-                calculate_vmaf=self.calc_final_vmaf,
+                calculate_vmaf=True,
             )
+
+            stats.rate_search_time = rate_search_time
+
+            if stats.vmaf < 72:
+                os.remove(enc.output_path)
+                raise Exception(
+                    f"VMAF too low {stats.vmaf}!!!!! on chunk #{enc.chunk.chunk_index}"
+                )
+
             # round to two places
             total_fps = round(
                 self.job.chunk.get_frame_count() / (time.time() - total_start), 2
