@@ -65,7 +65,6 @@ class AdaptiveCommand(CommandObject):
             stats.rate_search_time = rate_search_time
 
             if stats.vmaf < 72:
-                os.remove(enc.output_path)
                 raise Exception(
                     f"VMAF too low {stats.vmaf}!!!!! on chunk #{enc.chunk.chunk_index}"
                 )
