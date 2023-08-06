@@ -47,6 +47,8 @@ class AdaptiveCommand(CommandObject):
             rate_search_time = time.time()
             if self.config.bitrate_adjust_mode == "chunk":
                 self.chunk.ideal_bitrate = get_ideal_bitrate(self.chunk, self.config)
+            else:
+                self.chunk.ideal_bitrate = self.config.bitrate
             rate_search_time = time.time() - rate_search_time
 
             enc.update(
@@ -57,6 +59,12 @@ class AdaptiveCommand(CommandObject):
             enc.svt_bias_pct = 20
 
         try:
+            if self.config.dry_run:
+                print(f"dry run chunk: {self.job.chunk.chunk_index}")
+                for comm in enc.get_encode_commands():
+                    print(comm)
+                return
+
             stats: EncoderStats = enc.run(
                 timeout_value=self.final_encode_timeout,
                 calculate_vmaf=True,

@@ -37,6 +37,7 @@ class EncoderConfigObject:
     use_celery = False
     multiprocess_workers = -1
     log_level = 0
+    dry_run = False
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -64,6 +65,7 @@ class EncoderConfigObject:
         encoder="svt_av1",
         content_type="live_action",
         log_level=0,
+        dry_run=False,
     ):
         self.crop_string = crop_string
         self.log_level = log_level
@@ -85,6 +87,7 @@ class EncoderConfigObject:
         self.qm_max = qm_max
         self.encoder = EncodersEnum.from_str(encoder)
         self.content_type = content_type
+        self.dry_run = dry_run
 
     def update(self, **kwargs):
         """

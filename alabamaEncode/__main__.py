@@ -16,10 +16,8 @@ from alabamaEncode.CeleryApp import app, run_command_on_celery
 from alabamaEncode.CeleryAutoscaler import Load
 from alabamaEncode.adaptiveEncoding.adaptiveAnalyser import do_adaptive_analasys
 from alabamaEncode.adaptiveEncoding.adaptiveCommand import AdaptiveCommand
-from alabamaEncode.encoders.AbstractEncoderCommand import EncoderKommand
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
 from alabamaEncode.encoders.EncoderJob import EncoderJob
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.ffmpegUtil import (
     check_for_invalid,
     get_frame_count,
@@ -65,10 +63,7 @@ async def process_chunks(
         job = EncoderJob(chunk)
 
         if not os.path.exists(job.chunk.chunk_path):
-            if encdr_config.convexhull:
-                obj = AdaptiveCommand()
-            else:
-                obj = EncoderKommand(AbstractEncoderSvtenc())
+            obj = AdaptiveCommand()
 
             obj.setup(job, encdr_config)
             command_objects.append(obj)
@@ -578,7 +573,7 @@ def parse_args():
     parser.add_argument(
         "--bitrate_adjust",
         help="Enable automatic bitrate optimisation per chunk",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=True,
     )
 
@@ -709,7 +704,7 @@ def parse_args():
 
     parser.add_argument(
         "--hdr",
-        help="Encode in HDR, if off and input is HDR, it will be tonemapped to SDR",
+        help="Encode in HDR`, if off and input is HDR, it will be tonemapped to SDR",
         action="store_true",
         default=False,
     )
@@ -726,6 +721,13 @@ def parse_args():
         help="Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`",
         type=str,
         default="",
+    )
+
+    parser.add_argument(
+        "--dry_run",
+        help="Do not encode, just print what would be done",
+        action=argparse.BooleanOptionalAction,
+        default=False,
     )
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
@@ -824,6 +826,7 @@ def main():
         speed=4,
         encoder=args.encoder,
         log_level=log_level,
+        dry_run=args.dry_run,
     )
 
     # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
@@ -901,6 +904,10 @@ def main():
             config.film_grain = 2
 
         iter_counter = 0
+
+        if config.dry_run:
+            iter_counter = 2
+
         while integrity_check(scenes_skinny, tempfolder) is True:
             iter_counter += 1
             if iter_counter > 3:
