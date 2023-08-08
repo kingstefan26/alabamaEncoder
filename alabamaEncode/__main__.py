@@ -144,10 +144,10 @@ async def execute_commands(
 
         load = Load()
         target_cpu_utilization = 1.1
+        target_swap_usage = 0.1
         cpu_threshold = 0.3
-        max_concurrent_jobs = 2  # Initial value to be adjusted dynamically
-        if multiprocess_workers != -1:
-            max_concurrent_jobs = multiprocess_workers
+        concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
+        max_limit = sys.maxsize if multiprocess_workers == -1 else multiprocess_workers
 
         loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor()
@@ -158,7 +158,7 @@ async def execute_commands(
             while completed_count < total_scenes:
                 # Start new tasks if there are available slots
                 while (
-                    len(futures) < max_concurrent_jobs
+                    len(futures) < concurent_jobs_limit
                     and completed_count + len(futures) < total_scenes
                 ):
                     command = command_objects[completed_count + len(futures)]
@@ -180,20 +180,27 @@ async def execute_commands(
                 futures = [future for future in futures if not future.done()]
 
                 if multiprocess_workers == -1:
-                    # Check CPU utilization and adjust max_concurrent_jobs if needed
+                    # Check CPU utilization and adjust concurent_jobs_limit if needed
                     cpu_utilization = load.get_load()
-                    new_max = max_concurrent_jobs
-                    if cpu_utilization < target_cpu_utilization:
-                        new_max += 1
-                    elif cpu_utilization > target_cpu_utilization + cpu_threshold:
-                        new_max -= 1
+                    swap_usage = load.parse_swap_usage()
+                    new_limit = concurent_jobs_limit
+                    if (
+                        cpu_utilization < target_cpu_utilization
+                        and swap_usage < target_swap_usage
+                    ):
+                        new_limit += 1
+                    elif (
+                        cpu_utilization > target_cpu_utilization + cpu_threshold
+                        or swap_usage < target_swap_usage
+                    ):
+                        new_limit -= 1
 
-                    # Adjust max_concurrent_jobs within defined bounds
-                    new_max = max(1, new_max)
-                    if new_max != max_concurrent_jobs:
-                        max_concurrent_jobs = new_max
+                    # no less than 1 and no more than max_limit
+                    new_limit = max(1, new_limit)
+                    if new_limit != concurent_jobs_limit and new_limit <= max_limit:
+                        concurent_jobs_limit = new_limit
                         tqdm.write(
-                            f"CPU load: {(cpu_utilization * 100):.2f}%, adjusting workers to {max_concurrent_jobs} "
+                            f"CPU load: {(cpu_utilization * 100):.2f}% SWAP USED: {swap_usage:.2f}%, adjusting workers to {concurent_jobs_limit} "
                         )
 
 

@@ -4,6 +4,8 @@ import re
 
 from celery.worker.autoscale import Autoscaler as CeleryAutoscaler
 
+from alabamaEncode.utils.execute import syscmd
+
 
 # https://gist.github.com/hussainfolio3/c5246f59f9e5c31fa720524fb45b2077
 # never go above one worker = one core
@@ -30,13 +32,45 @@ class Load:
         # If not, make it work for most linux distros.
         with open("/proc/meminfo", "rb") as f:
             mem = f.read().decode("utf-8")
-            print(self.re_free.search(mem).group("free"))
-            print(self.re_total.search(mem).group("total"))
             return (
                 1.0
                 * int(self.re_free.search(mem).group("free"))
                 / int(self.re_total.search(mem).group("total"))
             )
+
+    def parse_swap_usage(self):
+        # Execute the 'swapon -s' and get the output
+        output = syscmd("swapon -s")
+
+        # Split the output into lines
+        lines = output.split("\n")[1:]  # We skip the header
+
+        for line in lines:
+            if line:  # Ignore empty lines
+                parts = line.split()
+
+                # We assume that the line structure is correct here,
+                # i.e., there are at least 5 parts.
+                filename, type_, size, used, priority = (
+                    parts[0],
+                    parts[1],
+                    parts[2],
+                    parts[3],
+                    parts[4],
+                )
+
+                # Calculate and print usage Proportion
+                usage = int(used) / int(size)
+                # print(f"Swap usage for {filename}: {usage * 100:.2f}%")
+                return usage * 100
+
+
+# Load tests
+if __name__ == "__main__":
+    load = Load()
+    print(f"Load: {load.get_load()}")
+    print(f"Free mem: {load.get_free_mem()}")
+    print(f"Swap usage: {load.parse_swap_usage()}%")
 
 
 class DAAutoscaler(CeleryAutoscaler):
