@@ -17,6 +17,7 @@ def do_adaptive_analasys(
     config: EncoderConfig,
     do_grain=True,
     do_bitrate_ladder=False,
+    do_crf=False
 ):
     print("Starting adaptive content analysis")
     os.makedirs(f"{config.temp_folder}/adapt/", exist_ok=True)
@@ -33,14 +34,12 @@ def do_adaptive_analasys(
         start = time.time()
         ab = AutoBitrateLadder(chunk_sequence, config)
 
-        if do_bitrate_ladder:
+        if do_bitrate_ladder and not do_crf:
             config.bitrate = ab.get_best_bitrate()
 
-        if config.convexhull:
+        if config.convexhull and not do_crf:
             config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)
 
-            # if config.bitrate_adjust_mode == 'all':
-            #     ab.ration_bitrate(chunk_sequence)
 
         if do_grain and config.encoder.supports_grain_synth():
             param = {

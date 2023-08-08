@@ -144,7 +144,7 @@ async def execute_commands(
 
         load = Load()
         target_cpu_utilization = 1.1
-        target_swap_usage = 0.1
+        max_swap_usage = 0.5
         cpu_threshold = 0.3
         concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
         max_limit = sys.maxsize if multiprocess_workers == -1 else multiprocess_workers
@@ -186,12 +186,12 @@ async def execute_commands(
                     new_limit = concurent_jobs_limit
                     if (
                         cpu_utilization < target_cpu_utilization
-                        and swap_usage < target_swap_usage
+                        and swap_usage < max_swap_usage
                     ):
                         new_limit += 1
                     elif (
                         cpu_utilization > target_cpu_utilization + cpu_threshold
-                        or swap_usage < target_swap_usage
+                        or swap_usage > max_swap_usage
                     ):
                         new_limit -= 1
 
@@ -560,7 +560,7 @@ def parse_args():
         "--bitrate",
         help="Bitrate to use, `auto` for auto bitrate selection",
         type=str,
-        default="2000k",
+        default="2000",
     )
 
     parser.add_argument(
@@ -598,6 +598,14 @@ def parse_args():
         help="What ssim dB to target when using auto bitrate,"
         " not recommended to set manually, otherwise 21.2 is a good starting"
         " point",
+    )
+
+    parser.add_argument(
+        "--crf",
+        help="What crf to use",
+        type=int,
+        default=-1,
+        choices=range(0, 63),
     )
 
     parser.add_argument(
@@ -871,6 +879,10 @@ def main():
 
     config.crf_bitrate_mode = args.auto_crf
 
+    if args.crf != -1:
+        print("Using crf mode")
+        config.crf = args.crf
+
     auto_bitrate_ladder = False
 
     if "auto" in args.bitrate or "-1" in args.bitrate:
@@ -902,6 +914,7 @@ def main():
             config,
             do_grain=autograin,
             do_bitrate_ladder=auto_bitrate_ladder,
+            do_crf=True if args.crf != -1 else False,
         )
 
         if config.grain_synth == 0 and config.bitrate < 2000:

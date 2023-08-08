@@ -43,6 +43,13 @@ class AdaptiveCommand(CommandObject):
             )
             enc.svt_open_gop = True
             enc.max_bitrate = self.config.max_bitrate
+        elif self.config.crf != -1:
+            enc.update(
+                passes=1,
+                rate_distribution=RateDistribution.CQ,
+                crf=self.config.crf,
+            )
+            enc.svt_open_gop = True
         else:
             rate_search_time = time.time()
             if self.config.bitrate_adjust_mode == "chunk":
