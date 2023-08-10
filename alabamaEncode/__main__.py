@@ -144,7 +144,7 @@ async def execute_commands(
 
         load = Load()
         target_cpu_utilization = 1.1
-        max_swap_usage = 0.5
+        max_swap_usage = 25
         cpu_threshold = 0.3
         concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
         max_limit = sys.maxsize if multiprocess_workers == -1 else multiprocess_workers

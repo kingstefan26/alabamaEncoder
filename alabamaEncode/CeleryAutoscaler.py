@@ -38,7 +38,11 @@ class Load:
                 / int(self.re_total.search(mem).group("total"))
             )
 
-    def parse_swap_usage(self):
+    def parse_swap_usage(self) -> float:
+        """
+        Parse the output of 'swapon -s' and return the swap usage in percent.
+        :return:
+        """
         # Execute the 'swapon -s' and get the output
         output = syscmd("swapon -s")
 
