@@ -279,15 +279,16 @@ class AutoBitrateLadder:
         :return: the predicted crf
         """
         crfs = []
-        for chunk in self.chunks:
+
+        def sub(chunk: ChunkObject):
             encoder = AbstractEncoderSvtenc()
             encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
             encoder.update(
-                speed=4,
+                speed=5,
                 passes=1,
                 svt_grain_synth=self.config.grain_synth,
                 rate_distribution=RateDistribution.CQ,
-                threads=os.cpu_count(),
+                threads=1,
             )
 
             probe_folder = f"{self.config.temp_folder}/adapt/bitrate/"
@@ -308,7 +309,7 @@ class AutoBitrateLadder:
                 )
                 stats = encoder.run(timeout_value=500)
 
-                print(f"[{chunk.chunk_index}] {mid} crf -> {stats.bitrate} K")
+                print(f"[{chunk.chunk_index}] {mid} crf ~> {stats.bitrate} kb/s")
 
                 runs.append((mid, stats.bitrate))
 
@@ -327,10 +328,20 @@ class AutoBitrateLadder:
                 point2[1] - point1[1]
             )
             best_inter = int(best_inter)
-            print(f"[{chunk.chunk_index}] {best_inter} crf -> {bitrate} bitrate")
+            print(
+                f"[{chunk.chunk_index}] INTERPOLATED: {best_inter} crf ~> {bitrate} bitrate"
+            )
             crfs.append(best_inter)
 
-        return int(sum(crfs) / len(crfs))
+        with ThreadPoolExecutor(max_workers=self.simultaneous_probes) as executor:
+            for chunk in self.chunks:
+                executor.submit(sub, chunk)
+            executor.shutdown()
+
+        final = int(sum(crfs) / len(crfs))
+
+        print(f"Average crf for {bitrate} -> {final}")
+        return final
 
 
 class GetBestBitrate(BaseCommandObject):

@@ -747,6 +747,8 @@ def parse_args():
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
 
+    parser.add_argument("--flag1", action="store_true")
+
     return parser.parse_args()
 
 
@@ -872,6 +874,7 @@ def main():
         config.crop_string = final
 
     config.use_celery = args.celery
+    config.flag1 = args.flag1
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100
@@ -882,6 +885,14 @@ def main():
     if args.crf != -1:
         print("Using crf mode")
         config.crf = args.crf
+
+    if config.flag1 and config.bitrate == -1:
+        print("Flag1 requires bitrate to be set --bitrate 2M")
+        quit()
+
+    if "auto" in args.bitrate or "-1" in args.bitrate and config.flag1:
+        print("Flag1 and auto bitrate are mutually exclusive")
+        quit()
 
     auto_bitrate_ladder = False
 
@@ -898,7 +909,7 @@ def main():
             try:
                 config.bitrate = int(args.bitrate)
             except ValueError:
-                raise ValueError("Bitrate must be in k's, example: 2000k")
+                raise ValueError("Failed to parse bitrate")
 
     autograin = True if args.grain == -1 else False
 

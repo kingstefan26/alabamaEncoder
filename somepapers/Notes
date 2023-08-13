@@ -1,0 +1,24 @@
+PREPARE STEP:
+finite set of resolutions R = [140p, 260p, 360, 480p, 720p, 1080p, 2160p] etc
+finite set of CRF's C = [16, 18, 20, 22, 24, 28, 34, 36] etc
+
+calculate complexity of every chunk ->
+pick top 5% most complex chunks ->
+
+FOR EACH CHUNK:
+Encode each R at each C -> q` = quality, b` = bitrate
+for each R
+interpolate what b` is the farthest away from other C b`'s that has the highest q` ->
+save in hashmap H`:
+H`[R] = [C crf that was used, b` best bitrate]
+
+Average [C, b`] values across every chunks H` for each R and save in new H hashmap
+
+ENCODE:
+FOR EACH [R resolution, C crf, b` ideal bitrate] in H[R]:
+do trial encode with a stat file of each chunk at crf C & resolution R -> resulting bitrate = b ->
+see if b > b`
+-> if bigger then b` encode at b` three pass
+-> if smaller then b`, do the other two passes using vbr while targeting b
+
+: win??

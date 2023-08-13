@@ -38,6 +38,7 @@ class EncoderConfigObject:
     multiprocess_workers = -1
     log_level = 0
     dry_run = False
+    flag1 = False
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
