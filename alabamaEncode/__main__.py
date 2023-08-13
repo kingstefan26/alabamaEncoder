@@ -749,6 +749,8 @@ def parse_args():
 
     parser.add_argument("--flag1", action="store_true")
 
+    parser.add_argument("--flag2", action="store_true")
+
     return parser.parse_args()
 
 
@@ -875,6 +877,7 @@ def main():
 
     config.use_celery = args.celery
     config.flag1 = args.flag1
+    config.flag2 = args.flag2
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100
@@ -890,7 +893,12 @@ def main():
         print("Flag1 requires bitrate to be set --bitrate 2M")
         quit()
 
-    if "auto" in args.bitrate or "-1" in args.bitrate and config.flag1:
+    if (
+        "auto" in args.bitrate
+        or "-1" in args.bitrate
+        and config.flag1
+        and not config.flag2
+    ):
         print("Flag1 and auto bitrate are mutually exclusive")
         quit()
 

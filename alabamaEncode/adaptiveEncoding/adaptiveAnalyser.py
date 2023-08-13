@@ -35,6 +35,9 @@ def do_adaptive_analasys(
         if config.flag1:
             ab = AutoBitrateLadder(chunk_sequence, config)
 
+            if config.flag2:
+                config.bitrate = ab.get_best_bitrate()
+
             config.crf = ab.get_target_crf(config.bitrate)
 
         else:

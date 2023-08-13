@@ -39,6 +39,7 @@ class EncoderConfigObject:
     log_level = 0
     dry_run = False
     flag1 = False
+    flag2 = False
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
