@@ -747,9 +747,21 @@ def parse_args():
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
 
-    parser.add_argument("--flag1", action="store_true")
+    parser.add_argument(
+        "--flag1",
+        action="store_true",
+        help="find what crf matches config.bitrate, encode at that crf and redo if the crf bitrate is higher then set",
+    )
 
-    parser.add_argument("--flag2", action="store_true")
+    parser.add_argument(
+        "--flag2", action="store_true", help="Find bitrate automaticly for flag 1"
+    )
+
+    parser.add_argument(
+        "--flag3",
+        action="store_true",
+        help="Find best bitrate using the top 5% of most complex chunks",
+    )
 
     return parser.parse_args()
 
@@ -878,6 +890,7 @@ def main():
     config.use_celery = args.celery
     config.flag1 = args.flag1
     config.flag2 = args.flag2
+    config.flag3 = args.flag3
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100

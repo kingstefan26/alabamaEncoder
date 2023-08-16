@@ -35,10 +35,14 @@ def do_adaptive_analasys(
         if config.flag1:
             ab = AutoBitrateLadder(chunk_sequence, config)
 
-            if config.flag2:
-                config.bitrate = ab.get_best_bitrate()
+            # if config.flag2:
+            #     if config.flag3:
+            #         config.bitrate = ab.get_best_bitrate_guided()
+            #     else:
+            #         config.bitrate = ab.get_best_bitrate()
+            # config.crf = ab.get_target_crf(config.bitrate)
 
-            config.crf = ab.get_target_crf(config.bitrate)
+            ab.get_best_crf_guided()
 
         else:
             ab = AutoBitrateLadder(chunk_sequence, config)
@@ -74,10 +78,9 @@ def do_adaptive_analasys(
             #     config.qm_min = best_qm["qm_min"]
             #     config.qm_max = best_qm["qm_max"]
 
-            config.qm_enabled = True
-            config.qm_min = 0
-            config.qm_max = 7
-
+        config.qm_enabled = True
+        config.qm_min = 0
+        config.qm_max = 7
         pickle.dump(config, open(f"{config.temp_folder}/adapt/configCache.pt", "wb"))
         time_taken = int(time.time() - start)
         print(f"Finished adaptive content analysis in {time_taken}s. Caching results")

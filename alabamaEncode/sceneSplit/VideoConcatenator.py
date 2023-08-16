@@ -100,7 +100,7 @@ class VideoConcatenator:
                 title_bit += f' -metadata title="{self.title}"'
 
             commands = [
-                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map 2:s -movflags +faststart -c:v copy -c:a copy {self.output}',
+                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map 2:s? -movflags +faststart -c:v copy -c:a copy {self.output}',
                 f"rm {concat_file_path} {vid_output} {audio_output}",
             ]
         else:

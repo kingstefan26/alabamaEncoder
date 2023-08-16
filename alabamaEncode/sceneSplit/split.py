@@ -29,6 +29,9 @@ def get_video_scene_list_skinny(
      cut the scene in the middle recursively until max_scene_length is reached
     :return:
     """
+    if cache_file_path is None or cache_file_path == "":
+        raise Exception("Failed reading scene cache's path")
+
     if os.path.exists(cache_file_path):
         print("Found scene cache... loading")
         seq: ChunkSequence = pickle.load(open(cache_file_path, "rb"))

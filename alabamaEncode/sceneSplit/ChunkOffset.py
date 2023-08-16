@@ -23,17 +23,19 @@ class ChunkObject:
         chunk_index=-1,
         height=-1,
         width=-1,
+        complexity=-1.0,
     ):
-        self.path = path
+        self.path = path  # path to the source video file
         self.last_frame_index = last_frame_index
         self.first_frame_index = first_frame_index
         self.framerate = framerate
         self.width = width
         self.height = height
+        self.complexity = complexity
         self.length = self.last_frame_index - self.first_frame_index
         self.end_override = -1  # ends the chunk after `end_override` frames if set
         self.chunk_index = chunk_index
-        self.chunk_path = ""
+        self.chunk_path = ""  # path to the encoded (or not yet) chunk file
         self.chunk_done = False
         self.ideal_bitrate = -1
 
@@ -88,9 +90,7 @@ class ChunkObject:
             self.height = get_height(self.path)
         return self.height
 
-    def create_chunk_ffmpeg_pipe_command(
-        self, crop_string="", bit_depth=10
-    ):
+    def create_chunk_ffmpeg_pipe_command(self, crop_string="", bit_depth=10):
         """
 
         :param crop_string:
@@ -98,15 +98,15 @@ class ChunkObject:
         :return:
         """
         end_command = f"ffmpeg -v error -nostdin {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
-    
+
         if bit_depth == 8:
             end_command = end_command.replace("10le", "")
-    
+
         if not "-vf" in crop_string and not crop_string == "":
             crop_string = f"-vf {crop_string}"
-    
+
         end_command += f" -an -sn -strict -1 {crop_string} -f yuv4mpegpipe - "
-    
+
         return end_command
 
     def log_prefix(self):

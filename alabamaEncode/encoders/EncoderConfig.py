@@ -40,6 +40,8 @@ class EncoderConfigObject:
     dry_run = False
     flag1 = False
     flag2 = False
+    flag3 = False
+    cutoff_bitrate = -1
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
