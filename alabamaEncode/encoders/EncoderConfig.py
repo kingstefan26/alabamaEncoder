@@ -2,6 +2,7 @@ import os
 
 from tqdm import tqdm
 
+from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.Encoders import EncodersEnum
 from alabamaEncode.encoders.RateDiss import RateDistribution
 
@@ -42,10 +43,15 @@ class EncoderConfigObject:
     flag2 = False
     flag3 = False
     cutoff_bitrate = -1
+    override_flags = ''
+
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
             tqdm.write(msg)
+
+    def get_encoder(self) -> AbstractEncoder:
+        return self.encoder.get_encoder()
 
     def __init__(
         self,

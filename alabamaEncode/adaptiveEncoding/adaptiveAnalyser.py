@@ -32,9 +32,9 @@ def do_adaptive_analasys(
             pass
     else:
         start = time.time()
-        if config.flag1:
-            ab = AutoBitrateLadder(chunk_sequence, config)
+        ab = AutoBitrateLadder(chunk_sequence, config)
 
+        if config.flag1:
             # if config.flag2:
             #     if config.flag3:
             #         config.bitrate = ab.get_best_bitrate_guided()
@@ -43,10 +43,7 @@ def do_adaptive_analasys(
             # config.crf = ab.get_target_crf(config.bitrate)
 
             ab.get_best_crf_guided()
-
         else:
-            ab = AutoBitrateLadder(chunk_sequence, config)
-
             if do_bitrate_ladder and not do_crf:
                 config.bitrate = ab.get_best_bitrate()
 
@@ -68,15 +65,6 @@ def do_adaptive_analasys(
                     param["bitrate"] = config.bitrate
 
                 config.grain_synth = get_best_avg_grainsynth(**param)
-
-            # if do_qm and config.encoder == EncodersEnum.SVT_AV1:
-            #     ab = AutoParam(chunk_sequence, config)
-            #
-            #     best_qm = ab.get_best_qm()
-            #
-            #     config.qm_enabled = best_qm["qm"]
-            #     config.qm_min = best_qm["qm_min"]
-            #     config.qm_max = best_qm["qm_max"]
 
         config.qm_enabled = True
         config.qm_min = 0

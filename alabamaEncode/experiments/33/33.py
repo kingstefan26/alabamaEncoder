@@ -57,7 +57,7 @@ if __name__ == "__main__":
             current_scene_index=0,
             threads=12,
             crop_string=crope_stringe,
-            svt_grain_synth=3,
+            grain_synth=3,
         )
 
         if "liveAction_normal" in path:

@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 from typing import List
 
@@ -66,7 +67,7 @@ class VideoConcatenator:
                 f.write(f"file '{file}'\n")
 
         vid_output = self.output + ".videoonly.mkv"
-        concat_command = f'ffmpeg -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy -map_metadata -1 "{vid_output}"'
+        concat_command = f'ffmpeg -y -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy -map_metadata -1 "{vid_output}"'
 
         print("Concating Video")
         print(f"running: {concat_command}")
@@ -86,7 +87,7 @@ class VideoConcatenator:
 
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
-            encode_audio = f'ffmpeg -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 {audio_output}'
+            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 {audio_output}'
             print(f"running: {encode_audio}")
             os.system(encode_audio)
             if check_for_invalid(audio_output):
@@ -100,7 +101,7 @@ class VideoConcatenator:
                 title_bit += f' -metadata title="{self.title}"'
 
             commands = [
-                f'ffmpeg -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map 2:s? -movflags +faststart -c:v copy -c:a copy {self.output}',
+                f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map "2:s?" -movflags +faststart -c:v copy -c:a copy {self.output}',
                 f"rm {concat_file_path} {vid_output} {audio_output}",
             ]
         else:
@@ -112,7 +113,15 @@ class VideoConcatenator:
 
         for command in commands:
             print("Running: " + command)
-            os.system(command)
+
+            p = subprocess.Popen(
+                command,
+                shell=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.STDOUT,
+                stderr=subprocess.STDOUT,
+            )
+            p.wait()
 
 
 def test():

@@ -73,86 +73,91 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             f"{self.svt_cli_path}"
             f" -i stdin"
             f" --input-depth {self.bit_override}"
-            f" --keyint {self.keyint}"
         )
 
-        def crf_check():
-            """
-            validate crf fields
-            """
-            if self.crf is None or self.crf == -1:
-                raise Exception("FATAL: crf is not set")
-            if self.crf > 63:
-                raise Exception("FATAL: crf must be less than 63")
+        if self.override_flags == "" or self.override_flags is None:
+            kommand += f" --keyint {self.keyint}"
 
-        def bitrate_check():
-            """
-            validate bitrate fields
-            """
-            if self.bitrate is None or self.bitrate == -1:
-                raise Exception("FATAL: bitrate is not set")
+            def crf_check():
+                """
+                validate crf fields
+                """
+                if self.crf is None or self.crf == -1:
+                    raise Exception("FATAL: crf is not set")
+                if self.crf > 63:
+                    raise Exception("FATAL: crf must be less than 63")
 
-        match self.rate_distribution:
-            case RateDistribution.CQ:
-                if self.passes != 1:
-                    print("WARNING: passes must be 1 for CQ, setting to 1")
-                    self.passes = 1
-                crf_check()
-                kommand += f" --crf {self.crf}"
-            case RateDistribution.VBR:
-                bitrate_check()
-                kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
-            case RateDistribution.CQ_VBV:
-                bitrate_check()
-                crf_check()
-                kommand += f" --crf {self.crf} --mbr {self.max_bitrate}"
-            case RateDistribution.VBR_VBV:
-                bitrate_check()
-                kommand += f" --tbr {self.bitrate} --mbr {self.bitrate * 1.5}"
+            def bitrate_check():
+                """
+                validate bitrate fields
+                """
+                if self.bitrate is None or self.bitrate == -1:
+                    raise Exception("FATAL: bitrate is not set")
 
-        kommand += f" --tune {self.svt_tune}"
-        kommand += f" --bias-pct {self.svt_bias_pct}"
-        kommand += f" --lp {self.threads}"
+            match self.rate_distribution:
+                case RateDistribution.CQ:
+                    if self.passes != 1:
+                        print("WARNING: passes must be 1 for CQ, setting to 1")
+                        self.passes = 1
+                    crf_check()
+                    kommand += f" --crf {self.crf}"
+                case RateDistribution.VBR:
+                    bitrate_check()
+                    kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
+                case RateDistribution.CQ_VBV:
+                    bitrate_check()
+                    crf_check()
+                    kommand += f" --crf {self.crf} --mbr {self.max_bitrate}"
+                case RateDistribution.VBR_VBV:
+                    bitrate_check()
+                    kommand += f" --tbr {self.bitrate} --mbr {self.bitrate * 1.5}"
 
-        if self.svt_supperres_mode != 0:
-            kommand += f" --superres-mode {self.svt_supperres_mode}"  # superres mode
-            kommand += f" --superres-denom {self.svt_superres_denom}"  # superres denom
-            kommand += f" --superres-kf-denom {self.svt_superres_kf_denom}"  # superres kf denom
-            kommand += (
-                f" --superres-qthres {self.svt_superres_qthresh}"  # superres qthresh
-            )
-            kommand += f" --superres-kf-qthres {self.svt_superres_kf_qthresh}"  # superres kf qthresh
+            kommand += f" --tune {self.svt_tune}"
+            kommand += f" --bias-pct {self.svt_bias_pct}"
+            kommand += f" --lp {self.threads}"
 
-        if self.svt_sframe_interval > 0:
-            kommand += f" --sframe-dist {self.svt_sframe_interval}"
-            kommand += f" --sframe-mode {self.svt_sframe_mode}"
+            if self.svt_supperres_mode != 0:
+                kommand += (
+                    f" --superres-mode {self.svt_supperres_mode}"  # superres mode
+                )
+                kommand += (
+                    f" --superres-denom {self.svt_superres_denom}"  # superres denom
+                )
+                kommand += f" --superres-kf-denom {self.svt_superres_kf_denom}"  # superres kf denom
+                kommand += f" --superres-qthres {self.svt_superres_qthresh}"  # superres qthresh
+                kommand += f" --superres-kf-qthres {self.svt_superres_kf_qthresh}"  # superres kf qthresh
 
-        if 0 <= self.svt_grain_synth <= 50:
-            kommand += f" --film-grain {self.svt_grain_synth}"  # grain synth
+            if self.svt_sframe_interval > 0:
+                kommand += f" --sframe-dist {self.svt_sframe_interval}"
+                kommand += f" --sframe-mode {self.svt_sframe_mode}"
 
-        kommand += f" --preset {self.speed}"  # speed
-        # kommand += f' --film-grain-denoise {self.film_grain_denoise}'
-        kommand += f" --film-grain-denoise 0"
-        if self.qm_enabled:
-            kommand += f" --qm-min {self.qm_min}"  # min quantization matrix
-            kommand += f" --qm-max {self.qm_max}"  # max quantization matrix
-            kommand += " --enable-qm 1"
+            if 0 <= self.grain_synth <= 50:
+                kommand += f" --film-grain {self.grain_synth}"  # grain synth
+
+            kommand += f" --preset {self.speed}"  # speed
+            kommand += f" --film-grain-denoise 0"
+            if self.qm_enabled:
+                kommand += f" --qm-min {self.qm_min}"  # min quantization matrix
+                kommand += f" --qm-max {self.qm_max}"  # max quantization matrix
+                kommand += " --enable-qm 1"
+            else:
+                kommand += " --enable-qm 0"
+
+            if self.svt_sdc != 0:
+                kommand += f" --scd {self.svt_sdc}"  # scene detection
+
+            if self.svt_open_gop and self.passes == 1:
+                kommand += " --irefresh-type 1"
+
+            if self.passes == 1:
+                kommand += " --enable-overlays 1"
         else:
-            kommand += " --enable-qm 0"
-
-        if self.svt_sdc != 0:
-            kommand += f" --scd {self.svt_sdc}"  # scene detection
+            kommand += self.override_flags
 
         stats_bit = ""
 
         if self.passes > 1:
             stats_bit = f"--stats {self.output_path}.stat"
-
-        if self.svt_open_gop and self.passes == 1:
-            kommand += " --irefresh-type 1"
-
-        if self.passes == 1:
-            kommand += " --enable-overlays 1"
 
         match self.passes:
             case 2:

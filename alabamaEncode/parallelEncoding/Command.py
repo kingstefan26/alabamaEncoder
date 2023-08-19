@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Any
 
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.encoders.EncoderJob import EncoderJob
+from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
 
 class BaseCommandObject(object):
@@ -14,17 +14,15 @@ class BaseCommandObject(object):
 # abstract class
 class CommandObject(BaseCommandObject):
     def __init__(self):
-        self.config: EncoderConfigObject = None
-        self.job: EncoderJob = None
-        self.chunk = None
+        self.config: EncoderConfigObject
+        self.chunk: ChunkObject
 
     @abstractmethod
     def run(self) -> Any:
         pass
 
-    def setup(self, job: EncoderJob, config: EncoderConfigObject):
-        self.job = job
-        self.chunk = job.chunk
+    def setup(self, chunk: ChunkObject, config: EncoderConfigObject):
+        self.chunk = chunk
         self.config = config
 
 

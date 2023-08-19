@@ -4,10 +4,9 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.encoders.EncoderJob import EncoderJob
 from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.ffmpegUtil import get_video_vmeth
+from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 
 
@@ -17,18 +16,25 @@ class AutoParam:
         self.config = config
 
     def get_bd(
-        self, chunk: EncoderJob, qm_enabled, min, max, runs, probe_name, probe_folder
+        self,
+        chunk: ChunkObject,
+        qm_enabled,
+        qm_min,
+        qm_max,
+        runs,
+        probe_name,
+        probe_folder,
     ):
-        svt = AbstractEncoderSvtenc()
-        svt.eat_job_config(EncoderJob(chunk=chunk), self.config)
+        svt = self.config.get_encoder()
+        svt.setup(chunk=chunk, config=self.config)
         svt.update(
             passes=1, crf=16, rate_distribution=RateDistribution.CQ, threads=3, speed=5
         )
         chunk.chunk_path = probe_folder + probe_name
         svt.update(output_path=chunk.chunk_path)
         svt.qm_enabled = qm_enabled
-        svt.qm_min = min
-        svt.qm_max = max
+        svt.qm_min = qm_min
+        svt.qm_max = qm_max
         svt.run()
         db_rate = (os.path.getsize(chunk.chunk_path) / 1000) / get_video_vmeth(
             chunk.chunk_path, chunk, crop_string=self.config.crop_string
@@ -39,8 +45,8 @@ class AutoParam:
                 db_rate,
                 {
                     "qm": qm_enabled,
-                    "qm_min": min,
-                    "qm_max": max,
+                    "qm_min": qm_min,
+                    "qm_max": qm_max,
                 },
             )
         )

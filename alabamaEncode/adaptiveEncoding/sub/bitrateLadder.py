@@ -15,10 +15,8 @@ from tqdm import tqdm
 
 from alabamaEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.encoders.EncoderJob import EncoderJob
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.ffmpegUtil import get_video_vmeth, get_video_ssim
 from alabamaEncode.parallelEncoding.Command import BaseCommandObject
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
@@ -33,6 +31,20 @@ class AutoBitrateCacheObject:
     def __init__(self, bitrate: int, ssim_db: float):
         self.bitrate = bitrate
         self.ssim_db = ssim_db
+
+
+def crabby_paddy_formula(bitrate: int, speed_used: int, crf_used: int) -> float:
+    """
+    A formula that tries to estimate the complexity of a chunk based on the crf bitrate
+    :param bitrate:  in kb/s e.g., 2420
+    :param speed_used: svtav1 speed used to encode the chunk
+    :param crf_used: crf used to encode the chunk
+    :return: complexity score
+    """
+    bitrate_ = bitrate / 1000
+    # remove 5% for every speed above 4
+    bitrate_ -= min(0, speed_used - 4) * (bitrate_ * 0.05)
+    return bitrate_
 
 
 class AutoBitrateLadder:
@@ -65,35 +77,20 @@ class AutoBitrateLadder:
         if os.path.exists(path):
             os.remove(path)
 
-    def crabby_paddy_formula(
-        self, bitrate: int, speed_used: int, crf_used: int
-    ) -> float:
-        """
-        A formula that tries to estimate the complexity of a chunk based on the crf bitrate
-        :param bitrate:  in kb/s e.g., 2420
-        :param speed_used: svtav1 speed used to encode the chunk
-        :param crf_used: crf used to encode the chunk
-        :return: complexity score
-        """
-        bitrate_ = bitrate / 1000
-        # remove 5% for every speed above 4
-        bitrate_ -= min(0, speed_used - 4) * (bitrate_ * 0.05)
-        return bitrate_
-
     def get_complexity(self, c: ChunkObject) -> Tuple[int, float]:
-        enc = AbstractEncoderSvtenc()
-        enc.eat_job_config(job=EncoderJob(chunk=c), config=self.config)
+        enc = self.config.get_encoder()
+        enc.setup(chunk=c, config=self.config)
         enc.update(
             speed=12,
             passes=1,
             rate_distribution=RateDistribution.CQ,
             crf=16,
             threads=1,
-            svt_grain_synth=0,
+            grain_synth=0,
         )
         timetook = time.time()
         stats: EncodeStats = enc.run()
-        formula = self.crabby_paddy_formula(stats.bitrate, enc.speed, enc.crf)
+        formula = crabby_paddy_formula(stats.bitrate, enc.speed, enc.crf)
         tqdm.write(
             f"[{c.chunk_index}] complexity: {formula:.2f} in {time.time() - timetook:.2f}s"
         )
@@ -188,13 +185,13 @@ class AutoBitrateLadder:
         n = len(complexity_scores)
 
         # Calculate 10th percentile (for the lower end)
-        P10_index = int(0.1 * n)
+        p10_index = int(0.1 * n)
 
         # Calculate 90th percentile (for the upper end)
-        P90_index = int(0.9 * n)
+        p90_index = int(0.9 * n)
 
         # Your average complexity chunks are those lying between the 10th and 90th percentile
-        avg_complex_chunks = [complexity_scores[i] for i in range(P10_index, P90_index)]
+        avg_complex_chunks = [complexity_scores[i] for i in range(p10_index, p90_index)]
 
         avg_complex_chunks = random.sample(
             avg_complex_chunks, min(10, len(avg_complex_chunks))
@@ -435,12 +432,12 @@ class AutoBitrateLadder:
         :param chunk: chunk that we will be testing
         :return: ideal bitrate for that chunk based on self.config's vmaf
         """
-        encoder = AbstractEncoderSvtenc()
-        encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        encoder = self.config.get_encoder()
+        encoder.setup(chunk=chunk, config=self.config)
         encoder.update(
             speed=6,
             passes=3,
-            svt_grain_synth=self.config.grain_synth,
+            grain_synth=self.config.grain_synth,
             rate_distribution=RateDistribution.VBR,
             threads=1,
         )
@@ -498,14 +495,14 @@ class AutoBitrateLadder:
     def best_crf_single(self, chunk: ChunkObject) -> int:
         """
         :param chunk: chunk that we will be testing
-        :return: ideal bitrate for that chunk based on self.config's vmaf
+        :return: ideal crf for that chunk based on self.config's vmaf
         """
-        encoder = AbstractEncoderSvtenc()
-        encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        encoder = self.config.get_encoder()
+        encoder.setup(chunk=chunk, config=self.config)
         encoder.update(
             speed=6,
             passes=3,
-            svt_grain_synth=self.config.grain_synth,
+            grain_synth=self.config.grain_synth,
             rate_distribution=RateDistribution.CQ,
             threads=1,
         )
@@ -533,9 +530,9 @@ class AutoBitrateLadder:
             runs.append((mid, mid_vmaf))
 
             if mid_vmaf < self.config.vmaf:
-                left = mid + 1
-            else:
                 right = mid - 1
+            else:
+                left = mid + 1
 
         best_inter = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))[0]
 
@@ -593,12 +590,12 @@ class AutoBitrateLadder:
         :param chunk: chunk to calculate ssim dB for
         :param dbs: The list to append the ssim dB to
         """
-        encoder = AbstractEncoderSvtenc()
-        encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        encoder = self.config.get_encoder()
+        encoder.setup(chunk=chunk, config=self.config)
         encoder.update(
             speed=6,
             passes=3,
-            svt_grain_synth=self.config.grain_synth,
+            grain_synth=self.config.grain_synth,
             rate_distribution=RateDistribution.VBR,
             threads=1,
         )
@@ -617,24 +614,24 @@ class AutoBitrateLadder:
     def crf_to_bitrate(self, crf: int, chunks: List[ChunkObject]) -> int:
         bitrates = []
 
-        def sub(chunk: ChunkObject):
-            encoder = AbstractEncoderSvtenc()
-            encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        def sub(c: ChunkObject):
+            encoder = self.config.get_encoder()
+            encoder.setup(chunk=c, config=self.config)
             probe_folder = f"{self.config.temp_folder}/adapt/crf_to_bitrate/"
             os.makedirs(probe_folder, exist_ok=True)
             encoder.update(
                 speed=5,
                 passes=1,
-                svt_grain_synth=self.config.grain_synth,
+                grain_synth=self.config.grain_synth,
                 rate_distribution=RateDistribution.CQ,
                 threads=1,
                 crf=crf,
-                output_path=f"{probe_folder}{chunk.chunk_index}_{crf}.ivf",
+                output_path=f"{probe_folder}{c.chunk_index}_{crf}.ivf",
             )
 
             stats = encoder.run(timeout_value=500)
 
-            print(f"[{chunk.chunk_index}] {crf} crf ~> {stats.bitrate} bitrate")
+            print(f"[{c.chunk_index}] {crf} crf ~> {stats.bitrate} bitrate")
             bitrates.append(stats.bitrate)
 
         with ThreadPoolExecutor(max_workers=self.simultaneous_probes) as executor:
@@ -655,13 +652,13 @@ class AutoBitrateLadder:
         """
         crfs = []
 
-        def sub(chunk: ChunkObject):
-            encoder = AbstractEncoderSvtenc()
-            encoder.eat_job_config(job=EncoderJob(chunk=chunk), config=self.config)
+        def sub(c: ChunkObject):
+            encoder = self.config.get_encoder()
+            encoder.setup(chunk=c, config=self.config)
             encoder.update(
                 speed=5,
                 passes=1,
-                svt_grain_synth=self.config.grain_synth,
+                grain_synth=self.config.grain_synth,
                 rate_distribution=RateDistribution.CQ,
                 threads=1,
             )
@@ -680,11 +677,11 @@ class AutoBitrateLadder:
                 num_probes += 1
                 mid = (left + right) // 2
                 encoder.update(
-                    crf=mid, output_path=f"{probe_folder}{chunk.chunk_index}_{mid}.ivf"
+                    crf=mid, output_path=f"{probe_folder}{c.chunk_index}_{mid}.ivf"
                 )
                 stats = encoder.run(timeout_value=500)
 
-                print(f"[{chunk.chunk_index}] {mid} crf ~> {stats.bitrate} kb/s")
+                print(f"[{c.chunk_index}] {mid} crf ~> {stats.bitrate} kb/s")
 
                 runs.append((mid, stats.bitrate))
 
@@ -704,7 +701,7 @@ class AutoBitrateLadder:
             )
             best_inter = int(best_inter)
             print(
-                f"[{chunk.chunk_index}] INTERPOLATED: {best_inter} crf ~> {bitrate} bitrate"
+                f"[{c.chunk_index}] INTERPOLATED: {best_inter} crf ~> {bitrate} bitrate"
             )
             crfs.append(best_inter)
 

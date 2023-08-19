@@ -17,7 +17,6 @@ from alabamaEncode.CeleryAutoscaler import Load
 from alabamaEncode.adaptiveEncoding.adaptiveAnalyser import do_adaptive_analasys
 from alabamaEncode.adaptiveEncoding.adaptiveCommand import AdaptiveCommand
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.encoders.EncoderJob import EncoderJob
 from alabamaEncode.ffmpegUtil import (
     check_for_invalid,
     get_frame_count,
@@ -60,12 +59,10 @@ async def process_chunks(
     command_objects = []
 
     for chunk in chunk_list.chunks:
-        job = EncoderJob(chunk)
-
-        if not os.path.exists(job.chunk.chunk_path):
+        if not os.path.exists(chunk.chunk_path):
             obj = AdaptiveCommand()
 
-            obj.setup(job, encdr_config)
+            obj.setup(chunk, encdr_config)
             command_objects.append(obj)
 
     # order chunks based on order
@@ -340,10 +337,10 @@ def print_stats(
     if os.path.exists(f"{output_folder}stat.txt"):
         os.remove(f"{output_folder}stat.txt")
 
-    def print_and_save(string: str):
-        print(string)
-        with open(f"{output_folder}stat.txt", "a") as f:
-            f.write(string + "\n")
+    def print_and_save(s: str):
+        print(s)
+        with open(f"{output_folder}stat.txt", "a") as stat_file:
+            stat_file.write(s + "\n")
 
     print_and_save(f"Total encoding time across chunks: {time_encoding} seconds\n\n")
 
@@ -613,7 +610,7 @@ def parse_args():
         help="What encoder to use",
         type=str,
         default="svt_av1",
-        choices=["svt_av1", "x265"],
+        choices=["svt_av1", "x265", "aomenc"],
     )
 
     parser.add_argument(
@@ -746,6 +743,13 @@ def parse_args():
     )
 
     parser.add_argument("--title", help="Title of the video", type=str, default="")
+
+    parser.add_argument(
+        "--encoder_flag_override",
+        type=str,
+        default="",
+        help="Override the encoder flags with this string," " except paths",
+    )
 
     parser.add_argument(
         "--flag1",
@@ -891,6 +895,7 @@ def main():
     config.flag1 = args.flag1
     config.flag2 = args.flag2
     config.flag3 = args.flag3
+    config.override_flags = args.encoder_flag_override
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100

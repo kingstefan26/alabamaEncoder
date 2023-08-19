@@ -4,8 +4,8 @@ import time
 
 from alabamaEncode.adaptiveEncoding.util import get_probe_file_base
 from alabamaEncode.encoders import EncoderConfig
+from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.ffmpegUtil import get_video_ssim
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
@@ -38,14 +38,14 @@ def get_ideal_bitrate(
     if not ideal_rate:
         test_probe_path = f"{probe_file_base}complexity.probe.ivf"
 
-        enc = AbstractEncoderSvtenc()
+        encoder: AbstractEncoder = config.get_encoder()
 
-        enc.update(
+        encoder.update(
             speed=convex_speed,
             passes=1,
             temp_folder=config.temp_folder,
             chunk=chunk,
-            svt_grain_synth=0,
+            grain_synth=0,
             current_scene_index=chunk.chunk_index,
             output_path=test_probe_path,
             threads=1,
@@ -54,7 +54,7 @@ def get_ideal_bitrate(
             rate_distribution=RateDistribution.VBR,
         )
 
-        enc.run(override_if_exists=False)
+        encoder.run(override_if_exists=False)
 
         try:
             (ssim, ssim_db) = get_video_ssim(

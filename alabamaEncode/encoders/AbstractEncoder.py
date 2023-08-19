@@ -5,7 +5,6 @@ from abc import abstractmethod, ABC
 from typing import List
 
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.encoders.EncoderJob import EncoderJob
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
 from alabamaEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate, doesBinaryExist
@@ -28,18 +27,16 @@ class AbstractEncoder(ABC):
     output_path: str
     speed = 4
     first_pass_speed = 8
-    svt_grain_synth = 10
     threads = 1
     rate_distribution: RateDistribution = (
         RateDistribution.CQ
     )  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
     qm_enabled = False
+    grain_synth = 10
     qm_min = 8
     qm_max = 15
-    film_grain_denoise: (0 | 1) = 1
     max_bitrate = 0
-    content_type = "live_action"
-    config: EncoderConfigObject = None
+    override_flags: str = ""
 
     bit_override = 10
 
@@ -57,28 +54,29 @@ class AbstractEncoder(ABC):
     svt_sframe_mode = 2
     svt_cli_path = "SvtAv1EncApp"
     svt_tune = 0  # tune for PsychoVisual Optimization by default
+    film_grain_denoise: (0 | 1) = 1
 
     running_on_celery = False
 
-    def eat_job_config(self, job: EncoderJob, config: EncoderConfigObject):
-        self.config = copy.deepcopy(config)
+    def setup(self, chunk: ChunkObject, config: EncoderConfigObject):
         self.update(
-            chunk=job.chunk,
+            chunk=chunk,
             temp_folder=config.temp_folder,
             bitrate=config.bitrate,
             crf=config.crf,
-            current_scene_index=job.chunk.chunk_index,
+            current_scene_index=chunk.chunk_index,
             passes=config.passes,
             crop_string=config.crop_string,
-            output_path=job.chunk.chunk_path,
+            output_path=chunk.chunk_path,
             speed=config.speed,
-            svt_grain_synth=config.grain_synth,
+            grain_synth=config.grain_synth,
             rate_distribution=config.rate_distribution,
             threads=config.threads,
             qm_enabled=config.qm_enabled,
             qm_min=config.qm_min,
             qm_max=config.qm_max,
             content_type=config.content_type,
+            override_flags=config.override_flags
         )
 
     def update(self, **kwargs):
@@ -98,7 +96,7 @@ class AbstractEncoder(ABC):
             "output_path": str,
             "speed": int,
             "first_pass_speed": int,
-            "svt_grain_synth": int,
+            "grain_synth": int,
             "threads": int,
             "tune": int,
             "rate_distribution": RateDistribution,
@@ -106,6 +104,7 @@ class AbstractEncoder(ABC):
             "qm_min": int,
             "qm_max": int,
             "content_type": str,
+            "override_flags": str
         }
 
         # Loop over the dictionary
