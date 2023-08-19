@@ -4,7 +4,6 @@ import time
 from abc import abstractmethod, ABC
 from typing import List
 
-from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
 from alabamaEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate, doesBinaryExist
@@ -58,7 +57,7 @@ class AbstractEncoder(ABC):
 
     running_on_celery = False
 
-    def setup(self, chunk: ChunkObject, config: EncoderConfigObject):
+    def setup(self, chunk: ChunkObject, config):
         self.update(
             chunk=chunk,
             temp_folder=config.temp_folder,

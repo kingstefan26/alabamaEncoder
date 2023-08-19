@@ -751,6 +751,20 @@ def parse_args():
         help="Override the encoder flags with this string," " except paths",
     )
 
+    def speed(x):
+        x = int(x)
+        if x < 0:
+            raise argparse.ArgumentTypeError("Minimum speed is 0")
+        if x > 12:
+            raise argparse.ArgumentTypeError("Maximum speed is 9")
+        return x
+
+    parser.add_argument(
+        "--encoder_speed_override",
+        type=speed,
+        help="Override the encoder speed parameter",
+    )
+
     parser.add_argument(
         "--flag1",
         action="store_true",
@@ -896,6 +910,7 @@ def main():
     config.flag2 = args.flag2
     config.flag3 = args.flag3
     config.override_flags = args.encoder_flag_override
+    config.speed = args.encoder_speed_override
     config.multiprocess_workers = args.multiprocess_workers
     config.bitrate_adjust_mode = args.bitrate_adjust_mode
     config.bitrate_undershoot = args.undershoot / 100
