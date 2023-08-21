@@ -1,6 +1,8 @@
 import os
 import time
 
+from tqdm import tqdm
+
 from alabamaEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
@@ -39,18 +41,27 @@ class AdaptiveCommand(CommandObject):
 
             stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
 
-            if (
-                stats.bitrate > self.config.bitrate
-                or stats.bitrate > self.config.cutoff_bitrate
-            ):
-                enc.update(
-                    passes=3,
-                    rate_distribution=RateDistribution.VBR,
-                    bitrate=self.config.bitrate,
+            if stats.bitrate > self.config.cutoff_bitrate:
+                tqdm.write(
+                    self.chunk.log_prefix()
+                    + f"at crf {self.config.crf} got {stats.bitrate}, cutoff {self.config.cutoff_bitrate} k/s reached, encoding three pass vbr at cutoff "
                 )
-                enc.svt_bias_pct = 20
-                os.remove(enc.output_path)
-                stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
+            else:
+                tqdm.write(
+                    self.chunk.log_prefix()
+                    + f"at crf {self.config.crf} got {stats.bitrate}, encoding three pass vbr at {stats.bitrate} k/s "
+                )
+
+            encode_bitrate = min(stats.bitrate, self.config.cutoff_bitrate)
+
+            enc.update(
+                passes=3,
+                rate_distribution=RateDistribution.VBR,
+                bitrate=encode_bitrate,
+            )
+            enc.svt_bias_pct = 20
+            os.remove(enc.output_path)
+            stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
 
             # round to two places
             total_fps = round(

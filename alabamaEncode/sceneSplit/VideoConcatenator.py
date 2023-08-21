@@ -1,5 +1,4 @@
 import os
-import subprocess
 import tempfile
 from typing import List
 
@@ -114,14 +113,7 @@ class VideoConcatenator:
         for command in commands:
             print("Running: " + command)
 
-            p = subprocess.Popen(
-                command,
-                shell=True,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.STDOUT,
-                stderr=subprocess.STDOUT,
-            )
-            p.wait()
+            os.system(command)
 
 
 def test():

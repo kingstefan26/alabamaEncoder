@@ -164,6 +164,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                 commands = [
                     f"{kommand} --pass 1 {stats_bit}",
                     f"{kommand} --pass 2 {stats_bit} -b {self.output_path}",
+                    f"rm {self.output_path}.stat",
                 ]
             case 1:
                 commands = [f'{kommand} -b "{self.output_path}"']
@@ -172,6 +173,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                     f"{kommand} --pass 1 {stats_bit}",
                     f"{kommand} --pass 2 {stats_bit}",
                     f"{kommand} --pass 3 {stats_bit} -b {self.output_path}",
+                    f"rm {self.output_path}.stat",
                 ]
             case _:
                 raise Exception(f"FATAL: invalid passes count {self.passes}")
