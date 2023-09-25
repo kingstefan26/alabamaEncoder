@@ -1,11 +1,13 @@
 #!/usr/bin/python
 import argparse
 import asyncio
+import atexit
 import glob
 import json
 import os
 import random
 import sys
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from multiprocessing.pool import ThreadPool
 
@@ -35,19 +37,33 @@ from alabamaEncode.utils.getHeight import get_height
 from alabamaEncode.utils.getWidth import get_width
 from alabamaEncode.utils.isHDR import is_hdr
 
-
-async def cancel_all_tasks():
-    tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-    for task in tasks:
-        task.cancel()
-    print(
-        "App quiting. if you arent finished, resume by reruning the script with the same settings"
-    )
-    await asyncio.gather(*tasks, return_exceptions=True)
+runtime = -1
+runtime_file = ""
 
 
-def at_exit(loop):
-    loop.create_task(cancel_all_tasks())
+@atexit.register
+def at_exit():
+    global runtime
+    global runtime_file
+    if runtime != -1:
+        current_session_runtime = time.time() - runtime
+
+        saved_runtime = 0
+        try:
+            if os.path.exists(runtime_file):
+                with open(runtime_file) as f:
+                    saved_runtime = float(f.read())
+        except:
+            pass
+        print(
+            f"Current Session Runtime: {current_session_runtime}, Runtime From Previous Sessions: {saved_runtime}, Total Runtime: {current_session_runtime + saved_runtime}"
+        )
+
+        try:
+            with open(runtime_file, "w") as f:
+                f.write(str(current_session_runtime + saved_runtime))
+        except:
+            pass
 
 
 async def process_chunks(
@@ -610,7 +626,7 @@ def parse_args():
         help="What encoder to use",
         type=str,
         default="svt_av1",
-        choices=["svt_av1", "x265", "aomenc"],
+        choices=["svt_av1", "x265", "aomenc", "x264"],
     )
 
     parser.add_argument(
@@ -782,6 +798,9 @@ def main():
     """
     Main entry point
     """
+    global runtime
+    runtime = time.time()
+
     # if a user does 'python __main__.py clear' then clear the celery queue
     if len(sys.argv) > 1 and sys.argv[1] == "clear":
         print("Clearing celery queue")
@@ -823,6 +842,9 @@ def main():
     if not os.path.exists(tempfolder):
         os.makedirs(tempfolder)
 
+    global runtime_file
+    runtime_file = tempfolder + "runtime.txt"
+
     input_file = tempfolder + "temp.mkv"
 
     if args.celery:
@@ -847,17 +869,6 @@ def main():
         print("x265 only supports auto crf, set `--auto_crf true`")
         quit()
 
-    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
-        input_file=input_file,
-        cache_file_path=tempfolder + "sceneCache.pt",
-        max_scene_length=args.max_scene_length,
-        start_offset=args.start_offset,
-        end_offset=args.end_offset,
-        override_bad_wrong_cache_path=args.override_bad_wrong_cache_path,
-    )
-    for xyz in scenes_skinny.chunks:
-        xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}.ivf"
-
     config = EncoderConfigObject(
         convexhull=args.bitrate_adjust,
         temp_folder=tempfolder,
@@ -871,6 +882,17 @@ def main():
         log_level=log_level,
         dry_run=args.dry_run,
     )
+
+    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
+        input_file=input_file,
+        cache_file_path=tempfolder + "sceneCache.pt",
+        max_scene_length=args.max_scene_length,
+        start_offset=args.start_offset,
+        end_offset=args.end_offset,
+        override_bad_wrong_cache_path=args.override_bad_wrong_cache_path,
+    )
+    for xyz in scenes_skinny.chunks:
+        xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}{config.get_encoder().get_chunk_file_extension()}"
 
     # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
     config.crop_string = args.video_filters
@@ -889,7 +911,7 @@ def main():
             if final != "" and final[-1] != ",":
                 final += ","
             final += f"scale={args.scale_string}:flags=lanczos"
-
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
         tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv"
 
         if not args.hdr and is_hdr(input_file):
@@ -993,9 +1015,11 @@ def main():
                         use_celery=args.celery,
                     )
                 )
+            except KeyboardInterrupt:
+                print("Keyboard interrupt, stopping")
+                quit()
             finally:
-                at_exit(loop)
-                loop.close()
+                loop.stop()
 
         try:
             concat = VideoConcatenator(
@@ -1007,10 +1031,14 @@ def main():
                 title=args.title,
                 encoder_name=encoder_name,
             )
-            concat.find_files_in_dir(folder_path=tempfolder, extension=".ivf")
+            concat.find_files_in_dir(
+                folder_path=tempfolder,
+                extension=config.get_encoder().get_chunk_file_extension(),
+            )
             concat.concat_videos()
-        except:
+        except Exception as e:
             print("Concat at the end failed sobbing 😷")
+            raise e
             quit()
 
     print("Output file exists, printing stats")

@@ -36,6 +36,7 @@ def get_frame_count(path):
         f'-of csv=p=0 "{path}"'
     )
     result = syscmd(argv_)
+    result = result.replace('\n', '').replace(',', '')
     return int(result)
 
 

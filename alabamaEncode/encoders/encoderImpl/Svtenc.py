@@ -24,6 +24,9 @@ class AvifEncoderSvtenc:
 
         self.params = {**self.DEFAULT_PARAMS, **kwargs}
 
+    def get_params(self):
+        return self.params
+
     def update(self, **kwargs):
         self.params = {**self.params, **kwargs}
 

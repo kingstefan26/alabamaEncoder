@@ -6,7 +6,12 @@ from typing import List
 
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
-from alabamaEncode.ffmpegUtil import get_video_vmeth, get_total_bitrate, doesBinaryExist
+from alabamaEncode.ffmpegUtil import (
+    get_video_vmeth,
+    get_total_bitrate,
+    doesBinaryExist,
+    get_video_ssim,
+)
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.utils.execute import syscmd
 
@@ -75,7 +80,7 @@ class AbstractEncoder(ABC):
             qm_min=config.qm_min,
             qm_max=config.qm_max,
             content_type=config.content_type,
-            override_flags=config.override_flags
+            override_flags=config.override_flags,
         )
 
     def update(self, **kwargs):
@@ -103,7 +108,7 @@ class AbstractEncoder(ABC):
             "qm_min": int,
             "qm_max": int,
             "content_type": str,
-            "override_flags": str
+            "override_flags": str,
         }
 
         # Loop over the dictionary
@@ -127,7 +132,7 @@ class AbstractEncoder(ABC):
             setattr(self, attr, value)
 
     def run(
-        self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False
+        self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False, calcualte_ssim=False
     ) -> EncodeStats:
         """
         :param override_if_exists: if false and file already exist don't do anything
@@ -199,6 +204,8 @@ class AbstractEncoder(ABC):
             stats.vmaf = get_video_vmeth(
                 self.output_path, self.chunk, crop_string=self.crop_string
             )
+        if calcualte_ssim:
+            stats.ssim = get_video_ssim(self.output_path, self.chunk, crop_string=self.crop_string)
 
         stats.size = os.path.getsize(self.output_path) / 1000
         stats.bitrate = int(get_total_bitrate(self.output_path) / 1000)
@@ -229,5 +236,6 @@ class AbstractEncoder(ABC):
             bit_depth=self.bit_override,
         )
 
+    @abstractmethod
     def get_chunk_file_extension(self) -> str:
         return ".mkv"

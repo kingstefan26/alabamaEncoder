@@ -21,6 +21,7 @@ class EncodeStats:
         time_encoding: int = -1,
         bitrate: int = -1,
         vmaf: float = -1,
+        ssim: float = -1,
         status: EncodeStatus = EncodeStatus.UNKNOWN,
         size: int = -1,
         total_fps: int = -1,
@@ -31,6 +32,7 @@ class EncodeStats:
         self.time_encoding = time_encoding
         self.bitrate = bitrate
         self.vmaf = vmaf
+        self.ssim = ssim
         self.status = status
         self.size = size
         self.total_fps = total_fps
@@ -48,6 +50,7 @@ class EncodeStats:
             "time_encoding": self.time_encoding,
             "bitrate": self.bitrate,
             "vmaf": self.vmaf,
+            "ssim": self.ssim,
             "status": self.status.name,
             "size": self.size,
             "total_fps": self.total_fps,

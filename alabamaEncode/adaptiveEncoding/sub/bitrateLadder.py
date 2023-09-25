@@ -63,6 +63,9 @@ class AutoBitrateLadder:
             self.chunk_sequence, self.random_pick_count
         )
 
+        if len(self.chunks) == 0:
+            raise Exception("No chunks to probe")
+
     random_pick_count = 7
     num_probes = 6
     max_bitrate = 5000
@@ -121,8 +124,10 @@ class AutoBitrateLadder:
 
         chunk_sequence_copy = copy.deepcopy(self.chunk_sequence)
 
+        encoder_extension = self.config.get_encoder().get_chunk_file_extension()
+
         for chunk in chunk_sequence_copy.chunks:
-            chunk.chunk_path = f"{probe_folder}/{chunk.chunk_index}.ivf"
+            chunk.chunk_path = f"{probe_folder}/{chunk.chunk_index}{encoder_extension}"
 
         start = time.time()
 
@@ -208,10 +213,12 @@ class AutoBitrateLadder:
             f'Probing chunks: {" ".join([str(chunk.chunk_index) for chunk in chunks_for_crf_probe])}'
         )
 
+        encoder_extension = self.config.get_encoder().get_chunk_file_extension()
+
         # add proper paths
         for i, chunk in enumerate(chunks_for_crf_probe):
             chunk.chunk_index = i
-            chunk.chunk_path = f"{probe_folder}{i}.ivf"
+            chunk.chunk_path = f"{probe_folder}{i}{encoder_extension}"
 
         commands = [GetBestCrf(self, chunk) for chunk in chunks_for_crf_probe]
 
@@ -264,6 +271,46 @@ class AutoBitrateLadder:
 
         return avg_best
 
+    def get_cutoff_bitrate_from_crf(self, crf):
+        probe_folder = f"{self.config.temp_folder}/adapt/crf_to_bitrate/"
+
+        if os.path.exists(probe_folder + "cache.pt"):
+            try:
+                print("Found cache file, reading")
+                avg_best = pickle.load(open(probe_folder + "cache.pt", "rb"))
+                print(f"Best avg crf: {avg_best} crf")
+                return avg_best
+            except:
+                pass
+
+        shutil.rmtree(probe_folder, ignore_errors=True)
+        os.makedirs(probe_folder)
+
+        complexity_scores: List[Tuple[int, float]] = self.calculate_chunk_complexity()
+
+        # sort chunks by complexity
+        complexity_scores.sort(key=lambda x: x[1])
+
+        # get the top 5% most complex chunks no less than ten, unless the number of chunks is less than ten
+        top_complex_chunks = complexity_scores[
+            -max(10, int(len(complexity_scores) * 0.05)) :
+        ]
+
+        # get a random 30% of the top 5% most complex chunks
+        random_complex_chunks = random.sample(
+            top_complex_chunks, int(len(top_complex_chunks) * 0.30)
+        )
+
+        chunks_for_max_probe = []
+        for c in self.chunk_sequence.chunks:
+            for chunk in random_complex_chunks:
+                if c.chunk_index == chunk[0]:
+                    chunks_for_max_probe.append(copy.deepcopy(c))
+
+        cutoff_bitreate = self.crf_to_bitrate(crf, chunks_for_max_probe)
+        self.config.cutoff_bitrate = cutoff_bitreate
+        return cutoff_bitreate
+
     def get_best_bitrate_guided(self) -> int:
         """
         :return: The best average bitrate found based on probing a random selection of chunks in the chunk sequence.
@@ -310,10 +357,12 @@ class AutoBitrateLadder:
             f'Probing chunks: {" ".join([str(chunk.chunk_index) for chunk in chunks])}'
         )
 
+        encoder_extension = self.config.get_encoder().get_chunk_file_extension()
+
         # add proper paths
         for i, chunk in enumerate(chunks):
             chunk.chunk_index = i
-            chunk.chunk_path = f"{probe_folder}{i}.ivf"
+            chunk.chunk_path = f"{probe_folder}{i}{encoder_extension}"
 
         commands = [GetBestBitrate(self, chunk) for chunk in chunks]
 
@@ -378,10 +427,12 @@ class AutoBitrateLadder:
 
         chunks = copy.deepcopy(self.chunks)
 
+        encoder_extension = self.config.get_encoder().get_chunk_file_extension()
+
         # add proper paths
         for i, chunk in enumerate(chunks):
             chunk.chunk_index = i
-            chunk.chunk_path = f"{probe_folder}{i}.ivf"
+            chunk.chunk_path = f"{probe_folder}{i}{encoder_extension}"
 
         # chunk_runs_bitrates = []
         # pool = ThreadPool(processes=self.simultaneous_probes)
@@ -600,7 +651,7 @@ class AutoBitrateLadder:
             threads=1,
         )
         encoder.update(
-            output_path=f"{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}.ivf"
+            output_path=f"{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}{encoder.get_chunk_file_extension()}"
         )
         encoder.svt_bias_pct = 90
         encoder.update(bitrate=bitrate)
@@ -626,7 +677,7 @@ class AutoBitrateLadder:
                 rate_distribution=RateDistribution.CQ,
                 threads=1,
                 crf=crf,
-                output_path=f"{probe_folder}{c.chunk_index}_{crf}.ivf",
+                output_path=f"{probe_folder}{c.chunk_index}_{crf}{encoder.get_chunk_file_extension()}",
             )
 
             stats = encoder.run(timeout_value=500)
@@ -677,7 +728,8 @@ class AutoBitrateLadder:
                 num_probes += 1
                 mid = (left + right) // 2
                 encoder.update(
-                    crf=mid, output_path=f"{probe_folder}{c.chunk_index}_{mid}.ivf"
+                    crf=mid,
+                    output_path=f"{probe_folder}{c.chunk_index}_{mid}{encoder.get_chunk_file_extension()}",
                 )
                 stats = encoder.run(timeout_value=500)
 

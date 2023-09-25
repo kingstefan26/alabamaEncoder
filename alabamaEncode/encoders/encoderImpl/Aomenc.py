@@ -24,12 +24,10 @@ class AbstractEncoderAomEnc(AbstractEncoder):
         encode_command += " --quiet "
         encode_command += f'-o "{self.output_path}" '
 
-
-
         # 1 thread cuz we generally run this chunked
         encode_command += f"--threads=1 "
 
-        if self.override_flags == '':
+        if self.override_flags == "":
             encode_command += f"--cpu-used={self.speed} "
             encode_command += f"--bit-depth=10 "
 
@@ -57,7 +55,9 @@ class AbstractEncoderAomEnc(AbstractEncoder):
 
             match self.rate_distribution:
                 case RateDistribution.VBR:
-                    encode_command += f" --end-usage=vbr --target-bitrate={self.bitrate}"
+                    encode_command += (
+                        f" --end-usage=vbr --target-bitrate={self.bitrate}"
+                    )
                 case RateDistribution.CQ:
                     encode_command += f" --end-usage=q --cq-level={self.crf}"
                     self.passes = 2
@@ -68,15 +68,11 @@ class AbstractEncoderAomEnc(AbstractEncoder):
                         encode_command += f" --end-usage=cq --cq-level={self.crf} --target-bitrate={self.bitrate} "
 
             if self.photon_noise_path == "":
-                encode_command += (
-                    f" --enable-dnl-denoising=1 --denoise-noise-level={self.grain_synth}"
-                )
+                encode_command += f" --enable-dnl-denoising=1 --denoise-noise-level={self.grain_synth}"
             else:
                 encode_command += f' --enable-dnl-denoising=0 --film-grain-table="{self.photon_noise_path}"'
         else:
             encode_command += self.override_flags
-
-
 
         if self.passes == 2:
             encode_command += f' --fpf="{self.output_path}.log"'
@@ -92,3 +88,6 @@ class AbstractEncoderAomEnc(AbstractEncoder):
         else:
             encode_command += " --pass=1"
             return [encode_command]
+
+    def get_chunk_file_extension(self) -> str:
+        return ".ivf"

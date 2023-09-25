@@ -43,6 +43,9 @@ def do_adaptive_analasys(
             # config.crf = ab.get_target_crf(config.bitrate)
 
             ab.get_best_crf_guided()
+        elif config.flag2:
+            pass
+            # ab.get_cutoff_bitrate_from_crf(config.crf)
         else:
             if do_bitrate_ladder and not do_crf:
                 config.bitrate = ab.get_best_bitrate()

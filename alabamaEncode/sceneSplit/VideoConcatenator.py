@@ -7,6 +7,7 @@ from alabamaEncode.ffmpegUtil import (
     check_for_invalid,
     get_video_lenght,
 )
+from alabamaEncode.utils.execute import syscmd
 
 
 class VideoConcatenator:
@@ -42,6 +43,14 @@ class VideoConcatenator:
         for file in os.listdir(folder_path):
             if file.endswith(extension):
                 files.append(os.path.join(folder_path, file))
+        f_2 = []
+        for f in files:
+            try:
+                a = int(os.path.splitext(os.path.basename(f))[0])
+                f_2.append(f)
+            except ValueError:
+                pass
+        files = f_2
 
         print(f"Found {len(files)} files")
         print("Sorting files")
@@ -98,11 +107,31 @@ class VideoConcatenator:
             title_bit = f' -metadata description="encoded by {self.encoder_name}" '
             if self.title:
                 title_bit += f' -metadata title="{self.title}"'
+            sub_hack = ""
+            if "mp4" in self.output:
+                sub_hack = " -c:s mov_text "
 
-            commands = [
-                f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -map "2:s?" -movflags +faststart -c:v copy -c:a copy {self.output}',
-                f"rm {concat_file_path} {vid_output} {audio_output}",
-            ]
+            final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy {self.output}'
+            print(f"running: {final_command}")
+            out = syscmd(final_command)
+
+            if (
+                "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
+                in str(out)
+            ):
+                print("Subtitle encoding failed, trying again")
+                print(f"running: {final_command}")
+                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy {self.output}'
+                syscmd(final_command)
+
+            remove_command = f"rm {concat_file_path} {vid_output} {audio_output}"
+            print(f"running: {remove_command}")
+            os.system(remove_command)
+            if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
+                os.remove(self.output)
+                raise Exception("VIDEO CONCAT FAILED")
+
+            return
         else:
             print("Not muxing audio")
             commands = [
@@ -114,6 +143,8 @@ class VideoConcatenator:
             print("Running: " + command)
 
             os.system(command)
+        if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
+            raise Exception("VIDEO CONCAT FAILED")
 
 
 def test():

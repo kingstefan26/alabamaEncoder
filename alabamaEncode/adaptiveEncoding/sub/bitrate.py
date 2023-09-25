@@ -36,9 +36,11 @@ def get_ideal_bitrate(
             print("Error loading complexity cache file, recalculating")
 
     if not ideal_rate:
-        test_probe_path = f"{probe_file_base}complexity.probe.ivf"
-
         encoder: AbstractEncoder = config.get_encoder()
+
+        test_probe_path = (
+            f"{probe_file_base}complexity.probe.{encoder.get_chunk_file_extension()}"
+        )
 
         encoder.update(
             speed=convex_speed,

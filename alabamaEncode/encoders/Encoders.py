@@ -2,6 +2,7 @@ from enum import Enum
 
 from alabamaEncode.encoders.encoderImpl.Aomenc import AbstractEncoderAomEnc
 from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
+from alabamaEncode.encoders.encoderImpl.X264 import AbstractEncoderX264
 from alabamaEncode.encoders.encoderImpl.X265 import AbstractEncoderX265
 
 
@@ -9,6 +10,7 @@ class EncodersEnum(Enum):
     SVT_AV1: int = 0
     X265: int = 1
     AOMENC: int = 2
+    X264: int = 3
 
     @staticmethod
     def from_str(encoder_name: str):
@@ -21,6 +23,8 @@ class EncodersEnum(Enum):
             return EncodersEnum.SVT_AV1
         elif encoder_name == "x265":
             return EncodersEnum.X265
+        elif encoder_name == "x264" or encoder_name == "X264":
+            return EncodersEnum.X264
         elif (
             encoder_name == "aomenc"
             or encoder_name == "AOMENC"
@@ -36,7 +40,7 @@ class EncodersEnum(Enum):
         """
         if self == EncodersEnum.SVT_AV1 or self == EncodersEnum.AOMENC:
             return True
-        elif self == EncodersEnum.X265:
+        else:
             return False
 
     def get_encoder(self):
@@ -46,3 +50,5 @@ class EncodersEnum(Enum):
             return AbstractEncoderSvtenc()
         elif self == EncodersEnum.AOMENC:
             return AbstractEncoderAomEnc()
+        elif self == EncodersEnum.X264:
+            return AbstractEncoderX264()

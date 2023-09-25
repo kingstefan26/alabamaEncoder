@@ -81,3 +81,6 @@ class AbstractEncoderX265(AbstractEncoder):
             ]
         elif self.passes == 1:
             return [f"{kommand} {get_param_thing()} {self.output_path}"]
+
+    def get_chunk_file_extension(self) -> str:
+        return ".mkv"
