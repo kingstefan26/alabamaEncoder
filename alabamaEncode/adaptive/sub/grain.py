@@ -181,8 +181,9 @@ def get_best_avg_grainsynth(
 
     print("starting autograin test")
 
-    # bases on length, remove every x scene from the list so its shorter
-    scenes.chunks = scenes.chunks[:: int(len(scenes.chunks) / 10)]
+    if len(scenes.chunks) > 10:
+        # bases on length, remove every x scene from the list so its shorter
+        scenes.chunks = scenes.chunks[:: int(len(scenes.chunks) / 10)]
 
     # pick random x scenes from the list
     random.seed(scene_pick_seed)

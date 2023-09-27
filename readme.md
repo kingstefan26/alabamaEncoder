@@ -31,8 +31,10 @@ alabamaEncoder worker [# of worker processes]
 for general:
 
 ````
-alabamaEncoder [-h] [INPUT] [OUTPUT] [TEMP DIR PATH] [flags from bellow]
+alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags from bellow]
 ````
+
+note: multiple files will be created in the output file's folder
 
 To clear the celery queue: `alabamaEncoder clear`
 

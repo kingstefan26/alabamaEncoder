@@ -5,7 +5,7 @@ from scenedetect import detect, AdaptiveDetector
 
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
-from alabamaEncode.utils.ffmpegUtil import get_video_lenght
+from alabamaEncode.utils.ffmpegUtil import get_video_lenght, get_frame_count
 from alabamaEncode.utils.getFramerate import get_video_frame_rate
 from alabamaEncode.utils.getHeight import get_height
 from alabamaEncode.utils.getWidth import get_width
@@ -112,6 +112,19 @@ def get_video_scene_list_skinny(
                             height=height,
                         )
                     )
+
+        if len(seq.chunks) == 0:
+            print("Scene detection failed, falling back to a single chunk")
+            seq.chunks.append(
+                ChunkObject(
+                    0,
+                    get_frame_count(input_file),
+                    path=input_file,
+                    framerate=framerate,
+                    width=width,
+                    height=height,
+                )
+            )
 
         for i, chunk in enumerate(seq.chunks):
             chunk.chunk_index = i

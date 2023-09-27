@@ -537,14 +537,6 @@ def parse_args():
     )
     parser.add_argument("input", type=str, help="Input video file")
     parser.add_argument("output", type=str, help="Output video file")
-    parser.add_argument(
-        "temp_dir",
-        help="Temp directory",
-        nargs="?",
-        default="temp/",
-        type=str,
-        metavar="temp_dir",
-    )
 
     parser.add_argument("--audio", help="Mux audio", action="store_true", default=True)
 
@@ -820,7 +812,7 @@ def main():
 
     args = parse_args()
 
-    input_path = args.input
+    input_path = os.path.abspath(args.input)
 
     log_level = 0 if args.log_level == "QUIET" else 1
 
@@ -840,7 +832,8 @@ def main():
     host_adrees = get_lan_ip()
     print(f"Got lan ip: {host_adrees}")
 
-    output_folder = os.path.abspath(args.temp_dir) + "/"
+    # get outputs folder
+    output_folder = os.path.dirname(os.path.abspath(args.output)) + "/"
 
     # turn tempfolder into a full path
     tempfolder = output_folder + "temp/"
@@ -990,7 +983,7 @@ def main():
             config,
             find_best_grainsynth=find_best_grainsynth,
             find_best_bitrate=find_best_bitrate,
-            do_crf=True if args.crf != -1 else False,
+            do_crf=True if args.crf != -1 or args.flag2 else False,
         )
 
         if config.grain_synth == 0 and config.bitrate < 2000:

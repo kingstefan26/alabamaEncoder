@@ -50,4 +50,9 @@ def get_test_chunks_out_of_a_sequence(
 
     random.shuffle(chunks_copy)
     chunks = chunks_copy[:random_pick_count]
+
+    if len(chunks) == 0:
+        print("Failed to shuffle chunks for analysis, using all")
+        chunks = chunk_sequence.chunks
+
     return copy.deepcopy(chunks)
