@@ -3,9 +3,9 @@ import pickle
 
 from scenedetect import detect, AdaptiveDetector
 
-from alabamaEncode.ffmpegUtil import get_video_lenght
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.utils.ffmpegUtil import get_video_lenght
 from alabamaEncode.utils.getFramerate import get_video_frame_rate
 from alabamaEncode.utils.getHeight import get_height
 from alabamaEncode.utils.getWidth import get_width

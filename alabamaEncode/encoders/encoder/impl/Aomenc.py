@@ -1,8 +1,8 @@
 from copy import copy
 from typing import List
 
-from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 
 
 class AbstractEncoderAomEnc(AbstractEncoder):
@@ -17,7 +17,7 @@ class AbstractEncoderAomEnc(AbstractEncoder):
     def get_encode_commands(self) -> List[str]:
         self.speed = min(self.speed, 9)
         encode_command = self.chunk.create_chunk_ffmpeg_pipe_command(
-            crop_string=self.crop_string
+            video_filters=self.video_filters
         )
         encode_command += " | "
         encode_command += f"aomenc - "

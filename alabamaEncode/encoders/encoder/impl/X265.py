@@ -1,7 +1,7 @@
 from typing import List
 
-from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 
 
 class AbstractEncoderX265(AbstractEncoder):
@@ -14,7 +14,7 @@ class AbstractEncoderX265(AbstractEncoder):
         self.passes = 1
 
         kommand = (
-            f"ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libx265 -vf {self.crop_string} "
+            f"ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libx265 -vf {self.video_filters} "
             f"-an -sn -pix_fmt yuv420p10le"
         )
 

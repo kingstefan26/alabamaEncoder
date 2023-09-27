@@ -14,12 +14,18 @@ from multiprocessing.pool import ThreadPool
 from torf import Torrent
 from tqdm import tqdm
 
-from alabamaEncode.CeleryApp import app, run_command_on_celery
-from alabamaEncode.CeleryAutoscaler import Load
-from alabamaEncode.adaptiveEncoding.adaptiveAnalyser import do_adaptive_analasys
-from alabamaEncode.adaptiveEncoding.adaptiveCommand import AdaptiveCommand
+from alabamaEncode.adaptive.analyser import do_adaptive_analasys
+from alabamaEncode.adaptive.executor import AdaptiveCommand
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.ffmpegUtil import (
+from alabamaEncode.parallelEncoding.CeleryApp import app, run_command_on_celery
+from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load
+from alabamaEncode.parallelEncoding.Command import run_command
+from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.sceneSplit.VideoConcatenator import VideoConcatenator
+from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
+from alabamaEncode.utils.execute import syscmd
+from alabamaEncode.utils.ffmpegUtil import (
     check_for_invalid,
     get_frame_count,
     do_cropdetect,
@@ -27,12 +33,6 @@ from alabamaEncode.ffmpegUtil import (
     get_total_bitrate,
     get_video_lenght,
 )
-from alabamaEncode.parallelEncoding.Command import run_command
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
-from alabamaEncode.sceneSplit.VideoConcatenator import VideoConcatenator
-from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
-from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.getHeight import get_height
 from alabamaEncode.utils.getWidth import get_width
 from alabamaEncode.utils.isHDR import is_hdr
@@ -257,6 +257,12 @@ def clean_rate_probes(tempfolder: str):
                     os.remove(tempfolder + name)
                 except:
                     pass
+
+    # clean empty folders in the temp folder
+    for root, dirs, files in os.walk(tempfolder):
+        for name in dirs:
+            if len(os.listdir(os.path.join(root, name))) == 0:
+                os.rmdir(os.path.join(root, name))
 
 
 def check_chunk(c: ChunkObject):
@@ -824,7 +830,7 @@ def main():
 
     # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
     if args.video_filters != "" and (
-        args.hdr or args.crop_string != "" or args.scale_string != ""
+        args.hdr or args.video_filters != "" or args.scale_string != ""
     ):
         print(
             "--video_filters is mutually exclusive with --hdr --crop_string --scale_string"
@@ -872,7 +878,6 @@ def main():
     config = EncoderConfigObject(
         convexhull=args.bitrate_adjust,
         temp_folder=tempfolder,
-        server_ip=host_adrees,
         remote_path=tempfolder,
         ssim_db_target=args.ssim_db_target,
         passes=3,
@@ -882,44 +887,6 @@ def main():
         log_level=log_level,
         dry_run=args.dry_run,
     )
-
-    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
-        input_file=input_file,
-        cache_file_path=tempfolder + "sceneCache.pt",
-        max_scene_length=args.max_scene_length,
-        start_offset=args.start_offset,
-        end_offset=args.end_offset,
-        override_bad_wrong_cache_path=args.override_bad_wrong_cache_path,
-    )
-    for xyz in scenes_skinny.chunks:
-        xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}{config.get_encoder().get_chunk_file_extension()}"
-
-    # example: crop=3840:1600:0:280,scale=1920:800:flags=lanczos
-    config.crop_string = args.video_filters
-    if args.autocrop and config.crop_string == "":
-        cropdetect = do_cropdetect(ChunkObject(path=input_file))
-        if cropdetect != "":
-            config.crop_string = f"crop={cropdetect}"
-
-    if config.crop_string == "":
-        final = ""
-
-        if args.crop_string != "":
-            final += f"crop={args.crop_string}"
-
-        if args.scale_string != "":
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += f"scale={args.scale_string}:flags=lanczos"
-        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
-        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv"
-
-        if not args.hdr and is_hdr(input_file):
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += tonemap_string
-
-        config.crop_string = final
 
     config.use_celery = args.celery
     config.flag1 = args.flag1
@@ -951,10 +918,10 @@ def main():
         print("Flag1 and auto bitrate are mutually exclusive")
         quit()
 
-    auto_bitrate_ladder = False
+    find_best_bitrate = False
 
     if "auto" in args.bitrate or "-1" in args.bitrate:
-        auto_bitrate_ladder = True
+        find_best_bitrate = True
     else:
         if "M" in args.bitrate or "m" in args.bitrate:
             config.bitrate = args.bitrate.replace("M", "")
@@ -968,20 +935,61 @@ def main():
             except ValueError:
                 raise ValueError("Failed to parse bitrate")
 
-    autograin = True if args.grain == -1 else False
+    find_best_grainsynth = True if args.grain == -1 else False
 
-    if autograin and not doesBinaryExist("butteraugli"):
+    if find_best_grainsynth and not doesBinaryExist("butteraugli"):
         print("Autograin requires butteraugli in path, please install it")
         quit()
 
     config.grain_synth = args.grain
 
+    # eg crop=3840:1600:0:280,scale=1920:-2:flags=lanczos
+    config.video_filters = args.video_filters
+
+    if config.video_filters == "":
+        if args.autocrop:
+            output = do_cropdetect(ChunkObject(path=input_file))
+            output.replace("crop=", "")
+            if output != "":
+                args.video_filters = output
+
+        final = ""
+
+        if args.crop_string != "":
+            final += f"crop={args.crop_string}"
+
+        if args.scale_string != "":
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += f"scale={args.scale_string}:flags=lanczos"
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
+        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+
+        if not args.hdr and is_hdr(input_file):
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += tonemap_string
+
+        config.video_filters = final
+
+    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
+        input_file=input_file,
+        cache_file_path=tempfolder + "sceneCache.pt",
+        max_scene_length=args.max_scene_length,
+        start_offset=args.start_offset,
+        end_offset=args.end_offset,
+        override_bad_wrong_cache_path=args.override_bad_wrong_cache_path,
+    )
+    # setup paths for the chunks, in this case, in the temp folder with their name being the index
+    for xyz in scenes_skinny.chunks:
+        xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}{config.get_encoder().get_chunk_file_extension()}"
+
     if not os.path.exists(args.output):
         config, scenes_skinny = do_adaptive_analasys(
             scenes_skinny,
             config,
-            do_grain=autograin,
-            do_bitrate_ladder=auto_bitrate_ladder,
+            find_best_grainsynth=find_best_grainsynth,
+            find_best_bitrate=find_best_bitrate,
             do_crf=True if args.crf != -1 else False,
         )
 
@@ -1037,11 +1045,10 @@ def main():
             )
             concat.concat_videos()
         except Exception as e:
-            print("Concat at the end failed sobbing 😷")
+            print("Concat at the end failed 😷")
             raise e
-            quit()
 
-    print("Output file exists, printing stats")
+    print("Output file exists 🤑, printing stats")
     print_stats(
         output_folder=output_folder,
         output=args.output,

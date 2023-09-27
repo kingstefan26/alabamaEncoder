@@ -1,9 +1,9 @@
 from enum import Enum
 
-from alabamaEncode.encoders.encoderImpl.Aomenc import AbstractEncoderAomEnc
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
-from alabamaEncode.encoders.encoderImpl.X264 import AbstractEncoderX264
-from alabamaEncode.encoders.encoderImpl.X265 import AbstractEncoderX265
+from alabamaEncode.encoders.encoder.impl.Aomenc import AbstractEncoderAomEnc
+from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
+from alabamaEncode.encoders.encoder.impl.X264 import AbstractEncoderX264
+from alabamaEncode.encoders.encoder.impl.X265 import AbstractEncoderX265
 
 
 class EncodersEnum(Enum):

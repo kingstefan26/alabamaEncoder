@@ -6,8 +6,8 @@ import os.path
 import pickle
 import time
 
-from alabamaEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
-from alabamaEncode.adaptiveEncoding.sub.grain import get_best_avg_grainsynth
+from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
+from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
 from alabamaEncode.encoders import EncoderConfig
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 
@@ -15,8 +15,8 @@ from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 def do_adaptive_analasys(
     chunk_sequence: ChunkSequence,
     config: EncoderConfig,
-    do_grain=True,
-    do_bitrate_ladder=False,
+    find_best_grainsynth=True,
+    find_best_bitrate=False,
     do_crf=False,
 ):
     print("Starting adaptive content analysis")
@@ -43,24 +43,21 @@ def do_adaptive_analasys(
             # config.crf = ab.get_target_crf(config.bitrate)
 
             ab.get_best_crf_guided()
-        elif config.flag2:
-            pass
-            # ab.get_cutoff_bitrate_from_crf(config.crf)
         else:
-            if do_bitrate_ladder and not do_crf:
+            if find_best_bitrate and not do_crf:
                 config.bitrate = ab.get_best_bitrate()
 
             if config.convexhull and not do_crf:
                 config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)
 
-            if do_grain and config.encoder.supports_grain_synth():
+            if find_best_grainsynth and config.encoder.supports_grain_synth():
                 param = {
                     "input_file": chunk_sequence.input_file,
                     "scenes": chunk_sequence,
                     "temp_folder": config.temp_folder,
                     "cache_filename": config.temp_folder + "/adapt/ideal_grain.pt",
                     "scene_pick_seed": 2,
-                    "video_filters": config.crop_string,
+                    "video_filters": config.video_filters,
                 }
                 if config.crf_bitrate_mode:
                     param["crf"] = config.crf

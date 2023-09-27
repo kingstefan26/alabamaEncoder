@@ -5,9 +5,9 @@ import copy
 import os
 from typing import List
 
-from alabamaEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
-from alabamaEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
-from alabamaEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
+from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
+from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
+from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence

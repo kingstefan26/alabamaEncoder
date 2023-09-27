@@ -1,4 +1,4 @@
-from alabamaEncode.adaptiveEncoding.sub.grain import get_best_avg_grainsynth
+from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
 
 if __name__ == "__main__":
     print("Test 27: AutoGrainSynth")

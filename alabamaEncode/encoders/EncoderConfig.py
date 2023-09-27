@@ -2,18 +2,17 @@ import os
 
 from tqdm import tqdm
 
-from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.Encoders import EncodersEnum
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 
 
 class EncoderConfigObject:
     """A class to hold the configuration for the encoder"""
 
-    crop_string = ""
+    video_filters = ""
     bitrate: int = 0
     temp_folder = ""
-    server_ip = ""
     remote_path = ""
     convexhull = False
     vmaf: int
@@ -43,8 +42,12 @@ class EncoderConfigObject:
     flag2 = False
     flag3 = False
     cutoff_bitrate = -1
-    override_flags = ''
-
+    override_flags = ""
+    color_primaries = "bt709"
+    transfer_characteristics = "bt709"
+    matrix_coefficients = "bt709"
+    maximum_content_light_level = ""
+    maximum_frame_average_light_level = ""
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -55,10 +58,9 @@ class EncoderConfigObject:
 
     def __init__(
         self,
-        crop_string="",
+        video_filters="",
         bitrate=0,
         temp_folder="",
-        server_ip="",
         remote_path="",
         convexhull=False,
         vmaf=96,
@@ -77,12 +79,11 @@ class EncoderConfigObject:
         log_level=0,
         dry_run=False,
     ):
-        self.crop_string = crop_string
+        self.video_filters = video_filters
         self.log_level = log_level
         self.ssim_db_target = ssim_db_target
         self.bitrate = bitrate
         self.temp_folder = temp_folder
-        self.server_ip = server_ip
         self.remote_path = remote_path
         self.convexhull = convexhull
         self.vmaf = vmaf
@@ -119,10 +120,10 @@ class EncoderConfigObject:
             self.passes = kwargs.get("passes")
             if not isinstance(self.passes, int):
                 raise Exception("FATAL: passes must be an int")
-        if "crop_string" in kwargs:
-            self.crop_string = kwargs.get("crop_string")
-            if not isinstance(self.crop_string, str):
-                raise Exception("FATAL: crop_string must be a str")
+        if "video_filters" in kwargs:
+            self.video_filters = kwargs.get("video_filters")
+            if not isinstance(self.video_filters, str):
+                raise Exception("FATAL: video_filters must be a str")
         if "speed" in kwargs:
             self.speed = kwargs.get("speed")
             if not isinstance(self.speed, int):

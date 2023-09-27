@@ -1,4 +1,4 @@
-from alabamaEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
+from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.encoders import EncoderConfig
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 

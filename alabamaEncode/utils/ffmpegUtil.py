@@ -36,7 +36,7 @@ def get_frame_count(path):
         f'-of csv=p=0 "{path}"'
     )
     result = syscmd(argv_)
-    result = result.replace('\n', '').replace(',', '')
+    result = result.replace("\n", "").replace(",", "")
     return int(result)
 
 
@@ -70,7 +70,7 @@ def get_video_vmeth(
     phone_model=False,
     disable_enchancment_gain=False,
     uhd_model=False,
-    crop_string="",
+    video_filters="",
 ):
     """
     Returns the VMAF score of the video
@@ -79,7 +79,7 @@ def get_video_vmeth(
     :param phone_model:
     :param disable_enchancment_gain:
     :param uhd_model:
-    :param crop_string:
+    :param video_filters:
     :return:
     """
     links = [
@@ -127,7 +127,7 @@ def get_video_vmeth(
     for link in links:
         link[1] = os.path.join(vmaf_models_dir, link[1])
 
-    null_ = in_chunk.create_chunk_ffmpeg_pipe_command(crop_string=crop_string)
+    null_ = in_chunk.create_chunk_ffmpeg_pipe_command(video_filters=video_filters)
     null_ += f" | ffmpeg -hide_banner -i - "
 
     lafi = "-lavfi libvmaf"
@@ -161,13 +161,13 @@ def get_video_ssim(
     in_chunk: ChunkObject = None,
     print_output=False,
     get_db=False,
-    crop_string="",
+    video_filters="",
 ):
     if not os.path.exists(in_chunk.path) or not os.path.exists(distorted_path):
         raise FileNotFoundError(
             f"File {in_chunk.path} or {distorted_path} does not exist"
         )
-    null_ = in_chunk.create_chunk_ffmpeg_pipe_command(crop_string=crop_string)
+    null_ = in_chunk.create_chunk_ffmpeg_pipe_command(video_filters=video_filters)
 
     null_ += f" | ffmpeg -hide_banner -i - -i {distorted_path} -filter_complex ssim -f null -"
 
@@ -337,15 +337,15 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
         in_chunk = ChunkObject(
             path=path, last_frame_index=lenght, first_frame_index=lenght - 100
         )
-
+    print("Starting cropdetect")
     sob = f"ffmpeg {in_chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -"
 
     result_string = syscmd(sob)
-
     try:
         # [Parsed_cropdetect_0 @ 0x557cd612b6c0] x1:191 x2:1728 y1:0 y2:799 w:1536 h:800 x:192 y:0 pts:100498 t:4.187417 limit:0.094118 crop=1536:800:192:0
         # get the crop=number:number:number:number
         match = re.search(r"-?\d+:-?\d+:-?\d+:-?\d+", result_string)
+        print(f"Finished cropdetect, parsed {match.group(0)}")
         return match.group(0)
     except AttributeError:
         print(f"Failed auto-detecting crop from {in_chunk.path}")

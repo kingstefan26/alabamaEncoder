@@ -2,12 +2,12 @@ import os
 import pickle
 import time
 
-from alabamaEncode.adaptiveEncoding.util import get_probe_file_base
+from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.ffmpegUtil import get_video_ssim
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.utils.ffmpegUtil import get_video_ssim
 
 
 def get_ideal_bitrate(
@@ -51,7 +51,7 @@ def get_ideal_bitrate(
             current_scene_index=chunk.chunk_index,
             output_path=test_probe_path,
             threads=1,
-            crop_string=config.crop_string,
+            video_filters=config.video_filters,
             bitrate=config.bitrate,
             rate_distribution=RateDistribution.VBR,
         )
@@ -60,7 +60,7 @@ def get_ideal_bitrate(
 
         try:
             (ssim, ssim_db) = get_video_ssim(
-                test_probe_path, chunk, get_db=True, crop_string=config.crop_string
+                test_probe_path, chunk, get_db=True, video_filters=config.video_filters
             )
         except Exception as e:
             print(f"Error calculating ssim for complexity rate estimation: {e}")

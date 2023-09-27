@@ -5,13 +5,11 @@ from alabamaEncode.utils.getWidth import get_width
 
 class ChunkObject:
     """
-    AN CLASS THAT REPRESENTS A FFMPEG CHUNK SLICE COMMAND
-    IF WE WANT TO SLICE A CHUNK THAT STARTS AT FRAME 100 AND ENDS AT FRAME 200
-    WE
-    SLICE = ChunkOffsetObject(100,200,"infile.mkv")
-    AND THEN
-    f'ffmpeg {SLICE.get_ss_ffmpeg_command_pair()} outfile.mkv'
-    THIS IS FRAME ACCURATE AS OF FFMPEG FROM 2012 OR SUMTFN
+    Ffmpeg based video chunk object
+    example:
+    If we want to extract a chunk that starts at frame 100 and ends at frame 200:
+    obj = ChunkObject(100,200,"infile.mkv")
+    f'ffmpeg {obj.get_ss_ffmpeg_command_pair()} outfile.mkv'
     """
 
     def __init__(
@@ -46,6 +44,7 @@ class ChunkObject:
         return self.last_frame_index - self.first_frame_index
 
     def get_lenght(self) -> float:
+        # get framerate
         if self.framerate == -1:
             self.framerate = get_video_frame_rate(self.path)
 
@@ -65,7 +64,6 @@ class ChunkObject:
         if self.first_frame_index == -1 or self.last_frame_index == -1:
             return f" -i {self.path} "
 
-        # get framerate
         if self.framerate == -1:
             self.framerate = get_video_frame_rate(self.path)
 
@@ -80,32 +78,31 @@ class ChunkObject:
 
         return f' -ss {str(start_time)} -i "{self.path}" -t {str(duration)} '
 
-    def get_width(self):
+    def get_width(self) -> int:
         if self.width == -1:
             self.width = get_width(self.path)
         return self.width
 
-    def get_height(self):
+    def get_height(self) -> int:
         if self.height == -1:
             self.height = get_height(self.path)
         return self.height
 
-    def create_chunk_ffmpeg_pipe_command(self, crop_string="", bit_depth=10):
+    def create_chunk_ffmpeg_pipe_command(self, video_filters="", bit_depth=10) -> str:
         """
-
-        :param crop_string:
-        :param bit_depth:
-        :return:
+        :param video_filters: ffmpeg vf filters, e.g., scaling tonemapping
+        :param bit_depth: bit depth of the output stream 8 or 10
+        :return: a 'ffmpeg ... |' command string that pipes a y4m stream into stdout
         """
         end_command = f"ffmpeg -v error -nostdin {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
 
         if bit_depth == 8:
             end_command = end_command.replace("10le", "")
 
-        if not "-vf" in crop_string and not crop_string == "":
-            crop_string = f"-vf {crop_string}"
+        if not "-vf" in video_filters and not video_filters == "":
+            video_filters = f"-vf {video_filters}"
 
-        end_command += f" -an -sn -strict -1 {crop_string} -f yuv4mpegpipe - "
+        end_command += f" -an -sn -strict -1 {video_filters} -f yuv4mpegpipe - "
 
         return end_command
 
@@ -145,16 +142,3 @@ def test_2():
     print(result_1)
     if expected_1 == result_1:
         print("Test 1 passed")
-
-
-if __name__ == "__main__":
-    pass
-    # test_1()
-    # test_2()
-    # name = '/home/kokoniara/dev/VideoSplit/temp_mythicquests3e10/sceneCache.json'
-    # file = open(name, )
-    # fragemts = json.load(file)
-    # frag = fragemts[15]
-    # tha_chunk = ChunkObject(path='/home/kokoniara/dev/VideoSplit/chunkThatIWantToEncde.mkv', first_frame_index=frag[0],
-    #                         last_frame_index=frag[1])
-    # print(tha_chunk.get_ss_ffmpeg_command_pair())

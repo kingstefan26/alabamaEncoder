@@ -1,8 +1,8 @@
 import os.path
 from typing import List
 
-from alabamaEncode.encoders.AbstractEncoder import AbstractEncoder
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 from alabamaEncode.utils.execute import syscmd
 
 
@@ -89,6 +89,15 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                     raise Exception("FATAL: crf is not set")
                 if self.crf > 63:
                     raise Exception("FATAL: crf must be less than 63")
+
+            kommand += f" --color-primaries {self.color_primaries}"
+            kommand += f" --transfer-characteristics {self.transfer_characteristics}"
+            kommand += f" --matrix-coefficients {self.matrix_coefficients}"
+            if (
+                self.maximum_content_light_level != ""
+                and self.maximum_frame_average_light_level != ""
+            ):
+                kommand += f" --content-light {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
 
             def bitrate_check():
                 """

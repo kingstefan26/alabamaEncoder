@@ -4,8 +4,9 @@ Testing the x265 implementation of the encoder interface.
 
 import os
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encoderImpl.X265 import AbstractEncoderX265
+
+from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
 if __name__ == "__main__":
@@ -47,7 +48,7 @@ if __name__ == "__main__":
             chunk=chunk,
             current_scene_index=0,
             threads=12,
-            crop_string=crope_stringe,
+            video_filters=crope_stringe,
             speed=0,
             output_path=f"{test_env}_owo.mkv",
         )

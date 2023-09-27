@@ -3,7 +3,7 @@ Testing & experimenting with auto bitrate ladders GUIDED BY COMPLEXITY
 """
 import os
 
-from alabamaEncode.adaptiveEncoding.sub.bitrateLadder import AutoBitrateLadder
+from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny

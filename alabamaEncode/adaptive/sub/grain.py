@@ -7,11 +7,11 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
-from alabamaEncode.encoders.encoderImpl.Svtenc import AvifEncoderSvtenc
-from alabamaEncode.ffmpegUtil import doesBinaryExist, get_image_butteraugli_score
+from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 from alabamaEncode.utils.execute import syscmd
+from alabamaEncode.utils.ffmpegUtil import doesBinaryExist, get_image_butteraugli_score
 
 
 class RdPoint:

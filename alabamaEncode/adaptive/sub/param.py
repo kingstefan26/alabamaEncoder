@@ -5,9 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
 from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.ffmpegUtil import get_video_vmeth
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.utils.ffmpegUtil import get_video_vmeth
 
 
 class AutoParam:
@@ -37,7 +37,7 @@ class AutoParam:
         svt.qm_max = qm_max
         svt.run()
         db_rate = (os.path.getsize(chunk.chunk_path) / 1000) / get_video_vmeth(
-            chunk.chunk_path, chunk, crop_string=self.config.crop_string
+            chunk.chunk_path, chunk, video_filters=self.config.video_filters
         )
         print(f"{probe_name} -> {db_rate} DB rate")
         runs.append(

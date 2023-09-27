@@ -6,14 +6,14 @@ from typing import List
 
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
-from alabamaEncode.ffmpegUtil import (
-    get_video_vmeth,
-    get_total_bitrate,
-    doesBinaryExist,
-    get_video_ssim,
-)
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.utils.execute import syscmd
+from alabamaEncode.utils.ffmpegUtil import (
+    doesBinaryExist,
+    get_total_bitrate,
+    get_video_vmeth,
+    get_video_ssim,
+)
 
 
 class AbstractEncoder(ABC):
@@ -27,7 +27,7 @@ class AbstractEncoder(ABC):
     crf: int = None
     current_scene_index: int
     passes: int = 2
-    crop_string: str = ""
+    video_filters: str = ""
     output_path: str
     speed = 4
     first_pass_speed = 8
@@ -60,6 +60,12 @@ class AbstractEncoder(ABC):
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     film_grain_denoise: (0 | 1) = 1
 
+    color_primaries = "bt709"
+    transfer_characteristics = "bt709"
+    matrix_coefficients = "bt709"
+    maximum_content_light_level = ""
+    maximum_frame_average_light_level = ""
+
     running_on_celery = False
 
     def setup(self, chunk: ChunkObject, config):
@@ -70,7 +76,7 @@ class AbstractEncoder(ABC):
             crf=config.crf,
             current_scene_index=chunk.chunk_index,
             passes=config.passes,
-            crop_string=config.crop_string,
+            video_filters=config.video_filters,
             output_path=chunk.chunk_path,
             speed=config.speed,
             grain_synth=config.grain_synth,
@@ -81,6 +87,11 @@ class AbstractEncoder(ABC):
             qm_max=config.qm_max,
             content_type=config.content_type,
             override_flags=config.override_flags,
+            color_primaries=config.color_primaries,
+            transfer_characteristics=config.transfer_characteristics,
+            matrix_coefficients=config.matrix_coefficients,
+            maximum_content_light_level=config.maximum_content_light_level,
+            maximum_frame_average_light_level=config.maximum_frame_average_light_level,
         )
 
     def update(self, **kwargs):
@@ -96,7 +107,7 @@ class AbstractEncoder(ABC):
             "crf": int,
             "current_scene_index": int,
             "passes": int,
-            "crop_string": str,
+            "video_filters": str,
             "output_path": str,
             "speed": int,
             "first_pass_speed": int,
@@ -132,9 +143,16 @@ class AbstractEncoder(ABC):
             setattr(self, attr, value)
 
     def run(
-        self, override_if_exists=True, timeout_value=-1, calculate_vmaf=False, calcualte_ssim=False
+        self,
+        override_if_exists=True,
+        timeout_value=-1,
+        calculate_vmaf=False,
+        calcualte_ssim=False,
+        vmaf_params=None,
     ) -> EncodeStats:
         """
+        :param calcualte_ssim:
+        :param vmaf_params:
         :param override_if_exists: if false and file already exist don't do anything
         :param timeout_value: how much (in seconds) before giving up
         :param calculate_vmaf: should vmaf be included in encoded stats
@@ -201,11 +219,25 @@ class AbstractEncoder(ABC):
             stats.status = EncodeStatus.DONE
 
         if calculate_vmaf:
+            # deconstruct vmaf_params and pass them to get_video_vmeth
+            if vmaf_params is None:
+                vmaf_params = {}
+            uhd_model = vmaf_params.get("uhd_model", False)
+            disable_enchancment_gain = vmaf_params.get(
+                "disable_enchancment_gain", False
+            )
+
             stats.vmaf = get_video_vmeth(
-                self.output_path, self.chunk, crop_string=self.crop_string
+                self.output_path,
+                self.chunk,
+                video_filters=self.video_filters,
+                uhd_model=uhd_model,
+                disable_enchancment_gain=disable_enchancment_gain,
             )
         if calcualte_ssim:
-            stats.ssim = get_video_ssim(self.output_path, self.chunk, crop_string=self.crop_string)
+            stats.ssim = get_video_ssim(
+                self.output_path, self.chunk, video_filters=self.video_filters
+            )
 
         stats.size = os.path.getsize(self.output_path) / 1000
         stats.bitrate = int(get_total_bitrate(self.output_path) / 1000)
@@ -229,10 +261,10 @@ class AbstractEncoder(ABC):
 
     def get_ffmpeg_pipe_command(self) -> str:
         """
-        return cli command that pipes a y4m stream into stdout
+        return cli command that pipes a y4m stream into stdout using the chunk object
         """
         return self.chunk.create_chunk_ffmpeg_pipe_command(
-            crop_string=self.crop_string,
+            video_filters=self.video_filters,
             bit_depth=self.bit_override,
         )
 

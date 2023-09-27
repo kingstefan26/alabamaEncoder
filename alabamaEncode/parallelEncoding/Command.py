@@ -25,6 +25,8 @@ class CommandObject(BaseCommandObject):
         self.chunk = chunk
         self.config = config
 
-
+"""
+Wrapper around object.run() because its easier to run_command(object) than object.run() in certain situations
+"""
 def run_command(command: BaseCommandObject):
     return command.run()

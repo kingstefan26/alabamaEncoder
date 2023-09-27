@@ -13,14 +13,14 @@ from typing import List, Tuple
 
 from tqdm import tqdm
 
-from alabamaEncode.adaptiveEncoding.util import get_test_chunks_out_of_a_sequence
+from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.encoders import EncoderConfig
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
-from alabamaEncode.ffmpegUtil import get_video_vmeth, get_video_ssim
 from alabamaEncode.parallelEncoding.Command import BaseCommandObject
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.utils.ffmpegUtil import get_video_vmeth, get_video_ssim
 
 
 class AutoBitrateCacheObject:
@@ -52,7 +52,8 @@ class AutoBitrateLadder:
     When doing VBR encoding, a problem is to figure out what bitrate to target,
     often we just close out eyes and shoot a dart hoping 2Mbps or something is good enough.
     This is my attempt at finding a base bitrate for a given quality level for given content at a given resolution,
-     automatically and hopefully better than a human intuition.
+     automatically and hopefully better than human intuition.
+    Or just use crf nerd.
     """
 
     def __init__(self, chunk_sequence: ChunkSequence, config: EncoderConfig):
@@ -508,7 +509,7 @@ class AutoBitrateLadder:
             mid_vmaf = get_video_vmeth(
                 chunk.chunk_path,
                 chunk,
-                crop_string=self.config.crop_string,
+                video_filters=self.config.video_filters,
                 disable_enchancment_gain=True,
                 uhd_model=True,
             )
@@ -572,7 +573,7 @@ class AutoBitrateLadder:
             mid_vmaf = get_video_vmeth(
                 chunk.chunk_path,
                 chunk,
-                crop_string=self.config.crop_string,
+                video_filters=self.config.video_filters,
                 disable_enchancment_gain=True,
                 uhd_model=True,
             )
@@ -657,7 +658,10 @@ class AutoBitrateLadder:
         encoder.update(bitrate=bitrate)
         encoder.run(timeout_value=300)
         (ssim, ssim_db) = get_video_ssim(
-            encoder.output_path, chunk, get_db=True, crop_string=self.config.crop_string
+            encoder.output_path,
+            chunk,
+            get_db=True,
+            crop_string=self.config.video_filters,
         )
         self.config.log(f"[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb")
         dbs.append(ssim_db)

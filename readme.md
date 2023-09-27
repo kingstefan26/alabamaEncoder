@@ -56,7 +56,7 @@ To clear the celery queue: `alabamaEncoder clear`
 | --end_offset            | int   | Offset from the end of the video (in seconds), useful for cutting end credits outtros etc                               |
 | --generate_previews     | flag  | Generate .avif previews for encoded file                                                                                |
 | --hdr                   | flag  | Encode in HDR, if off and input is HDR, if not there it will be tonemapped to SDR (HDR encoding currently not working)  |
-| --crop_string           | str   | Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter                |
+| --video_filters         | str   | Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter                |
 | --scale_string          | str   | Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`                       |
 | --title                 | str   | Title to use in encode's metadata                                                                                       |
 | --encoder_flag_override | str   | Override encoder flags by the program, put everything here except output paths & pass commands                          |

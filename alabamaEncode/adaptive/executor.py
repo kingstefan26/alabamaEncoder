@@ -3,10 +3,11 @@ import time
 
 from tqdm import tqdm
 
-from alabamaEncode.adaptiveEncoding.sub.bitrate import get_ideal_bitrate
-from alabamaEncode.adaptiveEncoding.util import get_probe_file_base
+from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
+from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
+from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
 from alabamaEncode.parallelEncoding.Command import CommandObject
 
 
@@ -27,10 +28,9 @@ class AdaptiveCommand(CommandObject):
     def run(self):
         total_start = time.time()
 
-        enc = self.config.get_encoder()
+        enc: AbstractEncoder = self.config.get_encoder()
 
         enc.running_on_celery = self.run_on_celery
-
         enc.setup(chunk=self.chunk, config=self.config)
         enc.update(grain_synth=self.config.grain_synth, speed=self.config.speed)
         rate_search_time = time.time()
@@ -103,20 +103,36 @@ class AdaptiveCommand(CommandObject):
                 stats: EncodeStats = enc.run(
                     timeout_value=self.final_encode_timeout,
                     calculate_vmaf=True,
-                    calcualte_ssim=True,
+                    vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
                 )
 
                 points.append(POINT(crf, stats.vmaf, stats.ssim, stats.bitrate))
+                # if self.config.vmaf - stats.vmaf >= 1:
+                #     break
+                if self.config.vmaf > stats.vmaf:
+                    break
 
             # convex hull
             target_vmaf = self.config.vmaf
             closest_vmaf = float("inf")
             crf = -1
+
+            ## PICK CLOSEST TO TARGET QUALITY
             # pick the crf from point closest to target_vmaf
-            for p in points:
-                if abs(target_vmaf - closest_vmaf) > abs(target_vmaf - p.vmaf):
-                    crf = p.crf
-                    closest_vmaf = p.vmaf
+            # for p in points:
+            #     if abs(target_vmaf - closest_vmaf) > abs(target_vmaf - p.vmaf):
+            #         crf = p.crf
+            #         closest_vmaf = p.vmaf
+
+            ## PICK LOWEST BITRATE WITH QUALITY ABOVE TARGET
+            # pick the crf from point with lowest bitrate with vmaf above target_vmaf
+            if len(points) == 1:
+                crf = points[0].crf # case where there is only one point that is bellow target vmaf
+            else:
+                for p in points:
+                    if p.vmaf >= target_vmaf and p.bitrate < closest_vmaf:
+                        crf = p.crf
+                        closest_vmaf = p.bitrate
 
             tqdm.write(f"{self.chunk.log_prefix()}Convexhull crf: {crf}")
             enc.update(
