@@ -56,7 +56,9 @@ def get_video_scene_list_skinny(
         if scene_list is None:
             scene_list = detect(
                 video_path=input_file,
-                detector=AdaptiveDetector(window_width=10, adaptive_threshold=2.5),
+                detector=AdaptiveDetector(
+                    window_width=10, adaptive_threshold=2.5, min_content_val=12
+                ),
                 show_progress=True,
             )
             try:
@@ -204,6 +206,11 @@ def get_video_scene_list_skinny(
 
                 # Update the current position for the next chunk
                 current_position = chunk_end
+
+            if len(kept_chunks) == 0:
+                raise Exception(
+                    "ERROR No chunks kept after cutting offsets, did you set the parameters correctly?"
+                )
 
             print(f"keeping chunks {min(kept_chunks)}-{max(kept_chunks)}")
             print(f"discarding chunks {min(discarded_chunks)}-{max(discarded_chunks)}")

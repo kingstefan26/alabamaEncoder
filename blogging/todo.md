@@ -4,11 +4,14 @@
   need data to back that up
 - [X] `chroma qindex offset`'s, blueswordm a while back has recommended u-dc:-2 u-ac:-2 v-dc:-2 v-ac:-2 but need: to
   understand it & benchmark it
+- [X] experiment with SVT superresolution VBR
+- [ ] experiment with SVT superresolution CRF
 - [ ] benchmark & test --tune 0 compared to 1. For example, why is 1 default if 0 is so better??
 - [ ] benchmark & test --enable-overlays
-- [X] experiment with superresolution
-- [ ] experiment with S frames (golden refreshes, etc)
-- [ ] experiment with reference scaling
+- [ ] experiment with S frames (golden refreshes) for cbr
+- [ ] experiment/understand/implement with reference scaling
 - [ ] tile cols/rows effect on efficiency
 - [ ] experiment with gop, open gop? 9999 frame gop with s frames? etc
 - [ ] undershoot-pct overshoot-pct mbr-overshoot-pct & capped crf for uhd encoding
+- [ ] test --enable-tf on hq levels
+- [ ] AOMENC vs SVTAV1 vs X264 on vbr mesuring quality per bit per pixel per speed

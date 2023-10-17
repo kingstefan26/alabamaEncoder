@@ -643,7 +643,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--vmaf_target", help="What vmaf to target when using bitrate auto", default=96
+        "--vmaf_target",
+        help="What vmaf to target when using bitrate auto",
+        default=96,
+        type=int,
     )
 
     parser.add_argument(
@@ -752,7 +755,7 @@ def parse_args():
     parser.add_argument(
         "--dry_run",
         help="Do not encode, just print what would be done",
-        action=argparse.BooleanOptionalAction,
+        action="store_true",
         default=False,
     )
 

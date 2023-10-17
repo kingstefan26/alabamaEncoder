@@ -28,6 +28,12 @@ class EncodeStats:
         target_miss_proc: int = -1,
         rate_search_time: int = -1,
         chunk_index: int = -1,
+        vmaf_percentile_1: float = -1,
+        vmaf_percentile_5: float = -1,
+        vmaf_percentile_10: float = -1,
+        vmaf_percentile_25: float = -1,
+        vmaf_percentile_50: float = -1,
+        vmaf_avg: float = -1,
     ):
         self.time_encoding = time_encoding
         self.bitrate = bitrate
@@ -39,6 +45,12 @@ class EncodeStats:
         self.target_miss_proc = target_miss_proc
         self.rate_search_time = rate_search_time
         self.chunk_index = chunk_index
+        self.vmaf_percentile_1 = vmaf_percentile_1
+        self.vmaf_percentile_5 = vmaf_percentile_5
+        self.vmaf_percentile_10 = vmaf_percentile_10
+        self.vmaf_percentile_25 = vmaf_percentile_25
+        self.vmaf_percentile_50 = vmaf_percentile_50
+        self.vmaf_avg = vmaf_avg
 
     def save(self, path):
         """
@@ -57,6 +69,15 @@ class EncodeStats:
             "target_miss_proc": self.target_miss_proc,
             "rate_search_time": self.rate_search_time,
             "chunk_index": self.chunk_index,
+            "vmaf_percentile_1": self.vmaf_percentile_1,
+            "vmaf_percentile_5": self.vmaf_percentile_5,
+            "vmaf_percentile_10": self.vmaf_percentile_10,
+            "vmaf_percentile_25": self.vmaf_percentile_25,
+            "vmaf_percentile_50": self.vmaf_percentile_50,
+            "vmaf_avg": self.vmaf_avg,
         }
         with open(path, "w") as f:
             json.dump(stats, f)
+
+    def __str__(self):
+        return str(self.__dict__)

@@ -76,7 +76,7 @@ class AutoGrain:
         # Create a reference png
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
-            cvmand = f"ffmpeg -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 {ref_png}"
+            cvmand = f'ffmpeg -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 "{ref_png}"'
 
             out = syscmd(cvmand)
             if not os.path.exists(ref_png):
@@ -102,7 +102,7 @@ class AutoGrain:
 
             # turn the avif into a png
             syscmd(
-                f"ffmpeg -y -i {avif_enc.get_params()['output_path']} {decoded_test_png_path}"
+                f'ffmpeg -y -i "{avif_enc.get_params()["output_path"]}" "{decoded_test_png_path}"'
             )
 
             if not os.path.exists(decoded_test_png_path):

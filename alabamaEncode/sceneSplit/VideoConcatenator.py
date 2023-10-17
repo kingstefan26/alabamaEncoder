@@ -75,7 +75,7 @@ class VideoConcatenator:
                 f.write(f"file '{file}'\n")
 
         vid_output = self.output + ".videoonly.mkv"
-        concat_command = f'ffmpeg -y -stats -v error -f concat -safe 0 -i {concat_file_path} -c:v copy -map_metadata -1 "{vid_output}"'
+        concat_command = f'ffmpeg -y -stats -v error -f concat -safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
 
         print("Concating Video")
         print(f"running: {concat_command}")
@@ -95,7 +95,7 @@ class VideoConcatenator:
 
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
-            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 {audio_output}'
+            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 "{audio_output}"'
             print(f"running: {encode_audio}")
             os.system(encode_audio)
             if check_for_invalid(audio_output):
@@ -111,7 +111,7 @@ class VideoConcatenator:
             if "mp4" in self.output:
                 sub_hack = " -c:s mov_text "
 
-            final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy {self.output}'
+            final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
             print(f"running: {final_command}")
             out = syscmd(final_command)
 
@@ -121,10 +121,10 @@ class VideoConcatenator:
             ):
                 print("Subtitle encoding failed, trying again")
                 print(f"running: {final_command}")
-                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy {self.output}'
+                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 syscmd(final_command)
 
-            remove_command = f"rm {concat_file_path} {vid_output} {audio_output}"
+            remove_command = f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"'
             print(f"running: {remove_command}")
             os.system(remove_command)
             if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:

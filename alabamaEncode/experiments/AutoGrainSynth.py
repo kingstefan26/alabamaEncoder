@@ -1,3 +1,7 @@
+"""
+Testing the implementation of auto grain synth
+"""
+
 from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
 
 if __name__ == "__main__":

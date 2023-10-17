@@ -5,7 +5,7 @@ import sys
 
 from tqdm import tqdm
 
-from alabamaEncode.ffmpegUtil import get_video_lenght
+from alabamaEncode.utils.ffmpegUtil import get_video_lenght
 
 # example usage:
 # python genConcat.py out.mp4
@@ -73,10 +73,6 @@ if not os.listdir(tmp_dir):
     print(f"Directory {tmp_dir} is empty")
     sys.exit(1)
 
-# clean all .log files in the temp dir
-print("Cleaning log files in temp dir")
-os.system(f"rm {tmp_dir}*.log")
-
 # list of file names so we can sort alphabetically later
 file_names = []
 
@@ -99,7 +95,7 @@ for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
         file_names.append(name)
         # run ffmpeg command that checks if the file is valid
         # ffmpeg -v error -i $i -c copy -f null -
-        argv_ = f"ffmpeg -v error -i {tmp_dir}{name}.ivf -c copy -f null -"
+        argv_ = f'ffmpeg -v error -i "{tmp_dir}{name}.ivf" -c copy -f null -'
         # if the command has any output then the file is invalid
         p = subprocess.Popen(
             argv_,
@@ -140,30 +136,30 @@ if mux_audio:
 
     kumannds = []
 
-    output_ = f"ffmpeg -v error -f concat -safe 0 -i mhmconcat -movflags +faststart -c:v copy temp_{output}"
+    output_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -movflags +faststart -c:v copy "temp_{output}"'
     print("Running command: " + output_)
     os.system(output_)
 
     video_length = get_video_lenght(f"temp_{output}")
 
     kumannds.append(
-        f"ffmpeg -v error -i temp_{output} -i {tmp_dir}temp.mkv -map 0:v -map 1:a -c:a libopus -ac 2 "
-        f"-b:v 70k -vbr on -movflags +faststart -c:v copy -t {video_length} ttemp_{output}"
+        f'ffmpeg -v error -i "temp_{output}" -i "{tmp_dir}temp.mkv" -map 0:v -map 1:a -c:a libopus -ac 2 '
+        f'-b:a 70k -vbr on -movflags +faststart -c:v copy -t {video_length} "ttemp_{output}"'
     )
 
     # second command that uses mkvmerge to write additional metadata & fixup the container
-    kumannds.append(f"mkvmerge -o {output} ttemp_{output}")
+    kumannds.append(f'mkvmerge -o "{output}" "ttemp_{output}"')
 
     # remove temp
-    kumannds.append(f"rm temp_{output}")
-    kumannds.append(f"rm ttemp_{output}")
+    kumannds.append(f'rm "temp_{output}"')
+    kumannds.append(f'rm "ttemp_{output}"')
 
     for command in kumannds:
         print("Running: " + command)
         os.system(command)
 else:
     print("not muxing audio")
-    argv_ = "ffmpeg -v error -f concat -safe 0 -i mhmconcat -c copy " + str(output)
+    argv_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -c copy "{output}"'
     print("Running: " + argv_)
     os.system(argv_)
     print("Removing mhmconcat")

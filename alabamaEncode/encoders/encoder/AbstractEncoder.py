@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import time
 from abc import abstractmethod, ABC
@@ -30,7 +31,6 @@ class AbstractEncoder(ABC):
     video_filters: str = ""
     output_path: str
     speed = 4
-    first_pass_speed = 8
     threads = 1
     rate_distribution: RateDistribution = (
         RateDistribution.CQ
@@ -151,12 +151,12 @@ class AbstractEncoder(ABC):
         vmaf_params=None,
     ) -> EncodeStats:
         """
-        :param calcualte_ssim:
-        :param vmaf_params:
+        :param calcualte_ssim: self-explanatory
+        :param calculate_vmaf: self-explanatory
+        :param vmaf_params: dict of vmaf params
         :param override_if_exists: if false and file already exist don't do anything
         :param timeout_value: how much (in seconds) before giving up
-        :param calculate_vmaf: should vmaf be included in encoded stats
-        :return: stats object
+        :return: EncodeStats object with scores bitrate & stuff
         """
         stats = EncodeStats()
 
@@ -216,24 +216,63 @@ class AbstractEncoder(ABC):
 
                 raise Exception("FATAL: ENCODE FAILED FILE NOT FOUND OR TOO SMALL")
 
+            if stats.time_encoding < 1:
+                stats.time_encoding = 1
+                print("WARINING: ENDODING TIME LESS THEN A SECOND, setting to 1")
+
             stats.status = EncodeStatus.DONE
 
         if calculate_vmaf:
             # deconstruct vmaf_params and pass them to get_video_vmeth
             if vmaf_params is None:
                 vmaf_params = {}
+
             uhd_model = vmaf_params.get("uhd_model", False)
             disable_enchancment_gain = vmaf_params.get(
                 "disable_enchancment_gain", False
             )
 
-            stats.vmaf = get_video_vmeth(
-                self.output_path,
-                self.chunk,
-                video_filters=self.video_filters,
-                uhd_model=uhd_model,
-                disable_enchancment_gain=disable_enchancment_gain,
-            )
+            # log_path = vmaf_params.get("log_path", None)
+
+            log_path = self.output_path + ".vmaflog"
+
+            try:
+                stats.vmaf = get_video_vmeth(
+                    self.output_path,
+                    self.chunk,
+                    video_filters=self.video_filters,
+                    uhd_model=uhd_model,
+                    disable_enchancment_gain=disable_enchancment_gain,
+                    log_path=log_path,
+                )
+
+                try:
+                    with open(log_path) as f:
+                        vmaf_scores_obj = json.load(f)
+                    frames = []
+
+                    for frame in vmaf_scores_obj["frames"]:
+                        frames.append([frame["frameNum"], frame["metrics"]["vmaf"]])
+
+                    frames.sort(key=lambda x: x[0])
+
+                    # calc 1 5 10 25 50 percentiles
+                    vmaf_scores = [x[1] for x in frames]
+                    vmaf_scores.sort()
+                    stats.vmaf_percentile_1 = vmaf_scores[int(len(vmaf_scores) * 0.01)]
+                    stats.vmaf_percentile_5 = vmaf_scores[int(len(vmaf_scores) * 0.05)]
+                    stats.vmaf_percentile_10 = vmaf_scores[int(len(vmaf_scores) * 0.1)]
+                    stats.vmaf_percentile_25 = vmaf_scores[int(len(vmaf_scores) * 0.25)]
+                    stats.vmaf_percentile_50 = vmaf_scores[int(len(vmaf_scores) * 0.5)]
+                    stats.vmaf_avg = sum(vmaf_scores) / len(vmaf_scores)
+
+                except Exception as e:
+                    print(e)
+                    print("Failed to get vmaf percentiles")
+
+            except Exception as e:
+                print(e)
+                print("Failed to get vmaf")
         if calcualte_ssim:
             stats.ssim = get_video_ssim(
                 self.output_path, self.chunk, video_filters=self.video_filters

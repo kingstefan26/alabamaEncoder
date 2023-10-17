@@ -15,7 +15,7 @@ def check_for_invalid(path):
     if not os.path.exists(path):
         print(f"File {path} does not exist")
         return True
-    commnd = f"ffmpeg -v error -i {path} -c copy -f null -"
+    commnd = f'ffmpeg -v error -i "{path}" -c copy -f null -'
     # if the output is not empty, then the file is invalid
     out = syscmd(commnd)
     # check if it's an int and if its 0
@@ -71,9 +71,11 @@ def get_video_vmeth(
     disable_enchancment_gain=False,
     uhd_model=False,
     video_filters="",
+    log_path="",
 ):
     """
     Returns the VMAF score of the video
+    :param log_path:
     :param distorted_path: path to the distorted video
     :param in_chunk: ChunkObject
     :param phone_model:
@@ -132,15 +134,21 @@ def get_video_vmeth(
 
     lafi = "-lavfi libvmaf"
     if phone_model is True and disable_enchancment_gain is False:
-        lafi = f"-lavfi libvmaf=model_path={links[1][1]}"
+        lafi = f"-lavfi libvmaf=model='path={links[1][1]}'"
     elif phone_model is True and disable_enchancment_gain is True:
-        lafi = f"-lavfi libvmaf=model_path={links[3][1]}"
+        lafi = f"-lavfi libvmaf=model='path={links[3][1]}'"
     elif uhd_model is True and disable_enchancment_gain is False:
-        lafi = f"-lavfi libvmaf=model_path={links[0][1]}"
+        lafi = f"-lavfi libvmaf=model='path={links[0][1]}'"
     elif uhd_model is True and disable_enchancment_gain is True:
-        lafi = f"-lavfi libvmaf=model_path={links[2][1]}"
+        lafi = f"-lavfi libvmaf=model='path={links[2][1]}'"
 
-    null_ += f" -i {distorted_path} {lafi} -f null - "
+    if log_path:
+        if lafi.endswith("libvmaf"):
+            lafi += f"=log_fmt=json:log_path='{log_path}'"
+        else:
+            lafi += f":log_fmt=json:log_path='{log_path}'"
+
+    null_ += f'-i "{distorted_path}" {lafi} -f null - '
     result_string = syscmd(null_)
     try:
         vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
@@ -259,7 +267,7 @@ def get_video_psnr(distorted_path, in_chunk: ChunkObject = None):
 
 
 def get_image_butteraugli_score(refrence_img_path, distorted_img_path):
-    null_ = f"butteraugli {refrence_img_path} {distorted_img_path}"
+    null_ = f'butteraugli "{refrence_img_path}"  "{distorted_img_path}"'
     try:
         result_string = syscmd(null_, "utf8")
         # if the result does not contain a single number, then it failed
@@ -267,7 +275,8 @@ def get_image_butteraugli_score(refrence_img_path, distorted_img_path):
             raise AttributeError
 
         return float(result_string)
-    except AttributeError:
+    except AttributeError or ValueError:
+        print("CLI: " + null_)
         print(
             f"Failed getting butteraugli comparing {distorted_img_path} agains {refrence_img_path}"
         )

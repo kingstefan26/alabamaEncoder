@@ -3,9 +3,8 @@ Testing svtav1 speed 2v3v4 and which one is the best tradeoff
 """
 import os
 
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
-
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
 if __name__ == "__main__":

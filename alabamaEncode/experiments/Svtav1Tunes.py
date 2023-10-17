@@ -1,9 +1,7 @@
 """
-Testing vbr auto bitrate vs crf auto bitrate
+Testing svtav1 tunes
 """
 import os
-
-from alabamaEncode.encoders.encoderImpl.Svtenc import AbstractEncoderSvtenc
 
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject

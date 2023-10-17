@@ -4,9 +4,8 @@ Testing the x265 implementation of the encoder interface.
 
 import os
 
-from alabamaEncode.encoders.encoderImpl.X265 import AbstractEncoderX265
-
 from alabamaEncode.encoders.RateDiss import RateDistribution
+from alabamaEncode.encoders.encoder.impl.X265 import AbstractEncoderX265
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
 if __name__ == "__main__":

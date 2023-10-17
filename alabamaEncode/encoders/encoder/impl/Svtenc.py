@@ -46,9 +46,9 @@ class AvifEncoderSvtenc:
         )
 
         return (
-            f"ffmpeg -hide_banner -y -i {self.params['in_path']} {self.params['vf']} -c:v libsvtav1 {ratebit} "
-            f"-svtav1-params tune=0:lp={self.params['threads']}:film-grain={self.params['grain_synth']}"
-            f" -preset {self.params['speed']} -pix_fmt {pix_fmt} {self.params['output_path']}"
+            f'ffmpeg -hide_banner -y -i "{self.params["in_path"]}" {self.params["vf"]} -c:v libsvtav1 {ratebit} '
+            f'-svtav1-params tune=0:lp={self.params["threads"]}:film-grain={self.params["grain_synth"]}'
+            f' -preset {self.params["speed"]} -pix_fmt {pix_fmt} "{self.params["output_path"]}"'
         )
 
     def run(self):

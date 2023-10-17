@@ -8,6 +8,7 @@ from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
 from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
+from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.parallelEncoding.Command import CommandObject
 
 
@@ -20,8 +21,8 @@ class AdaptiveCommand(CommandObject):
         super().__init__()
 
     # how long (seconds) before we time out the final encoding
-    # currently set to 10 minutes
-    final_encode_timeout = 1000
+    # currently set to 30 minutes
+    final_encode_timeout = 1800
 
     run_on_celery = False
 
@@ -68,8 +69,10 @@ class AdaptiveCommand(CommandObject):
             self.calc_stats(enc, stats, total_start)
             return
         elif self.config.flag2 is True:
-            crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
+            # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
+            crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40]
             points = []
+            target_vmaf = self.config.vmaf
 
             class POINT:
                 def __init__(self, crf, vmaf, ssim, bitrate):
@@ -78,17 +81,66 @@ class AdaptiveCommand(CommandObject):
                     self.ssim = ssim
                     self.bitrate = bitrate
 
+                vmaf_percentile_1 = 0
+                vmaf_percentile_5 = 0
+                vmaf_percentile_10 = 0
+                vmaf_percentile_25 = 0
+                vmaf_percentile_50 = 0
+                vmaf_avg = 0
+
             enc.qm_enabled = True
-            enc.qm_max = 15
-            enc.qm_min = 8
+            enc.qm_max = 8
+            enc.qm_min = 0
             enc.svt_open_gop = True
 
+            def log_to_convex_log(str):
+                with open(f"{self.config.temp_folder}/convex.log", "a") as f:
+                    f.write(str + "\n")
+
+            def get_score(p: POINT):
+                """
+                calc score including bitrate vmaf and 1% 5% percentiles with weights
+                to get the smallest video but with reasonable vmaf and 5% vmaf scores
+                """
+                score = 0
+
+                score_bellow_target_weight = 7
+                score_above_target_weight = 3
+                score_bitrate_weight = 19
+                score_average_weight = 2
+                score_5_percentile_target_weight = 15
+
+                # punish if the score is bellow target
+                score += max(0, target_vmaf - p.vmaf) * score_bellow_target_weight
+
+                # punish if the score is higher then target
+                score += max(0, p.vmaf - target_vmaf) * score_above_target_weight
+
+                # how 5%tile frames looked compared to overall score
+                # punishing if the video is not consistent
+                score += abs(p.vmaf_avg - p.vmaf) * score_average_weight
+
+                # how 5%tile frames looked compared to target, don't if above target
+                # punishing if the worst parts of the video are bellow target
+                score += (
+                    max(0, target_vmaf - p.vmaf_percentile_5)
+                    * score_5_percentile_target_weight
+                )
+
+                # we punish the hardest for bitrate
+                score += (p.bitrate / 1000) * score_bitrate_weight  # bitrate
+                return score
+
             enc.update(rate_distribution=RateDistribution.CQ)
+
+            if enc is AbstractEncoderSvtenc:
+                enc.svt_tune = 1
 
             probe_file_base = get_probe_file_base(
                 self.chunk.chunk_path, self.config.temp_folder
             )
             for crf in crfs:
+
                 enc.update(
                     output_path=(
                         probe_file_base
@@ -98,43 +150,71 @@ class AdaptiveCommand(CommandObject):
                     passes=1,
                     grain_synth=-1,
                 )
-
                 enc.crf = crf
                 stats: EncodeStats = enc.run(
                     timeout_value=self.final_encode_timeout,
                     calculate_vmaf=True,
-                    vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
+                    vmaf_params={
+                        "uhd_model": True,
+                        "disable_enchancment_gain": False
+                    },
                 )
 
-                points.append(POINT(crf, stats.vmaf, stats.ssim, stats.bitrate))
-                # if self.config.vmaf - stats.vmaf >= 1:
-                #     break
-                if self.config.vmaf > stats.vmaf:
-                    break
+                point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)
+
+                point.vmaf_percentile_1 = stats.vmaf_percentile_1
+                point.vmaf_percentile_5 = stats.vmaf_percentile_1
+                point.vmaf_percentile_10 = stats.vmaf_percentile_10
+                point.vmaf_percentile_25 = stats.vmaf_percentile_25
+                point.vmaf_percentile_50 = stats.vmaf_percentile_50
+                point.vmaf_avg = stats.vmaf_avg
+
+                log_to_convex_log(
+                    f"{self.chunk.log_prefix()} crf: {crf} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {get_score(point)}"
+                )
+
+                points.append(point)
+
+            if enc is AbstractEncoderSvtenc:
+                enc.svt_tune = 0
 
             # convex hull
-            target_vmaf = self.config.vmaf
-            closest_vmaf = float("inf")
+
+            closest_score = float("inf")
             crf = -1
 
             ## PICK CLOSEST TO TARGET QUALITY
             # pick the crf from point closest to target_vmaf
             # for p in points:
-            #     if abs(target_vmaf - closest_vmaf) > abs(target_vmaf - p.vmaf):
+            #     if abs(target_vmaf - closest_score) > abs(target_vmaf - p.vmaf):
             #         crf = p.crf
-            #         closest_vmaf = p.vmaf
+            #         closest_score = p.vmaf
 
             ## PICK LOWEST BITRATE WITH QUALITY ABOVE TARGET
             # pick the crf from point with lowest bitrate with vmaf above target_vmaf
+            # if len(points) == 1:
+            #     crf = points[
+            #         0
+            #     ].crf  # case where there is only one point that is bellow target vmaf
+            # else:
+            #     for p in points:
+            #         if p.vmaf >= target_vmaf and p.bitrate < closest_score:
+            #             crf = p.crf
+            #             closest_score = p.bitrate
+
+            ## PICK LOWEST SCORE
             if len(points) == 1:
-                crf = points[0].crf # case where there is only one point that is bellow target vmaf
+                crf = points[
+                    0
+                ].crf  # case where there is only one point that is bellow target vmaf
             else:
                 for p in points:
-                    if p.vmaf >= target_vmaf and p.bitrate < closest_vmaf:
+                    score = get_score(p)
+                    if score < closest_score:
                         crf = p.crf
-                        closest_vmaf = p.bitrate
+                        closest_score = score
 
-            tqdm.write(f"{self.chunk.log_prefix()}Convexhull crf: {crf}")
+            log_to_convex_log(f"{self.chunk.log_prefix()}Convexhull crf: {crf}")
             enc.update(
                 passes=1,
                 grain_synth=self.config.grain_synth,
@@ -144,8 +224,17 @@ class AdaptiveCommand(CommandObject):
                 crf=crf,
             )
 
-            stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
-            self.calc_stats(enc, stats, total_start)
+            enc.svt_supperres_mode = 4
+
+            if self.config.dry_run:
+                for comm in enc.get_encode_commands():
+                    print(comm)
+
+            try:
+                stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
+                self.calc_stats(enc, stats, total_start)
+            except Exception as e:
+                print(f"[{self.chunk.chunk_index}] error while encoding: {e}")
             return
 
         else:
@@ -182,7 +271,9 @@ class AdaptiveCommand(CommandObject):
                     bitrate=self.chunk.ideal_bitrate,
                 )
                 enc.svt_bias_pct = 20
+
         rate_search_time = time.time() - rate_search_time
+
         try:
             if self.config.dry_run:
                 print(f"dry run chunk: {self.chunk.chunk_index}")

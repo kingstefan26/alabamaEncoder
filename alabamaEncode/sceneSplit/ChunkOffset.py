@@ -61,9 +61,11 @@ class ChunkObject:
         :return: an '-ss 12 clip.mp4 -t 2' ffmpeg command from start frame index and end frame index
         """
 
+        # case where we don't have a start or end frame index so include the whole video
         if self.first_frame_index == -1 or self.last_frame_index == -1:
-            return f" -i {self.path} "
+            return f' -i "{self.path}" '
 
+        # get framerate
         if self.framerate == -1:
             self.framerate = get_video_frame_rate(self.path)
 
@@ -72,6 +74,7 @@ class ChunkObject:
         if self.end_override != -1 and self.length > self.end_override:
             local_overriden_end = self.first_frame_index + self.end_override
 
+        # get the start time and duration
         end_thingy = float(local_overriden_end) / self.framerate
         start_time = float(self.first_frame_index) / self.framerate
         duration = end_thingy - start_time
