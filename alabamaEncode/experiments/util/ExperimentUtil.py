@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 from typing import List
@@ -7,10 +8,9 @@ from tqdm import tqdm
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
 from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 
-only_one = True
+only_one = False
 
 
 def get_test_files():
@@ -29,7 +29,7 @@ def get_test_files():
     files = [f for f in files if f.endswith(".y4m")]
 
     if only_one:
-        files = files[:3]
+        files = files[:10]
 
     return files
 
@@ -44,6 +44,29 @@ def get_test_env() -> str:
     return test_env
 
 
+def run_test(
+    enc: AbstractEncoder, input_file: str, version: str, test_env: str = get_test_env()
+) -> EncodeStats:
+    # get the basename of the file
+    basename = os.path.basename(input_file).split(".")[0]
+
+    # create and set an output input_path for the video file
+    # eg ./encode_test_2021-03-30_16-00-00/STARCRAFT_60f_420control.ivf
+    output_path = f"{test_env}{basename}_{version}{enc.get_chunk_file_extension()}"
+
+    # set the input and output input_path
+    enc.update(chunk=(ChunkObject(path=input_file)), output_path=output_path)
+    stats = enc.run(
+        override_if_exists=False,
+        calculate_vmaf=True,
+        calcualte_ssim=True,
+        vmaf_params={"disable_enchancment_gain": True},
+    )
+    stats.version = version
+    stats.basename = basename
+    return stats
+
+
 def run_tests(
     enc: AbstractEncoder, version: str = "control", test_env: str = get_test_env()
 ) -> List[EncodeStats]:
@@ -54,31 +77,16 @@ def run_tests(
     :param version: version name to attach to the stats, e.g., "control"
     :return: a list of EncodeStats objects
     """
-    paths = get_test_files()
+    test_files = get_test_files()
 
     stat_reports = []
 
-    curr_index = 0
-    for input_path in tqdm(paths, desc=f"Running tests for {version}"):
-        # create and set an output input_path for the video file
-        # eg ./encode_test_2021-03-30_16-00-00/STARCRAFT_60f_420control.y4m
-        basename = os.path.basename(input_path).split(".")[0]
-        output_path = f"{test_env}{basename}_{version}{enc.get_chunk_file_extension()}"
-
-        curr_index += 1
-
-        # update the encoder with the new input and output paths
-        enc.update(chunk=(ChunkObject(path=input_path)), output_path=output_path)
-
-        # encode the chunk
-        stats = enc.run(
-            override_if_exists=False, calculate_vmaf=True, calcualte_ssim=True
+    for input_path in tqdm(
+        test_files, desc=f"Running tests for {version}", position=2, leave=False
+    ):
+        stat_reports.append(
+            run_test(enc, input_file=input_path, version=version, test_env=test_env)
         )
-
-        # attach `version` & `basename` so we can compare later
-        stats.version = version
-        stats.basename = basename
-        stat_reports.append(stats)
 
     return stat_reports
 
@@ -97,8 +105,9 @@ def save_stats(
     """
     # save the stats to a json file
     # TODO: fix Object of type EncodeStats is not JSON serializable
-    # with open(f"{test_env}{experiment_name}.json", "w") as f:
-    #     json.dump(stat_reports, f)
+    with open(f"{test_env}{experiment_name}.json", "w") as f:
+        # save as a list of dicts
+        json.dump([s.get_dict() for s in stat_reports], f)
 
 
 def report(stat_reports: List[EncodeStats], experiment_name: str = "Experiment"):
@@ -116,6 +125,8 @@ def report(stat_reports: List[EncodeStats], experiment_name: str = "Experiment")
 
     # put stats with the same basename together in StatHolder, also put control in the holder
     for stat in stat_reports:
+        if stat is None:
+            raise ValueError("stat is None")
         found = False
         for s in holders:
             if s.basename == stat.basename:
@@ -140,7 +151,14 @@ def report(stat_reports: List[EncodeStats], experiment_name: str = "Experiment")
 
         control = EncodeStats() if holder.control is None else holder.control
 
-        for stat in [*holder.sts, holder.control]:
+        # since we will sometimes be having multiple controls and dont set the control object, we have a fallback
+        # to just print them
+        stat_to_process = [*holder.sts, holder.control]
+
+        if holder.control is None:
+            stat_to_process = holder.sts
+
+        for stat in stat_to_process:
             stat.time_encoding = round(stat.time_encoding, 2)
             curr_db_rate = stat.bitrate / stat.vmaf
 
@@ -181,28 +199,102 @@ def report(stat_reports: List[EncodeStats], experiment_name: str = "Experiment")
             )
 
 
+def run_tests_across_range(
+    encs: List[AbstractEncoder],
+    title: str,
+    test_env: str = get_test_env(),
+    crfs: List[int] = [
+        16,
+        20,
+        24,
+        28,
+        33,
+        39,
+        48,
+        51,
+        57,
+        60,
+    ],
+    bitrates: List[int] = [250, 500, 1000, 2500, 4000, 8000],
+) -> None:
+    """
+    Run tests across a range of crfs and bitrates using different encoders
+    :param encs: 0 is control, rest are tests
+    :param title: title of the experiment
+    :param test_env: where to save the encoded files
+    :param crfs: crfs to test across
+    :param bitrates: bitrates to test across
+    :return: None
+    """
+    stats_crf = []
+    stats_bitrates = []
+
+    if len(encs) == 0:
+        raise ValueError("encs must have at least 1 encoder")
+
+    for enc in tqdm(encs, desc=f"Running tests for {title}", position=0):
+        enc_index = encs.index(enc)
+
+        enc_env = test_env + f"{enc_index}/"
+
+        if not os.path.exists(enc_env):
+            os.mkdir(enc_env)
+
+        crf_env = enc_env + "crf/"
+        if not os.path.exists(crf_env):
+            os.mkdir(crf_env)
+
+        bitrate_env = enc_env + "bitrate/"
+        if not os.path.exists(bitrate_env):
+            os.mkdir(bitrate_env)
+
+        for crf in tqdm(crfs, desc="CRF", position=1, leave=False):
+            enc.update(crf=crf, passes=1, rate_distribution=RateDistribution.CQ)
+
+            version = f"enc{enc_index}_{crf}crf"
+            if enc_index == 0:
+                version = f"control_{crf}crf"
+            stats_crf += run_tests(enc, version, test_env=crf_env)
+
+        for bitrate in tqdm(bitrates, desc="Bitrates", position=1, leave=False):
+            enc.update(
+                bitrate=bitrate, passes=3, rate_distribution=RateDistribution.VBR
+            )
+            version = f"enc{enc_index}_{bitrate}kbs"
+            if enc_index == 0:
+                version = f"control_{bitrate}kbs"
+            stats_bitrates += run_tests(enc, version, test_env=bitrate_env)
+
+    report(stats_crf, experiment_name=f"{title} CRF")
+    save_stats(stats_crf, experiment_name=f"{title} CRF", test_env=test_env)
+
+    report(stats_bitrates, experiment_name=f"{title} Bitrates")
+    save_stats(stats_bitrates, experiment_name=f"{title} Bitrates", test_env=test_env)
+
+
 if __name__ == "__main__":
-    test_env = get_test_env()
-    experiment_name = "Testing speed presets, 12 is control"
-
-    enc = AbstractEncoderSvtenc()
-    enc.update(speed=12, crf=30, passes=1, rate_distribution=RateDistribution.CQ)
-    enc.threads = 12
-
-    stats = run_tests(enc, version="control", test_env=test_env)
-
-    enc.speed = 4
-
-    stats += run_tests(enc, "speed4", test_env=test_env)
-
-    enc.speed = 8
-
-    stats += run_tests(enc, "speed8", test_env=test_env)
-
-    enc.speed = 2
-
-    stats += run_tests(enc, "speed2", test_env=test_env)
-
-    save_stats(stats, experiment_name=experiment_name, test_env=test_env)
-
-    report(stat_reports=stats, experiment_name=experiment_name)
+    # test_env = get_test_env()
+    # experiment_name = "Testing speed presets, 12 is control"
+    #
+    # enc = AbstractEncoderSvtenc()
+    # enc.update(speed=12, crf=30, passes=1, rate_distribution=RateDistribution.CQ)
+    # enc.threads = 12
+    #
+    # stats = run_tests(enc, version="control", test_env=test_env)
+    #
+    # enc.speed = 4
+    #
+    # stats += run_tests(enc, "speed4", test_env=test_env)
+    #
+    # enc.speed = 8
+    #
+    # stats += run_tests(enc, "speed8", test_env=test_env)
+    #
+    # enc.speed = 2
+    #
+    # stats += run_tests(enc, "speed2", test_env=test_env)
+    #
+    # save_stats(stats, experiment_name=experiment_name, test_env=test_env)
+    #
+    # report(stat_reports=stats, experiment_name=experiment_name)
+    pass

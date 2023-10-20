@@ -34,6 +34,8 @@ class EncodeStats:
         vmaf_percentile_25: float = -1,
         vmaf_percentile_50: float = -1,
         vmaf_avg: float = -1,
+        basename: str = "",  # used for testing
+        version: str = "",  # used for testing
     ):
         self.time_encoding = time_encoding
         self.bitrate = bitrate
@@ -51,13 +53,10 @@ class EncodeStats:
         self.vmaf_percentile_25 = vmaf_percentile_25
         self.vmaf_percentile_50 = vmaf_percentile_50
         self.vmaf_avg = vmaf_avg
+        self.basename = basename
+        self.version = version
 
-    def save(self, path):
-        """
-        Save stats to a file
-        :param path: json file path
-        :return: nun
-        """
+    def get_dict(self):
         stats = {
             "time_encoding": self.time_encoding,
             "bitrate": self.bitrate,
@@ -75,9 +74,19 @@ class EncodeStats:
             "vmaf_percentile_25": self.vmaf_percentile_25,
             "vmaf_percentile_50": self.vmaf_percentile_50,
             "vmaf_avg": self.vmaf_avg,
+            "basename": self.basename,
+            "version": self.version,
         }
+        return stats
+
+    def save(self, path):
+        """
+        Save stats to a file
+        :param path: json file path
+        :return: nun
+        """
         with open(path, "w") as f:
-            json.dump(stats, f)
+            json.dump(self.get_dict(), f)
 
     def __str__(self):
         return str(self.__dict__)

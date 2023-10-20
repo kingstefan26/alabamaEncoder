@@ -83,7 +83,7 @@ To clear the celery queue: `alabamaEncoder clear`
 #### adaptive encoding;
 
 ````
-alabamaEncoder /mnt/data/Tv_Show.S01E01/Tv_Show.S01E01.2160p.mkv ~/dir/Tv_Show.S01E01.AV1.1080p.webm ~/dir/ --audio --bitrate 1000 --autoparam --video_filters crop=3840:1600:0:280,scale=1920:-2:flags=lanczos --grain 5 --audio_params "-c:a libopus -b:a 170k -ac 6 -lfe_mix_level 0.5 -mapping_family 1" --end_offset 60 --start_offset 60 --title "TV SHOW (2023) S01E01"
+alabamaEncoder Tv_Show.S01E01.2160p.mkv Tv_Show.S01E01.AV1.1080p.webm --audio --bitrate 1000 --crop_string 3840:1600:0:280 --scale_string 1920:-2 --grain 5 --audio_params "-c:a libopus -b:a 170k -ac 6 -mapping_family 1" --end_offset 60 --start_offset 60 --title "TV SHOW (2023) S01E01"
 ````
 
 this will downscale /mnt/data/Tv_Show.S01E01/Tv_Show.S01E01.2160p.mkv to 1080p width video, crop the black bars,
@@ -93,11 +93,12 @@ adjusted per chunk, and use SvtAv1 grain synth with a strength of 5
 #### constant quality encoding using aomenc
 
 ````
-alabamaEncoder /path/to/movie.mkv  ./dir/out.webm ./dir/ --audio --audio_params "-c:a libopus -b:a 256k -ac 8 -lfe_mix_level 0.5 -mapping_family 1"  --grain 17 --scale_string="1920:-2" --crf 24 --encoder aomenc
+alabamaEncoder /path/to/movie.mkv  ./dir/out.webm --audio --audio_params "-c:a libopus -b:a 256k -ac 8 -mapping_family 1"  --grain 17 --scale_string="1920:-2" --crf 24 --encoder aomenc
 ````
 
-Downscale movie.mkv to a 1080p class resolution, tonemap if hdr,
-then use aomenc to encode with grain denoise at level 17, speed 4, finally mux and encode audio with above ffmpeg params
+Downscale movie.mkv to a 1080p class resolution, tonemap if hdr, audio is 7.1 256kb/s opus
+then use aomenc to encode with grain denoise at level 17, speed 4, crf 25 finally mux and encode audio with above ffmpeg
+params
 
 ## Notes
 

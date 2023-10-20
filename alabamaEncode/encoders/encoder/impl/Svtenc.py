@@ -155,6 +155,8 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             else:
                 kommand += " --enable-qm 0"
 
+            kommand += f" --enable-tf {self.svt_tf}"
+
             if self.svt_sdc != 0:
                 kommand += f" --scd {self.svt_sdc}"  # scene detection
 

@@ -58,6 +58,7 @@ class AbstractEncoder(ABC):
     svt_sframe_mode = 2
     svt_cli_path = "SvtAv1EncApp"
     svt_tune = 0  # tune for PsychoVisual Optimization by default
+    svt_tf = 1  # temporally filtered ALT-REF frames
     film_grain_denoise: (0 | 1) = 1
 
     color_primaries = "bt709"
