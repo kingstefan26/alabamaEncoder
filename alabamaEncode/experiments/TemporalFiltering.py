@@ -1,14 +1,12 @@
 """
 Testing enable-tf=0 In SvtAv1
 """
-import json
-
-import pandas as pd
 
 from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.experiments.util.ExperimentUtil import (
     get_test_env,
     run_tests_across_range,
+    read_report,
 )
 
 
@@ -36,49 +34,8 @@ def run_test():
 def analyse():
     path1 = "/home/kokoniara/dev/VideoSplit/alabamaEncode/experiments/util/run_2023-10-19_16-34-48/Testing ALT-REF (temporally filtered) frames --enable-tf, speed 4 Bitrates.json"
 
-    with open(path1) as f:
-        data = json.load(f)
-
-    # only get  size bitrate vmaf ssim vmaf_percentile_1 vmaf_percentile_5 vmaf_percentile_10 vmaf_percentile_25 vmaf_percentile_50 vmaf_avg basename version
-    for i in range(len(data)):
-        data[i] = {
-            k: data[i][k]
-            for k in (
-                "size",
-                "bitrate",
-                "vmaf",
-                "ssim",
-                "vmaf_percentile_1",
-                "vmaf_percentile_5",
-                "vmaf_percentile_10",
-                "vmaf_percentile_25",
-                "vmaf_percentile_50",
-                "vmaf_avg",
-                "basename",
-                "version",
-            )
-        }
-
-    # print(data[0])
-
-    # turn to dataframe
-    df = pd.DataFrame(data)
+    df = read_report(path1)
     print(df)
-
-    def g(df):
-        df["rate"] = (
-            df["version"]
-            .str.split("_")
-            .str[-1]
-            .str.replace("crf", "")
-            .str.replace("kbs", "")
-            .astype(int)
-        )
-        df["test_group"] = df["version"].str.split("_").str[0]
-        return df
-
-    df = g(df.copy())
-
 
     vmaf1percenttile_change_arr = []
     size_change_arr = []

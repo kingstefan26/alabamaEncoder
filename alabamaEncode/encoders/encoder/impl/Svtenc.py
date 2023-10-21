@@ -163,8 +163,11 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             if self.svt_open_gop and self.passes == 1:
                 kommand += " --irefresh-type 1"
 
-            if self.passes == 1:
-                kommand += " --enable-overlays 1"
+            if self.svt_overlay == 1:
+                if self.passes == 1:
+                    kommand += f" --enable-overlays.md {self.svt_overlay}"
+                else:
+                    print("WARNING: overlays only supported in 1 pass crf")
         else:
             kommand += self.override_flags
 
