@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from typing import List
 
+import pandas as pd
+from pandas import DataFrame
 from tqdm import tqdm
 
 from alabamaEncode.encoders.RateDiss import RateDistribution
@@ -13,7 +15,7 @@ from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 only_one = False
 
 
-def get_test_files():
+def get_test_files(test_files_count: int = -1):
     # get test_files env
     test_files = os.environ.get("TEST_FILES")
     if test_files is None:
@@ -28,8 +30,10 @@ def get_test_files():
     # filter out non y4m
     files = [f for f in files if f.endswith(".y4m")]
 
-    if only_one:
-        files = files[:10]
+    if test_files_count != -1:
+        # limit so no less than zero and no more than the number of files is picked
+        test_files_count = max(min(test_files_count, len(files)), 0)
+        files = files[:test_files_count]
 
     return files
 
@@ -68,7 +72,10 @@ def run_test(
 
 
 def run_tests(
-    enc: AbstractEncoder, version: str = "control", test_env: str = get_test_env()
+    enc: AbstractEncoder,
+    version: str = "control",
+    test_env: str = get_test_env(),
+    test_files_count: int = -1,
 ) -> List[EncodeStats]:
     """
     Run a test on all the files in the TEST_FILES env
@@ -77,12 +84,12 @@ def run_tests(
     :param version: version name to attach to the stats, e.g., "control"
     :return: a list of EncodeStats objects
     """
-    test_files = get_test_files()
+    test_files = get_test_files(test_files_count)
 
     stat_reports = []
 
     for input_path in tqdm(
-        test_files, desc=f"Running tests for {version}", position=2, leave=False
+        test_files, desc=f"Running tests for {version}", leave=False
     ):
         stat_reports.append(
             run_test(enc, input_file=input_path, version=version, test_env=test_env)
@@ -104,8 +111,10 @@ def save_stats(
     :return: None
     """
     # save the stats to a json file
-    # TODO: fix Object of type EncodeStats is not JSON serializable
-    with open(f"{test_env}{experiment_name}.json", "w") as f:
+    output_path = f"{test_env}{experiment_name}.json"
+    if os.path.exists(output_path):
+        print(f"WARNING: {output_path} already exists, overwriting")
+    with open(output_path, "w") as f:
         # save as a list of dicts
         json.dump([s.get_dict() for s in stat_reports], f)
 
@@ -216,6 +225,8 @@ def run_tests_across_range(
         60,
     ],
     bitrates: List[int] = [250, 500, 1000, 2500, 4000, 8000],
+    test_files_count: int = -1,
+    skip_vbr: bool = False,
 ) -> None:
     """
     Run tests across a range of crfs and bitrates using different encoders
@@ -240,13 +251,28 @@ def run_tests_across_range(
         if not os.path.exists(enc_env):
             os.mkdir(enc_env)
 
+        if not skip_vbr:
+            bitrate_env = enc_env + "bitrate/"
+            if not os.path.exists(bitrate_env):
+                os.mkdir(bitrate_env)
+
+            for bitrate in tqdm(bitrates, desc="Bitrates", position=1, leave=False):
+                enc.update(
+                    bitrate=bitrate, passes=3, rate_distribution=RateDistribution.VBR
+                )
+                version = f"enc{enc_index}_{bitrate}kbs"
+                if enc_index == 0:
+                    version = f"control_{bitrate}kbs"
+                stats_bitrates += run_tests(
+                    enc,
+                    version,
+                    test_env=bitrate_env,
+                    test_files_count=test_files_count,
+                )
+
         crf_env = enc_env + "crf/"
         if not os.path.exists(crf_env):
             os.mkdir(crf_env)
-
-        bitrate_env = enc_env + "bitrate/"
-        if not os.path.exists(bitrate_env):
-            os.mkdir(bitrate_env)
 
         for crf in tqdm(crfs, desc="CRF", position=1, leave=False):
             enc.update(crf=crf, passes=1, rate_distribution=RateDistribution.CQ)
@@ -254,22 +280,57 @@ def run_tests_across_range(
             version = f"enc{enc_index}_{crf}crf"
             if enc_index == 0:
                 version = f"control_{crf}crf"
-            stats_crf += run_tests(enc, version, test_env=crf_env)
-
-        for bitrate in tqdm(bitrates, desc="Bitrates", position=1, leave=False):
-            enc.update(
-                bitrate=bitrate, passes=3, rate_distribution=RateDistribution.VBR
+            stats_crf += run_tests(
+                enc, version, test_env=crf_env, test_files_count=test_files_count
             )
-            version = f"enc{enc_index}_{bitrate}kbs"
-            if enc_index == 0:
-                version = f"control_{bitrate}kbs"
-            stats_bitrates += run_tests(enc, version, test_env=bitrate_env)
 
     report(stats_crf, experiment_name=f"{title} CRF")
     save_stats(stats_crf, experiment_name=f"{title} CRF", test_env=test_env)
 
-    report(stats_bitrates, experiment_name=f"{title} Bitrates")
-    save_stats(stats_bitrates, experiment_name=f"{title} Bitrates", test_env=test_env)
+    if not skip_vbr:
+        report(stats_bitrates, experiment_name=f"{title} Bitrates")
+        save_stats(
+            stats_bitrates, experiment_name=f"{title} Bitrates", test_env=test_env
+        )
+
+
+def read_report(report_path: str) -> DataFrame:
+    with open(report_path) as f:
+        data = json.load(f)
+
+    # only get  size bitrate vmaf ssim vmaf_percentile_1 vmaf_percentile_5 vmaf_percentile_10 vmaf_percentile_25 vmaf_percentile_50 vmaf_avg basename version
+    for i in range(len(data)):
+        data[i] = {
+            k: data[i][k]
+            for k in (
+                "size",
+                "bitrate",
+                "vmaf",
+                "ssim",
+                "vmaf_percentile_1",
+                "vmaf_percentile_5",
+                "vmaf_percentile_10",
+                "vmaf_percentile_25",
+                "vmaf_percentile_50",
+                "vmaf_avg",
+                "basename",
+                "version",
+            )
+        }
+
+    df = pd.DataFrame(data)
+
+    df["rate"] = (
+        df["version"]
+        .str.split("_")
+        .str[-1]
+        .str.replace("crf", "")
+        .str.replace("kbs", "")
+        .astype(int)
+    )
+    df["test_group"] = df["version"].str.split("_").str[0]
+
+    return df
 
 
 if __name__ == "__main__":
