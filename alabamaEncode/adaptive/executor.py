@@ -140,7 +140,6 @@ class AdaptiveCommand(CommandObject):
                 self.chunk.chunk_path, self.config.temp_folder
             )
             for crf in crfs:
-
                 enc.update(
                     output_path=(
                         probe_file_base
@@ -154,10 +153,7 @@ class AdaptiveCommand(CommandObject):
                 stats: EncodeStats = enc.run(
                     timeout_value=self.final_encode_timeout,
                     calculate_vmaf=True,
-                    vmaf_params={
-                        "uhd_model": True,
-                        "disable_enchancment_gain": False
-                    },
+                    vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
                 )
 
                 point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)
@@ -174,9 +170,6 @@ class AdaptiveCommand(CommandObject):
                 )
 
                 points.append(point)
-
-            if enc is AbstractEncoderSvtenc:
-                enc.svt_tune = 0
 
             # convex hull
 
@@ -224,7 +217,8 @@ class AdaptiveCommand(CommandObject):
                 crf=crf,
             )
 
-            enc.svt_supperres_mode = 4
+            enc.svt_tune = 0
+            enc.svt_overlay = 0
 
             if self.config.dry_run:
                 for comm in enc.get_encode_commands():

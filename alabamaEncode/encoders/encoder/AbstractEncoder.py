@@ -59,7 +59,7 @@ class AbstractEncoder(ABC):
     svt_cli_path = "SvtAv1EncApp"
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     svt_tf = 1  # temporally filtered ALT-REF frames
-    svt_overlay = 1  # enable overlays
+    svt_overlay = 0  # enable overlays
     film_grain_denoise: (0 | 1) = 1
 
     color_primaries = "bt709"
@@ -234,6 +234,8 @@ class AbstractEncoder(ABC):
                 "disable_enchancment_gain", False
             )
 
+            threads = vmaf_params.get("threads", 1)
+
             # log_path = vmaf_params.get("log_path", None)
 
             log_path = self.output_path + ".vmaflog"
@@ -246,6 +248,7 @@ class AbstractEncoder(ABC):
                     uhd_model=uhd_model,
                     disable_enchancment_gain=disable_enchancment_gain,
                     log_path=log_path,
+                    threads=threads,
                 )
 
                 try:

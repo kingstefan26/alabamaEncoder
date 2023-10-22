@@ -58,13 +58,17 @@ def run_test(
     # eg ./encode_test_2021-03-30_16-00-00/STARCRAFT_60f_420control.ivf
     output_path = f"{test_env}{basename}_{version}{enc.get_chunk_file_extension()}"
 
+    threads = os.cpu_count()
+
     # set the input and output input_path
-    enc.update(chunk=(ChunkObject(path=input_file)), output_path=output_path)
+    enc.update(
+        chunk=(ChunkObject(path=input_file)), output_path=output_path, threads=threads
+    )
     stats = enc.run(
         override_if_exists=False,
         calculate_vmaf=True,
         calcualte_ssim=True,
-        vmaf_params={"disable_enchancment_gain": True},
+        vmaf_params={"disable_enchancment_gain": True, "threads": threads},
     )
     stats.version = version
     stats.basename = basename
@@ -88,9 +92,7 @@ def run_tests(
 
     stat_reports = []
 
-    for input_path in tqdm(
-        test_files, desc=f"Running tests for {version}", leave=False
-    ):
+    for input_path in tqdm(test_files, desc=f"Running tests for {version}", leave=None):
         stat_reports.append(
             run_test(enc, input_file=input_path, version=version, test_env=test_env)
         )
@@ -243,7 +245,7 @@ def run_tests_across_range(
     if len(encs) == 0:
         raise ValueError("encs must have at least 1 encoder")
 
-    for enc in tqdm(encs, desc=f"Running tests for {title}", position=0):
+    for enc in tqdm(encs, desc=f"Running tests for {title}", leave=None):
         enc_index = encs.index(enc)
 
         enc_env = test_env + f"{enc_index}/"
@@ -256,7 +258,7 @@ def run_tests_across_range(
             if not os.path.exists(bitrate_env):
                 os.mkdir(bitrate_env)
 
-            for bitrate in tqdm(bitrates, desc="Bitrates", position=1, leave=False):
+            for bitrate in tqdm(bitrates, desc="Bitrates", leave=None):
                 enc.update(
                     bitrate=bitrate, passes=3, rate_distribution=RateDistribution.VBR
                 )
@@ -274,7 +276,7 @@ def run_tests_across_range(
         if not os.path.exists(crf_env):
             os.mkdir(crf_env)
 
-        for crf in tqdm(crfs, desc="CRF", position=1, leave=False):
+        for crf in tqdm(crfs, desc="CRF", leave=None):
             enc.update(crf=crf, passes=1, rate_distribution=RateDistribution.CQ)
 
             version = f"enc{enc_index}_{crf}crf"
@@ -315,6 +317,7 @@ def read_report(report_path: str) -> DataFrame:
                 "vmaf_avg",
                 "basename",
                 "version",
+                "time_encoding",
             )
         }
 

@@ -36,6 +36,8 @@ class EncodeStats:
         vmaf_avg: float = -1,
         basename: str = "",  # used for testing
         version: str = "",  # used for testing
+        psnr_hvs: float = -1,
+        psnr: float = -1,
     ):
         self.time_encoding = time_encoding
         self.bitrate = bitrate

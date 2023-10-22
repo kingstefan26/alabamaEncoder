@@ -1,6 +1,7 @@
 import os.path
 import re
 from shutil import which
+from typing import Any, Dict
 
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.utils.execute import syscmd
@@ -67,14 +68,17 @@ def get_total_bitrate(path) -> float:
 def get_video_vmeth(
     distorted_path,
     in_chunk: ChunkObject = None,
+    video_filters="",
     phone_model=False,
     disable_enchancment_gain=False,
     uhd_model=False,
-    video_filters="",
     log_path="",
+    threads=1,
+    vmaf_options: Dict[str, Any] = None,
 ):
     """
     Returns the VMAF score of the video
+    :param threads:
     :param log_path:
     :param distorted_path: path to the distorted video
     :param in_chunk: ChunkObject
@@ -129,26 +133,46 @@ def get_video_vmeth(
     for link in links:
         link[1] = os.path.join(vmaf_models_dir, link[1])
 
+    # ffmpeg -hide_banner -i tst.mp4 -i tst_av1.webm -lavfi libvmaf='model=path=model.json:feature=name=psnr|name=ciede|name=cambi|name=psnr_hvs:log_path=out.json:log_fmt=xml:threads=12' -f null -
+
     null_ = in_chunk.create_chunk_ffmpeg_pipe_command(video_filters=video_filters)
     null_ += f" | ffmpeg -hide_banner -i - "
 
-    lafi = "-lavfi libvmaf"
+    option_arr = []
+
+    model_path = ""
+
     if phone_model is True and disable_enchancment_gain is False:
-        lafi = f"-lavfi libvmaf=model='path={links[1][1]}'"
+        model_path = links[1][1]
     elif phone_model is True and disable_enchancment_gain is True:
-        lafi = f"-lavfi libvmaf=model='path={links[3][1]}'"
+        model_path = links[3][1]
     elif uhd_model is True and disable_enchancment_gain is False:
-        lafi = f"-lavfi libvmaf=model='path={links[0][1]}'"
+        model_path = links[0][1]
     elif uhd_model is True and disable_enchancment_gain is True:
-        lafi = f"-lavfi libvmaf=model='path={links[2][1]}'"
+        model_path = links[2][1]
+
+    if model_path is not "":
+        option_arr += [f"model=path={model_path}"]
 
     if log_path:
-        if lafi.endswith("libvmaf"):
-            lafi += f"=log_fmt=json:log_path='{log_path}'"
-        else:
-            lafi += f":log_fmt=json:log_path='{log_path}'"
+        option_arr += [f"log_path={log_path}"]
+        option_arr += [f"log_fmt=json"]
 
-    null_ += f'-i "{distorted_path}" {lafi} -f null - '
+    if threads > 1:
+        option_arr += [f"threads={threads}"]
+
+    if vmaf_options is not None:
+        features = vmaf_options.get("features", [])
+        ftr = []
+        for feature in features:
+            ftr += [f"name={feature}"]
+
+        if len(ftr) > 0:
+            option_arr += [f"feature={'|'.join(ftr)}"]
+
+    option_str = ":".join(option_arr)
+
+    null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
     result_string = syscmd(null_)
     try:
         vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
