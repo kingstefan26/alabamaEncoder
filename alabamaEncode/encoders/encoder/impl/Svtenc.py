@@ -71,9 +71,11 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             print("WARNING: keyint must be set for VBR, setting to 240")
             self.keyint = 240
 
+        path_env = os.getenv("SVT_CLI_PATH", self.svt_cli_path)
+
         kommand = (
             f"{self.get_ffmpeg_pipe_command()} | "
-            f"{self.svt_cli_path}"
+            f"{path_env}"
             f" -i stdin"
             f" --input-depth {self.bit_override}"
         )
@@ -112,7 +114,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                         print("WARNING: passes must be 1 for CQ, setting to 1")
                         self.passes = 1
                     crf_check()
-                    kommand += f" --crf {self.crf}"
+                    kommand += f" --crf {self.crf} --rc 0"
                 case RateDistribution.VBR:
                     bitrate_check()
                     kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
@@ -160,12 +162,12 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             if self.svt_sdc != 0:
                 kommand += f" --scd {self.svt_sdc}"  # scene detection
 
-            if self.svt_open_gop and self.passes == 1:
-                kommand += " --irefresh-type 1"
+            # if self.svt_open_gop and self.passes == 1:
+            #     kommand += " --irefresh-type 1"
 
             if self.svt_overlay == 1:
                 if self.passes == 1:
-                    kommand += f" --enable-overlays.md {self.svt_overlay}"
+                    kommand += f" --enable-overlays {self.svt_overlay}"
                 else:
                     print("WARNING: overlays only supported in 1 pass crf")
         else:

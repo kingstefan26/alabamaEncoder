@@ -8,9 +8,9 @@ from typing import List
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
-    doesBinaryExist,
     get_total_bitrate,
     get_video_vmeth,
     get_video_ssim,
@@ -46,7 +46,7 @@ class AbstractEncoder(ABC):
 
     svt_bias_pct = 50  # 100 vbr like, 0 cbr like
     svt_open_gop = True
-    keyint: int = 9999
+    keyint: int = -1
     svt_sdc: int = 0
     svt_chroma_thing = -2
     svt_supperres_mode = 0

@@ -24,12 +24,12 @@ from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 from alabamaEncode.sceneSplit.VideoConcatenator import VideoConcatenator
 from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
+from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
     check_for_invalid,
     get_frame_count,
     do_cropdetect,
-    doesBinaryExist,
     get_total_bitrate,
     get_video_lenght,
 )

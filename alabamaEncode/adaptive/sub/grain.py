@@ -11,7 +11,7 @@ from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.sceneSplit.Chunks import ChunkSequence
 from alabamaEncode.utils.execute import syscmd
-from alabamaEncode.utils.ffmpegUtil import doesBinaryExist, get_image_butteraugli_score
+from alabamaEncode.utils.ffmpegUtil import get_image_butteraugli_score
 
 
 class RdPoint:
@@ -130,9 +130,6 @@ class AutoGrain:
     def get_ideal_grain_butteraugli(self) -> int:
         print("getting ideal grain using butteraugli")
         start = time.time()
-
-        if not doesBinaryExist("butteraugli"):
-            raise Exception("butteraugli not found in path, fix path/install it")
 
         runs: List[RdPoint] = self.grain_probes()
 

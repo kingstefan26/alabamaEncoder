@@ -2,9 +2,9 @@ import os
 import tempfile
 from typing import List
 
+from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
-    doesBinaryExist,
     check_for_invalid,
     get_video_lenght,
 )

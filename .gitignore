@@ -20,3 +20,5 @@ temp/
 dist/
 video_encoder.egg-info/
 build/
+
+**.vmaflog

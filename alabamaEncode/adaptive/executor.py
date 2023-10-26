@@ -8,7 +8,6 @@ from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encodeStats import EncodeStats
 from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.parallelEncoding.Command import CommandObject
 
 
@@ -70,7 +69,7 @@ class AdaptiveCommand(CommandObject):
             return
         elif self.config.flag2 is True:
             # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
-            crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40]
+            crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48, 50, 52, 54, 56, 58]
             points = []
             target_vmaf = self.config.vmaf
 
@@ -133,8 +132,7 @@ class AdaptiveCommand(CommandObject):
 
             enc.update(rate_distribution=RateDistribution.CQ)
 
-            if enc is AbstractEncoderSvtenc:
-                enc.svt_tune = 1
+            enc.svt_tune = 0
 
             probe_file_base = get_probe_file_base(
                 self.chunk.chunk_path, self.config.temp_folder
@@ -145,7 +143,7 @@ class AdaptiveCommand(CommandObject):
                         probe_file_base
                         + f"convexhull.{crf}{enc.get_chunk_file_extension()}"
                     ),
-                    speed=12,
+                    speed=11,
                     passes=1,
                     grain_synth=-1,
                 )
@@ -153,7 +151,7 @@ class AdaptiveCommand(CommandObject):
                 stats: EncodeStats = enc.run(
                     timeout_value=self.final_encode_timeout,
                     calculate_vmaf=True,
-                    vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
+                    # vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
                 )
 
                 point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)

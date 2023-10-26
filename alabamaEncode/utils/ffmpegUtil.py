@@ -1,68 +1,28 @@
 import os.path
 import re
-from shutil import which
 from typing import Any, Dict
 
+from alabamaEncode.alabamaPath import PathAlabama
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.metrics import ImageMetrics
 from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
 from alabamaEncode.utils.execute import syscmd
 
 
 def check_for_invalid(path):
-    """
-    Checks if the file is invalid
-    :param path: path to the file
-    :return: True if the file is invalid, False if the file is valid
-    """
-    if not os.path.exists(path):
-        print(f"File {path} does not exist")
-        return True
-    commnd = f'ffmpeg -v error -i "{path}" -c copy -f null -'
-    # if the output is not empty, then the file is invalid
-    out = syscmd(commnd)
-    # check if it's an int and if its 0
-    if isinstance(out, int) and out == 0:
-        return False
-    else:
-        return True
+    return Ffmpeg.check_for_invalid(PathAlabama(path))
 
 
 def get_frame_count(path):
-    """
-    Returns the frame count of the video
-    :param path: path to the video
-    :return: int
-    """
-    argv_ = (
-        f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets "
-        f'-of csv=p=0 "{path}"'
-    )
-    result = syscmd(argv_)
-    result = result.replace("\n", "").replace(",", "")
-    return int(result)
+    return Ffmpeg.get_frame_count(PathAlabama(path))
 
 
 def get_video_lenght(path, sexagesimal=False) -> float | str:
-    """
-    Returns the video length in seconds
-    :param path: path to the video
-    :return: float
-    """
-    sex = ""
-    if sexagesimal:
-        sex = "-sexagesimal"
-    result = syscmd(
-        f'ffprobe -v error -show_entries format=duration {sex} -of default=noprint_wrappers=1:nokey=1 "{path}"'
-    )
-    if isinstance(result, str):
-        if "N/A" in result or "Invalid data found" in result:
-            raise ValueError(f"File {path} is invalid, (encoded with aomenc?)")
-    if sex:
-        return result
-    return float(result)
+    return Ffmpeg.get_video_length(PathAlabama(path), sexagesimal)
 
 
 def get_total_bitrate(path) -> float:
-    return os.path.getsize(path) * 8 / get_video_lenght(path)
+    return Ffmpeg.get_total_bitrate(PathAlabama(path))
 
 
 def get_video_vmeth(
@@ -151,7 +111,7 @@ def get_video_vmeth(
     elif uhd_model is True and disable_enchancment_gain is True:
         model_path = links[2][1]
 
-    if model_path is not "":
+    if model_path != "":
         option_arr += [f"model=path={model_path}"]
 
     if log_path:
@@ -224,51 +184,6 @@ def get_video_ssim(
         return 0
 
 
-def get_source_bitrates(file_in: str, shutit=False) -> tuple[float, float]:
-    """
-    stolen from the one and only autocompressor.com's source code 🤑
-    Returns tuple of bitrates (firstVideoStream, firstAudioStream)
-    Works via demux-to-null (container stats are considered false)
-    """
-    common = "-show_entries packet=size -of default=nokey=1:noprint_wrappers=1"
-
-    command_v = f"ffprobe -v error -select_streams V:0 {common} {file_in}"
-    command_a = f"ffprobe -v error -select_streams a:0 {common} {file_in}"
-
-    v_out = syscmd(command_v)
-    if isinstance(v_out, int):
-        print("Failed getting video bitrate")
-        return 0, 0
-    packets_v_arr = v_out.split("\n")
-
-    a_out = syscmd(command_a)
-    if isinstance(a_out, int):
-        print("Failed getting video bitrate")
-        return 0, 0
-    packets_a_arr = a_out.split("\n")
-
-    packets_v_bits = 0
-    packets_a_bits = 0
-
-    for i in packets_v_arr:
-        if i.isdigit():
-            packets_v_bits += int(i) * 8
-
-    for j in packets_a_arr:
-        if j.isdigit():
-            packets_a_bits += int(j) * 8
-
-    real_duration = get_video_lenght(file_in)
-
-    vid_bps = round(packets_v_bits / real_duration)
-    aud_bps = round(packets_a_bits / real_duration)
-    if shutit is False:
-        print(f"Video is {vid_bps} bps")
-        print(f"Audio is {aud_bps} bps")
-
-    return vid_bps, aud_bps
-
-
 def get_video_psnr(distorted_path, in_chunk: ChunkObject = None):
     null_ = in_chunk.create_chunk_ffmpeg_pipe_command()
     null_ += f" | ffmpeg -hide_banner -i - "
@@ -291,74 +206,23 @@ def get_video_psnr(distorted_path, in_chunk: ChunkObject = None):
 
 
 def get_image_butteraugli_score(refrence_img_path, distorted_img_path):
-    null_ = f'butteraugli "{refrence_img_path}"  "{distorted_img_path}"'
-    try:
-        result_string = syscmd(null_, "utf8")
-        # if the result does not contain a single number, then it failed
-        if not re.search(r"[\d.]+", result_string):
-            raise AttributeError
+    return ImageMetrics.butteraugli_score(refrence_img_path, distorted_img_path)
 
-        return float(result_string)
-    except AttributeError or ValueError:
-        print("CLI: " + null_)
-        print(
-            f"Failed getting butteraugli comparing {distorted_img_path} agains {refrence_img_path}"
-        )
-        print(null_)
-        return 0
-
-
-def get_image_psnr_score(refrence_img_path, distorted_img_path):
-    null_ = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex psnr -f null -"
-
-    result_string = syscmd(null_, "utf8")
-    try:
-        # Regex to get avrage score out of:
-        # [Parsed_psnr_0 @ 0x55f6705fa200] PSNR y:49.460782 u:52.207017 v:51.497660 average:50.118351
-        # min:48.908778 max:51.443411
-
-        match = re.search(r"average:([\d.]+)", result_string)
-        psnr_score = float(match.group(1))
-        return psnr_score
-    except AttributeError:
-        print(
-            f"Failed getting psnr comparing {refrence_img_path} agains {distorted_img_path}"
-        )
-        print(null_)
-        return 0
-
-
-def get_image_ssim_score(refrence_img_path, distorted_img_path):
-    null_ = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex ssim -f null -"
-
-    result_string = syscmd(null_, "utf8")
-    try:
-        match = re.search(r"All:\s*([\d.]+)", result_string)
-        ssim_score = float(match.group(1))
-        return ssim_score
-    except AttributeError:
-        print(
-            f"Failed getting ssim comparing {refrence_img_path} agains {distorted_img_path}"
-        )
-        print(null_)
-        return 0
-
-
-def get_image_vmaf_score(refrence_img_path, distorted_img_path):
-    null_ = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -lavfi libvmaf -f null -"
-
-    result_string = syscmd(null_, "utf8")
-    try:
-        vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
-        match = vmafRegex.search(result_string)
-        vmaf_score = float(match.group(1))
-        return vmaf_score
-    except AttributeError:
-        print(
-            f"Failed getting vmeth comparing {refrence_img_path} agains {distorted_img_path} command:"
-        )
-        print(null_)
-        return 0
+    # null_ = f'butteraugli "{refrence_img_path}"  "{distorted_img_path}"'
+    # try:
+    #     result_string = syscmd(null_, "utf8")
+    #     # if the result does not contain a single number, then it failed
+    #     if not re.search(r"[\d.]+", result_string):
+    #         raise AttributeError
+    #
+    #     return float(result_string)
+    # except AttributeError or ValueError:
+    #     print("CLI: " + null_)
+    #     print(
+    #         f"Failed getting butteraugli comparing {distorted_img_path} agains {refrence_img_path}"
+    #     )
+    #     print(null_)
+    #     return 0
 
 
 def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
@@ -383,15 +247,3 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
     except AttributeError:
         print(f"Failed auto-detecting crop from {in_chunk.path}")
         return ""
-
-
-def doesBinaryExist(pathOrLocation):
-    return which(pathOrLocation) is not None
-
-
-def sizeof_fmt(num, suffix="B"):
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
-            return f"{num:3.1f}{unit}{suffix}"
-        num /= 1024.0
-    return f"{num:.1f}Yi{suffix}"
