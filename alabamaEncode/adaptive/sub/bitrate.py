@@ -3,16 +3,16 @@ import pickle
 import time
 
 from alabamaEncode.adaptive.util import get_probe_file_base
-from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.sceneSplit.chunk import ChunkObject
 from alabamaEncode.utils.ffmpegUtil import get_video_ssim
 
 
 def get_ideal_bitrate(
     chunk: ChunkObject,
-    config: EncoderConfig,
+    config: AlabamaContext,
     convex_speed=10,
     show_rate_calc_log=False,
     clamp_complexity=True,
@@ -53,7 +53,7 @@ def get_ideal_bitrate(
             threads=1,
             video_filters=config.video_filters,
             bitrate=config.bitrate,
-            rate_distribution=RateDistribution.VBR,
+            rate_distribution=EncoderRateDistribution.VBR,
         )
 
         encoder.run(override_if_exists=False)

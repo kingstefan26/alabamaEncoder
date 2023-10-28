@@ -8,13 +8,13 @@ import time
 
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
-from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.sceneSplit.chunk import ChunkSequence
 
 
 def do_adaptive_analasys(
     chunk_sequence: ChunkSequence,
-    config: EncoderConfig,
+    config: AlabamaContext,
     find_best_grainsynth=True,
     find_best_bitrate=False,
     do_crf=False,
@@ -47,24 +47,24 @@ def do_adaptive_analasys(
             if find_best_bitrate and not do_crf:
                 config.bitrate = ab.get_best_bitrate()
 
-            if config.convexhull and not do_crf:
+            if config.vbr_perchunk_optimisation and not do_crf:
                 config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)
 
-            if find_best_grainsynth and config.encoder.supports_grain_synth():
-                param = {
-                    "input_file": chunk_sequence.input_file,
-                    "scenes": chunk_sequence,
-                    "temp_folder": config.temp_folder,
-                    "cache_filename": config.temp_folder + "/adapt/ideal_grain.pt",
-                    "scene_pick_seed": 2,
-                    "video_filters": config.video_filters,
-                }
-                if config.crf_bitrate_mode:
-                    param["crf"] = config.crf
-                else:
-                    param["bitrate"] = config.bitrate
+        if find_best_grainsynth and config.encoder.supports_grain_synth():
+            param = {
+                "input_file": chunk_sequence.input_file,
+                "scenes": chunk_sequence,
+                "temp_folder": config.temp_folder,
+                "cache_filename": config.temp_folder + "/adapt/ideal_grain.pt",
+                "scene_pick_seed": 2,
+                "video_filters": config.video_filters,
+            }
+            if config.crf_bitrate_mode:
+                param["crf"] = config.crf
+            else:
+                param["bitrate"] = config.bitrate
 
-                config.grain_synth = get_best_avg_grainsynth(**param)
+            config.grain_synth = get_best_avg_grainsynth(**param)
 
         config.qm_enabled = True
         config.qm_min = 0

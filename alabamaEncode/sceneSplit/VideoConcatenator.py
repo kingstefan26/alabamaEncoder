@@ -2,12 +2,10 @@ import os
 import tempfile
 from typing import List
 
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.path import PathAlabama
 from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
-from alabamaEncode.utils.ffmpegUtil import (
-    check_for_invalid,
-    get_video_lenght,
-)
 
 
 class VideoConcatenator:
@@ -80,7 +78,7 @@ class VideoConcatenator:
         print("Concating Video")
         print(f"running: {concat_command}")
         os.system(concat_command)
-        if check_for_invalid(vid_output):
+        if Ffmpeg.check_for_invalid(PathAlabama(vid_output)):
             print("Invalid file found, exiting")
             return
 
@@ -90,7 +88,9 @@ class VideoConcatenator:
                 f"-ss {self.start_offset}" if self.start_offset != -1 else ""
             )
             end_offset_command = (
-                f"-t {get_video_lenght(vid_output)}" if self.end_offset != -1 else ""
+                f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"
+                if self.end_offset != -1
+                else ""
             )
 
             print("Encoding a audio track")
@@ -98,7 +98,7 @@ class VideoConcatenator:
             encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 "{audio_output}"'
             print(f"running: {encode_audio}")
             os.system(encode_audio)
-            if check_for_invalid(audio_output):
+            if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
                 print("Invalid file found, exiting")
                 return
 

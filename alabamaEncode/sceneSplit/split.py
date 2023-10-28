@@ -3,12 +3,9 @@ import pickle
 
 from scenedetect import detect, AdaptiveDetector
 
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
-from alabamaEncode.utils.ffmpegUtil import get_video_lenght, get_frame_count
-from alabamaEncode.utils.getFramerate import get_video_frame_rate
-from alabamaEncode.utils.getHeight import get_height
-from alabamaEncode.utils.getWidth import get_width
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.path import PathAlabama
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 
 
 def get_video_scene_list_skinny(
@@ -69,9 +66,9 @@ def get_video_scene_list_skinny(
         seq = ChunkSequence([])
         seq.input_file = input_file
 
-        framerate: float = get_video_frame_rate(input_file)
-        width: int = get_width(in_path=input_file)
-        height: int = get_height(in_path=input_file)
+        framerate: float = Ffmpeg.get_video_frame_rate(PathAlabama(input_file))
+        width: int = Ffmpeg.get_width(PathAlabama(input_file))
+        height: int = Ffmpeg.get_height(PathAlabama(input_file))
 
         seq.chunks = []
 
@@ -120,7 +117,7 @@ def get_video_scene_list_skinny(
             seq.chunks.append(
                 ChunkObject(
                     0,
-                    get_frame_count(input_file),
+                    Ffmpeg.get_frame_count(PathAlabama(input_file)),
                     path=input_file,
                     framerate=framerate,
                     width=width,
@@ -135,7 +132,7 @@ def get_video_scene_list_skinny(
         if start_offset != -1 or end_offset != -1:
             new_chunks = []
             current_position = 0
-            total_duration = get_video_lenght(input_file)
+            total_duration = Ffmpeg.get_video_length(PathAlabama(input_file))
             end_offset = (
                 total_duration - end_offset if end_offset != -1 else total_duration
             )

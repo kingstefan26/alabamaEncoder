@@ -1,8 +1,8 @@
 import os.path
 from typing import List
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 from alabamaEncode.utils.execute import syscmd
 
 
@@ -67,7 +67,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
     def get_encode_commands(self) -> List[str]:
         if (
             self.keyint == -1 or self.keyint == -2
-        ) and self.rate_distribution == RateDistribution.VBR:
+        ) and self.rate_distribution == EncoderRateDistribution.VBR:
             print("WARNING: keyint must be set for VBR, setting to 240")
             self.keyint = 240
 
@@ -109,20 +109,20 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                     raise Exception("FATAL: bitrate is not set")
 
             match self.rate_distribution:
-                case RateDistribution.CQ:
+                case EncoderRateDistribution.CQ:
                     if self.passes != 1:
                         print("WARNING: passes must be 1 for CQ, setting to 1")
                         self.passes = 1
                     crf_check()
                     kommand += f" --crf {self.crf} --rc 0"
-                case RateDistribution.VBR:
+                case EncoderRateDistribution.VBR:
                     bitrate_check()
                     kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
-                case RateDistribution.CQ_VBV:
+                case EncoderRateDistribution.CQ_VBV:
                     bitrate_check()
                     crf_check()
                     kommand += f" --crf {self.crf} --mbr {self.max_bitrate}"
-                case RateDistribution.VBR_VBV:
+                case EncoderRateDistribution.VBR_VBV:
                     bitrate_check()
                     kommand += f" --tbr {self.bitrate} --mbr {self.bitrate * 1.5}"
 

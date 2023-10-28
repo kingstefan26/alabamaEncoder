@@ -4,14 +4,15 @@ Testing & experimenting with auto bitrate ladders GUIDED BY COMPLEXITY
 import os
 
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
-from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
+from alabamaEncode.sceneSplit.chunk import ChunkSequence
 from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
 
 if __name__ == "__main__":
     test_folder = os.path.abspath("./tst/")
-    input_file = "/mnt/data/liveaction_bright.mkv"
-    config = EncoderConfigObject(temp_folder=test_folder, grain_synth=3)
+    input_file = get_test_files()[0]
+    config = AlabamaContext(temp_folder=test_folder, grain_synth=3)
 
     config.multiprocess_workers = 5
 

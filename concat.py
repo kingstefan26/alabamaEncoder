@@ -5,7 +5,8 @@ import sys
 
 from tqdm import tqdm
 
-from alabamaEncode.utils.ffmpegUtil import get_video_lenght
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.path import PathAlabama
 
 # example usage:
 # python genConcat.py out.mp4
@@ -140,7 +141,8 @@ if mux_audio:
     print("Running command: " + output_)
     os.system(output_)
 
-    video_length = get_video_lenght(f"temp_{output}")
+    # video_length = get_video_lenght()
+    video_length = Ffmpeg.get_video_length(PathAlabama(f"temp_{output}"))
 
     kumannds.append(
         f'ffmpeg -v error -i "temp_{output}" -i "{tmp_dir}temp.mkv" -map 0:v -map 1:a -c:a libopus -ac 2 '

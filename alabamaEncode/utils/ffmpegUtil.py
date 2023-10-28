@@ -2,27 +2,11 @@ import os.path
 import re
 from typing import Any, Dict
 
-from alabamaEncode.alabamaPath import PathAlabama
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.metrics import ImageMetrics
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.path import PathAlabama
+from alabamaEncode.sceneSplit.chunk import ChunkObject
 from alabamaEncode.utils.execute import syscmd
-
-
-def check_for_invalid(path):
-    return Ffmpeg.check_for_invalid(PathAlabama(path))
-
-
-def get_frame_count(path):
-    return Ffmpeg.get_frame_count(PathAlabama(path))
-
-
-def get_video_lenght(path, sexagesimal=False) -> float | str:
-    return Ffmpeg.get_video_length(PathAlabama(path), sexagesimal)
-
-
-def get_total_bitrate(path) -> float:
-    return Ffmpeg.get_total_bitrate(PathAlabama(path))
 
 
 def get_video_vmeth(
@@ -229,7 +213,7 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
     if in_chunk is None and path is None:
         raise ValueError("Either in_chunk or path must be set")
     if in_chunk is None and path is not None:
-        lenght = get_frame_count(path)
+        lenght = Ffmpeg.get_frame_count(PathAlabama(path))
         lenght = int(lenght / 2)
         in_chunk = ChunkObject(
             path=path, last_frame_index=lenght, first_frame_index=lenght - 100

@@ -1,13 +1,13 @@
 """
 Testing the implementation of auto grain synth
 """
-
 from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
+from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 
 if __name__ == "__main__":
     print("Test 27: AutoGrainSynth")
 
-    input_file = "../../test.mkv"
+    input_file = get_test_files()[0]
 
     scene_list = None
 

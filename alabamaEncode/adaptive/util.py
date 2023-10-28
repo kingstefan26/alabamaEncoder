@@ -3,8 +3,7 @@ import os
 import random
 from typing import List
 
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 
 
 def get_probe_file_base(encoded_scene_path, temp_folder) -> str:

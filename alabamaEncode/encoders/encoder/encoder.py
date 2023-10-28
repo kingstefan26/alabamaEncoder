@@ -5,13 +5,16 @@ import time
 from abc import abstractmethod, ABC
 from typing import List
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encodeStats import EncodeStats, EncodeStatus
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.encoders.encoderMisc import (
+    EncoderRateDistribution,
+    EncodeStats,
+    EncodeStatus,
+)
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.path import PathAlabama
 from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
-    get_total_bitrate,
     get_video_vmeth,
     get_video_ssim,
 )
@@ -22,7 +25,7 @@ class AbstractEncoder(ABC):
     owo
     """
 
-    chunk: ChunkObject = None
+    chunk = None
     temp_folder: str
     bitrate: int = None
     crf: int = None
@@ -32,8 +35,8 @@ class AbstractEncoder(ABC):
     output_path: str
     speed = 4
     threads = 1
-    rate_distribution: RateDistribution = (
-        RateDistribution.CQ
+    rate_distribution: EncoderRateDistribution = (
+        EncoderRateDistribution.CQ
     )  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
     qm_enabled = False
     grain_synth = 10
@@ -70,7 +73,7 @@ class AbstractEncoder(ABC):
 
     running_on_celery = False
 
-    def setup(self, chunk: ChunkObject, config):
+    def setup(self, chunk, config):
         self.update(
             chunk=chunk,
             temp_folder=config.temp_folder,
@@ -87,7 +90,6 @@ class AbstractEncoder(ABC):
             qm_enabled=config.qm_enabled,
             qm_min=config.qm_min,
             qm_max=config.qm_max,
-            content_type=config.content_type,
             override_flags=config.override_flags,
             color_primaries=config.color_primaries,
             transfer_characteristics=config.transfer_characteristics,
@@ -100,6 +102,7 @@ class AbstractEncoder(ABC):
         """
         Update the encoder with new values, with type checking
         """
+        from alabamaEncode.sceneSplit.chunk import ChunkObject
 
         # Define a dictionary mapping attribute names to their types
         valid_attr_types = {
@@ -116,11 +119,10 @@ class AbstractEncoder(ABC):
             "grain_synth": int,
             "threads": int,
             "tune": int,
-            "rate_distribution": RateDistribution,
+            "rate_distribution": EncoderRateDistribution,
             "qm_enabled": bool,
             "qm_min": int,
             "qm_max": int,
-            "content_type": str,
             "override_flags": str,
         }
 
@@ -284,7 +286,9 @@ class AbstractEncoder(ABC):
             )
 
         stats.size = os.path.getsize(self.output_path) / 1000
-        stats.bitrate = int(get_total_bitrate(self.output_path) / 1000)
+        stats.bitrate = int(
+            Ffmpeg.get_total_bitrate(PathAlabama(self.output_path)) / 1000
+        )
 
         return stats
 

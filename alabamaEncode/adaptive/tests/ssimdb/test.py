@@ -8,14 +8,14 @@ from typing import List
 from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
 
 
 def test():
-    source_path = "/mnt/data/downloads/Silo.S01E05.1080p.WEB.H264-CAKES[rarbg]/silo.s01e05.1080p.web.h264-cakes.mkv"
+    source_path = get_test_files()[0]
 
     testing_env = "./tstSsimDb/"
     if not os.path.exists(testing_env):
@@ -29,11 +29,11 @@ def test():
 
     bitrate_being_evaluated = 2000
 
-    ab = AutoBitrateLadder(chunk_sequence, EncoderConfigObject(temp_folder=testing_env))
+    ab = AutoBitrateLadder(chunk_sequence, AlabamaContext(temp_folder=testing_env))
     ab.remove_ssim_translate_cache()
     ssim_db_target = ab.get_target_ssimdb(bitrate_being_evaluated)
 
-    config = EncoderConfigObject(
+    config = AlabamaContext(
         temp_folder=testing_env,
         ssim_db_target=ssim_db_target,
         bitrate=bitrate_being_evaluated,

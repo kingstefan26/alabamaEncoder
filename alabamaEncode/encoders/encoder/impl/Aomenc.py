@@ -1,8 +1,8 @@
 from copy import copy
 from typing import List
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderAomEnc(AbstractEncoder):
@@ -54,14 +54,14 @@ class AbstractEncoderAomEnc(AbstractEncoder):
                 encode_command += " --ivf"
 
             match self.rate_distribution:
-                case RateDistribution.VBR:
+                case EncoderRateDistribution.VBR:
                     encode_command += (
                         f" --end-usage=vbr --target-bitrate={self.bitrate}"
                     )
-                case RateDistribution.CQ:
+                case EncoderRateDistribution.CQ:
                     encode_command += f" --end-usage=q --cq-level={self.crf}"
                     self.passes = 2
-                case RateDistribution.CQ_VBV:
+                case EncoderRateDistribution.CQ_VBV:
                     if self.bitrate == -1 or self.bitrate is None:
                         encode_command += f" --end-usage=q --cq-level={self.crf}"
                     else:

@@ -8,8 +8,7 @@ from statistics import mean
 from typing import List
 
 from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import get_image_butteraugli_score
 

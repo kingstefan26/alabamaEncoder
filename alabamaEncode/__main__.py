@@ -8,34 +8,29 @@ import os
 import random
 import sys
 import time
+from asyncio import Future
 from concurrent.futures.thread import ThreadPoolExecutor
-from multiprocessing.pool import ThreadPool
 
 from torf import Torrent
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.analyser import do_adaptive_analasys
 from alabamaEncode.adaptive.executor import AdaptiveCommand
-from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.encoders.encoderMisc import EncodersEnum
+from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.parallelEncoding.CeleryApp import app, run_command_on_celery
 from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load
 from alabamaEncode.parallelEncoding.Command import run_command
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.path import PathAlabama
 from alabamaEncode.sceneSplit.VideoConcatenator import VideoConcatenator
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
 from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
-    check_for_invalid,
-    get_frame_count,
     do_cropdetect,
-    get_total_bitrate,
-    get_video_lenght,
 )
-from alabamaEncode.utils.getHeight import get_height
-from alabamaEncode.utils.getWidth import get_width
-from alabamaEncode.utils.isHDR import is_hdr
 
 runtime = -1
 runtime_file = ""
@@ -68,7 +63,7 @@ def at_exit():
 
 async def process_chunks(
     chunk_list: ChunkSequence,
-    encdr_config: EncoderConfigObject,
+    encdr_config: AlabamaContext,
     chunk_order="sequential",
     use_celery=False,
 ):
@@ -77,8 +72,8 @@ async def process_chunks(
     for chunk in chunk_list.chunks:
         if not os.path.exists(chunk.chunk_path):
             obj = AdaptiveCommand()
-
             obj.setup(chunk, encdr_config)
+
             command_objects.append(obj)
 
     # order chunks based on order
@@ -165,56 +160,77 @@ async def execute_commands(
         loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor()
 
-        with tqdm(
-            total=total_scenes, desc="Encoding", unit="scene", dynamic_ncols=True
-        ) as pbar:
-            while completed_count < total_scenes:
-                # Start new tasks if there are available slots
-                while (
-                    len(futures) < concurent_jobs_limit
-                    and completed_count + len(futures) < total_scenes
-                ):
-                    command = command_objects[completed_count + len(futures)]
-                    futures.append(loop.run_in_executor(executor, command.run))
+        # check if the first command is a AdaptiveCommand
+        if isinstance(command_objects[0], AdaptiveCommand):
+            total_frames = sum([c.chunk.get_frame_count() for c in command_objects])
+            pbar = tqdm(
+                total=total_frames,
+                desc="Encoding",
+                unit="frame",
+                dynamic_ncols=True,
+                unit_scale=True,
+            )
+        else:
+            pbar = tqdm(
+                total=total_scenes, desc="Encoding", unit="scene", dynamic_ncols=True
+            )
 
-                # Wait for any task to complete
-                done, _ = await asyncio.wait(
-                    futures, return_when=asyncio.FIRST_COMPLETED
-                )
+        pbar.set_description(f"Workers: {concurent_jobs_limit} CPU -% SWAP -%")
 
-                # Process completed tasks
-                for future in done:
-                    await future
-                    # do something with the result
+        while completed_count < total_scenes:
+            # Start new tasks if there are available slots
+            while (
+                len(futures) < concurent_jobs_limit
+                and completed_count + len(futures) < total_scenes
+            ):
+                command = command_objects[completed_count + len(futures)]
+                in_executor: Future = loop.run_in_executor(executor, command.run)
+                futures.append(in_executor)
+
+            # Wait for any task to complete
+            done, _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+
+            # Process completed tasks
+            for future in done:
+                await future
+                # if we are encoding chunks update by the done frames, not the done chunks
+                if isinstance(command_objects[0], AdaptiveCommand):
+                    pbar.update(
+                        command_objects[completed_count].chunk.get_frame_count()
+                    )
+                else:
                     pbar.update()
-                    completed_count += 1
 
-                # Remove completed tasks from the future list
-                futures = [future for future in futures if not future.done()]
+                completed_count += 1
 
-                if multiprocess_workers == -1:
-                    # Check CPU utilization and adjust concurent_jobs_limit if needed
-                    cpu_utilization = load.get_load()
-                    swap_usage = load.parse_swap_usage()
-                    new_limit = concurent_jobs_limit
-                    if (
-                        cpu_utilization < target_cpu_utilization
-                        and swap_usage < max_swap_usage
-                    ):
-                        new_limit += 1
-                    elif (
-                        cpu_utilization > target_cpu_utilization + cpu_threshold
-                        or swap_usage > max_swap_usage
-                    ):
-                        new_limit -= 1
+            # Remove completed tasks from the future list
+            futures = [future for future in futures if not future.done()]
 
-                    # no less than 1 and no more than max_limit
-                    new_limit = max(1, new_limit)
-                    if new_limit != concurent_jobs_limit and new_limit <= max_limit:
-                        concurent_jobs_limit = new_limit
-                        tqdm.write(
-                            f"CPU load: {(cpu_utilization * 100):.2f}% SWAP USED: {swap_usage:.2f}%, adjusting workers to {concurent_jobs_limit} "
-                        )
+            if multiprocess_workers == -1:
+                # Check CPU utilization and adjust concurent_jobs_limit if needed
+                cpu_utilization = load.get_load()
+                swap_usage = load.parse_swap_usage()
+                new_limit = concurent_jobs_limit
+                if (
+                    cpu_utilization < target_cpu_utilization
+                    and swap_usage < max_swap_usage
+                ):
+                    new_limit += 1
+                elif (
+                    cpu_utilization > target_cpu_utilization + cpu_threshold
+                    or swap_usage > max_swap_usage
+                ):
+                    new_limit -= 1
+
+                # no less than 1 and no more than max_limit
+                new_limit = max(1, new_limit)
+                if new_limit != concurent_jobs_limit and new_limit <= max_limit:
+                    concurent_jobs_limit = new_limit
+                    pbar.set_description(
+                        f"Workers: {concurent_jobs_limit} CPU {cpu_utilization * 100:.2f}% SWAP {swap_usage:.2f}%"
+                    )
+
+        pbar.close()
 
 
 def get_lan_ip() -> str:
@@ -263,72 +279,6 @@ def clean_rate_probes(tempfolder: str):
         for name in dirs:
             if len(os.listdir(os.path.join(root, name))) == 0:
                 os.rmdir(os.path.join(root, name))
-
-
-def check_chunk(c: ChunkObject):
-    c.chunk_done = False
-    if not os.path.exists(c.chunk_path):
-        return None
-
-    if check_for_invalid(c.chunk_path):
-        tqdm.write(f"chunk {c.chunk_path} failed the ffmpeg integrity check 🤕")
-        return c.chunk_path
-
-    actual_frame_count = get_frame_count(c.chunk_path)
-    expected_frame_count = c.last_frame_index - c.first_frame_index
-
-    if actual_frame_count != expected_frame_count:
-        tqdm.write(f"chunk {c.chunk_path} has the wrong number of frames 🤕")
-        return c.chunk_path
-
-    c.chunk_done = True
-
-    return None
-
-
-def process_chunk(args):
-    c, pbar = args
-    result = check_chunk(c)
-    pbar.update()
-    return result
-
-
-def integrity_check(seq: ChunkSequence, temp_folder: str) -> bool:
-    """
-    checks the integrity of the chunks, and removes any that are invalid, remove probe folders, and see if all are done
-    :param temp_folder:
-    :param seq: all the scenes to check
-    :return: true if there are broken chunks
-    """
-
-    print("Preforming integrity check 🥰")
-    seq_chunks = list(seq.chunks)
-    total_chunks = len(seq_chunks)
-
-    with tqdm(total=total_chunks, desc="Checking files", unit="file") as pbar:
-        with ThreadPool(5) as pool:
-            chunk_args = [(c, pbar) for c in seq_chunks]
-            invalid_chunks = list(pool.imap(process_chunk, chunk_args))
-
-    invalid_chunks = [chunk for chunk in invalid_chunks if chunk is not None]
-
-    if len(invalid_chunks) > 0:
-        print(f"Found {len(invalid_chunks)} invalid files, removing them 😂")
-        for c in invalid_chunks:
-            os.remove(c)
-        clean_rate_probes(temp_folder)
-        return True
-
-    # count chunks that are not done
-    not_done = len([c for c in seq.chunks if not c.chunk_done])
-
-    if not_done > 0:
-        print(f"Only {len(seq.chunks) - not_done}/{len(seq.chunks)} chunks are done 😏")
-        clean_rate_probes(temp_folder)
-        return True
-
-    print("All chunks passed integrity checks 🤓")
-    return False
 
 
 def print_stats(
@@ -384,7 +334,7 @@ def print_stats(
 
     print_and_save("\n\n")
 
-    total_bitrate = int(get_total_bitrate(output)) / 1000
+    total_bitrate = int(Ffmpeg.get_total_bitrate(PathAlabama(output))) / 1000
     print_and_save(
         f"Total bitrate: {total_bitrate} kb/s, config bitrate: {config_bitrate} kb/s"
     )
@@ -408,7 +358,7 @@ def print_stats(
     print_and_save(f"- total bitrate `{total_bitrate} kb/s`")
     print_and_save(f"- total size `{sizeof_fmt(os.path.getsize(output)).strip()}`")
     print_and_save(
-        f"- length `{get_video_lenght(output, sexagesimal=True).split('.')[0]}`"
+        f"- length `{Ffmpeg.get_video_length(PathAlabama(output), True).split('.')[0]}`"
     )
     size_decrease = round(
         (os.path.getsize(output) - os.path.getsize(input_file))
@@ -441,7 +391,7 @@ def print_stats(
 
     print_and_save("\n")
     print_and_save(
-        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url &w={get_width(output)}&h={get_height(output)}"
+        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url &w={Ffmpeg.get_width(PathAlabama(output))}&h={Ffmpeg.get_height(PathAlabama(output))}"
     )
     print_and_save("\n")
     print_and_save("ALABAMAENCODES © 2024")
@@ -453,7 +403,8 @@ def generate_previews(
     input_file: str, output_folder: str, num_previews: int, preview_length: int
 ):
     # get total video length
-    total_length = get_video_lenght(input_file)
+    # total_length =  get_video_lenght(input_file)
+    total_length = Ffmpeg.get_video_length(PathAlabama(input_file))
 
     # create x number of offsets that are evenly spaced and fit in the video
     offsets = []
@@ -814,13 +765,10 @@ def main():
     encoder_name = "SouAV1R"
 
     args = parse_args()
-
     input_path = os.path.abspath(args.input)
 
-    log_level = 0 if args.log_level == "QUIET" else 1
-
     # check if input is an absolute path
-    if input_path[0] != "/":
+    if not input_path.startswith("/"):
         print("Input video is not absolute, please use absolute paths")
 
     # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
@@ -831,9 +779,6 @@ def main():
             "--video_filters is mutually exclusive with --hdr --crop_string --scale_string"
         )
         quit()
-
-    host_adrees = get_lan_ip()
-    print(f"Got lan ip: {host_adrees}")
 
     # get outputs folder
     output_folder = os.path.dirname(os.path.abspath(args.output)) + "/"
@@ -849,7 +794,9 @@ def main():
 
     input_file = tempfolder + "temp.mkv"
 
+    host_address = get_lan_ip()
     if args.celery:
+        print(f"Got lan ip: {host_address}")
         num_workers = app.control.inspect().active_queues()
         if num_workers is None:
             print("No workers detected, please start some")
@@ -860,115 +807,22 @@ def main():
 
     if not os.path.exists(tempfolder):
         os.mkdir(tempfolder)
-    else:
-        syscmd(f"rm {tempfolder}*.log")
 
     # copy input file to temp folder
     if not os.path.exists(input_file):
         os.system(f'ln -s "{input_path}" "{input_file}"')
 
+    clean_rate_probes(tempfolder)
+
     if args.encoder == "x265" and args.auto_crf == False:
         print("x265 only supports auto crf, set `--auto_crf true`")
         quit()
 
-    config = EncoderConfigObject(
-        convexhull=args.bitrate_adjust,
-        temp_folder=tempfolder,
-        remote_path=tempfolder,
-        ssim_db_target=args.ssim_db_target,
-        passes=3,
-        vmaf=args.vmaf_target,
-        speed=4,
-        encoder=args.encoder,
-        log_level=log_level,
-        dry_run=args.dry_run,
-    )
+    config = AlabamaContext(temp_folder=tempfolder, passes=3, speed=4)
 
-    config.use_celery = args.celery
-    config.flag1 = args.flag1
-    config.flag2 = args.flag2
-    config.flag3 = args.flag3
-    config.override_flags = args.encoder_flag_override
-    config.speed = args.encoder_speed_override
-    config.multiprocess_workers = args.multiprocess_workers
-    config.bitrate_adjust_mode = args.bitrate_adjust_mode
-    config.bitrate_undershoot = args.undershoot / 100
-    config.bitrate_overshoot = args.overshoot / 100
+    find_best_bitrate, find_best_grainsynth = setup_config(args, config, input_file)
 
-    config.crf_bitrate_mode = args.auto_crf
-
-    if args.crf != -1:
-        print("Using crf mode")
-        config.crf = args.crf
-
-    if config.flag1 and config.bitrate == -1:
-        print("Flag1 requires bitrate to be set --bitrate 2M")
-        quit()
-
-    if (
-        "auto" in args.bitrate
-        or "-1" in args.bitrate
-        and config.flag1
-        and not config.flag2
-    ):
-        print("Flag1 and auto bitrate are mutually exclusive")
-        quit()
-
-    find_best_bitrate = False
-
-    if "auto" in args.bitrate or "-1" in args.bitrate:
-        find_best_bitrate = True
-    else:
-        if "M" in args.bitrate or "m" in args.bitrate:
-            config.bitrate = args.bitrate.replace("M", "")
-            config.bitrate = int(config.bitrate) * 1000
-        else:
-            config.bitrate = args.bitrate.replace("k", "")
-            config.bitrate = args.bitrate.replace("K", "")
-
-            try:
-                config.bitrate = int(args.bitrate)
-            except ValueError:
-                raise ValueError("Failed to parse bitrate")
-
-    find_best_grainsynth = True if args.grain == -1 else False
-
-    if find_best_grainsynth and not doesBinaryExist("butteraugli"):
-        print("Autograin requires butteraugli in path, please install it")
-        quit()
-
-    config.grain_synth = args.grain
-
-    # eg crop=3840:1600:0:280,scale=1920:-2:flags=lanczos
-    config.video_filters = args.video_filters
-
-    if config.video_filters == "":
-        if args.autocrop:
-            output = do_cropdetect(ChunkObject(path=input_file))
-            output.replace("crop=", "")
-            if output != "":
-                args.video_filters = output
-
-        final = ""
-
-        if args.crop_string != "":
-            final += f"crop={args.crop_string}"
-
-        if args.scale_string != "":
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += f"scale={args.scale_string}:flags=lanczos"
-        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
-        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
-
-        if not args.hdr and is_hdr(input_file):
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += tonemap_string
-
-        config.video_filters = final
-
-    scenes_skinny: ChunkSequence = get_video_scene_list_skinny(
+    chunks_sequence: ChunkSequence = get_video_scene_list_skinny(
         input_file=input_file,
         cache_file_path=tempfolder + "sceneCache.pt",
         max_scene_length=args.max_scene_length,
@@ -976,13 +830,14 @@ def main():
         end_offset=args.end_offset,
         override_bad_wrong_cache_path=args.override_bad_wrong_cache_path,
     )
-    # setup paths for the chunks, in this case, in the temp folder with their name being the index
-    for xyz in scenes_skinny.chunks:
-        xyz.chunk_path = f"{tempfolder}{xyz.chunk_index}{config.get_encoder().get_chunk_file_extension()}"
+
+    chunks_sequence.setup_paths(
+        tempfolder, config.get_encoder().get_chunk_file_extension()
+    )
 
     if not os.path.exists(args.output):
-        config, scenes_skinny = do_adaptive_analasys(
-            scenes_skinny,
+        config, chunks_sequence = do_adaptive_analasys(
+            chunks_sequence,
             config,
             find_best_grainsynth=find_best_grainsynth,
             find_best_bitrate=find_best_bitrate,
@@ -1000,7 +855,7 @@ def main():
         if config.dry_run:
             iter_counter = 2
 
-        while integrity_check(scenes_skinny, tempfolder) is True:
+        while chunks_sequence.sequence_integrity_check() is True:
             iter_counter += 1
             if iter_counter > 3:
                 print("Integrity check failed 3 times, aborting")
@@ -1013,7 +868,7 @@ def main():
             try:
                 loop.run_until_complete(
                     process_chunks(
-                        scenes_skinny,
+                        chunks_sequence,
                         config,
                         chunk_order=args.chunk_order,
                         use_celery=args.celery,
@@ -1043,8 +898,9 @@ def main():
         except Exception as e:
             print("Concat at the end failed 😷")
             raise e
+    else:
+        print("Output file exists 🤑, printing stats")
 
-    print("Output file exists 🤑, printing stats")
     print_stats(
         output_folder=output_folder,
         output=args.output,
@@ -1056,7 +912,9 @@ def main():
         cut_credits=True if args.end_offset > 0 else False,
         croped=True if args.crop_string != "" else False,
         scaled=True if args.scale_string != "" else False,
-        tonemaped=True if not args.hdr and is_hdr(input_file) else False,
+        tonemaped=True
+        if not args.hdr and Ffmpeg.is_hdr(PathAlabama(input_file))
+        else False,
     )
     if args.generate_previews:
         print("Generating previews")
@@ -1071,7 +929,91 @@ def main():
             encoder_name=encoder_name,
             output_folder=output_folder,
         )
+    clean_rate_probes(tempfolder)
     quit()
+
+
+def setup_config(args, config: AlabamaContext, input_file: str):
+    config.log_level = 0 if args.log_level == "QUIET" else 1
+    config.dry_run = args.dry_run
+    config.ssim_db_target = args.ssim_db_target
+    config.vmaf = args.vmaf_target
+    config.encoder = EncodersEnum.from_str(args.encoder)
+    config.vbr_perchunk_optimisation = args.bitrate_adjust
+    config.use_celery = args.celery
+    config.flag1 = args.flag1
+    config.flag2 = args.flag2
+    config.flag3 = args.flag3
+    config.override_flags = args.encoder_flag_override
+    config.speed = args.encoder_speed_override
+    config.multiprocess_workers = args.multiprocess_workers
+    config.bitrate_adjust_mode = args.bitrate_adjust_mode
+    config.bitrate_undershoot = args.undershoot / 100
+    config.bitrate_overshoot = args.overshoot / 100
+    config.crf_bitrate_mode = args.auto_crf
+
+    if args.crf != -1:
+        print("Using crf mode")
+        config.crf = args.crf
+    if config.flag1 and config.bitrate == -1:
+        print("Flag1 requires bitrate to be set --bitrate 2M")
+        quit()
+    if (
+        "auto" in args.bitrate
+        or "-1" in args.bitrate
+        and config.flag1
+        and not config.flag2
+    ):
+        print("Flag1 and auto bitrate are mutually exclusive")
+        quit()
+    find_best_bitrate = False
+    if "auto" in args.bitrate or "-1" in args.bitrate:
+        find_best_bitrate = True
+    else:
+        if "M" in args.bitrate or "m" in args.bitrate:
+            config.bitrate = args.bitrate.replace("M", "")
+            config.bitrate = int(config.bitrate) * 1000
+        else:
+            config.bitrate = args.bitrate.replace("k", "")
+            config.bitrate = args.bitrate.replace("K", "")
+
+            try:
+                config.bitrate = int(args.bitrate)
+            except ValueError:
+                raise ValueError("Failed to parse bitrate")
+    find_best_grainsynth = True if args.grain == -1 else False
+    if find_best_grainsynth and not doesBinaryExist("butteraugli"):
+        print("Autograin requires butteraugli in path, please install it")
+        quit()
+    config.grain_synth = args.grain
+    # eg crop=3840:1600:0:280,scale=1920:-2:flags=lanczos
+    config.video_filters = args.video_filters
+    if config.video_filters == "":
+        if args.autocrop:
+            output = do_cropdetect(ChunkObject(path=input_file))
+            output.replace("crop=", "")
+            if output != "":
+                args.video_filters = output
+
+        final = ""
+
+        if args.crop_string != "":
+            final += f"crop={args.crop_string}"
+
+        if args.scale_string != "":
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += f"scale={args.scale_string}:flags=lanczos"
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
+        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+
+        if not args.hdr and Ffmpeg.is_hdr(PathAlabama(input_file)):
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += tonemap_string
+
+        config.video_filters = final
+    return find_best_bitrate, find_best_grainsynth
 
 
 if __name__ == "__main__":

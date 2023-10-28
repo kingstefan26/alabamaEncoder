@@ -5,19 +5,24 @@ from tqdm import tqdm
 
 from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
 from alabamaEncode.adaptive.util import get_probe_file_base
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encodeStats import EncodeStats
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
-from alabamaEncode.parallelEncoding.Command import CommandObject
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
+from alabamaEncode.parallelEncoding.Command import BaseCommandObject
+from alabamaEncode.sceneSplit.chunk import ChunkObject
 
 
-class AdaptiveCommand(CommandObject):
+class AdaptiveCommand(BaseCommandObject):
     """
     Class that gets the ideal bitrate and encodes the final chunk
     """
 
-    def __init__(self):
-        super().__init__()
+    config: AlabamaContext
+    chunk: ChunkObject
+
+    def setup(self, chunk: ChunkObject, config: AlabamaContext):
+        self.chunk = chunk
+        self.config = config
 
     # how long (seconds) before we time out the final encoding
     # currently set to 30 minutes
@@ -36,7 +41,9 @@ class AdaptiveCommand(CommandObject):
         rate_search_time = time.time()
         if self.config.flag1:
             enc.update(
-                passes=1, rate_distribution=RateDistribution.CQ, crf=self.config.crf
+                passes=1,
+                rate_distribution=EncoderRateDistribution.CQ,
+                crf=self.config.crf,
             )
             enc.svt_open_gop = True
 
@@ -57,7 +64,7 @@ class AdaptiveCommand(CommandObject):
 
             enc.update(
                 passes=3,
-                rate_distribution=RateDistribution.VBR,
+                rate_distribution=EncoderRateDistribution.VBR,
                 bitrate=encode_bitrate,
             )
             enc.svt_bias_pct = 20
@@ -69,7 +76,7 @@ class AdaptiveCommand(CommandObject):
             return
         elif self.config.flag2 is True:
             # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
-            crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48, 50, 52, 54, 56, 58]
+            crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
             points = []
             target_vmaf = self.config.vmaf
 
@@ -130,7 +137,7 @@ class AdaptiveCommand(CommandObject):
                 score += (p.bitrate / 1000) * score_bitrate_weight  # bitrate
                 return score
 
-            enc.update(rate_distribution=RateDistribution.CQ)
+            enc.update(rate_distribution=EncoderRateDistribution.CQ)
 
             enc.svt_tune = 0
 
@@ -210,7 +217,7 @@ class AdaptiveCommand(CommandObject):
                 passes=1,
                 grain_synth=self.config.grain_synth,
                 speed=self.config.speed,
-                rate_distribution=RateDistribution.CQ,
+                rate_distribution=EncoderRateDistribution.CQ,
                 output_path=self.chunk.chunk_path,
                 crf=crf,
             )
@@ -234,7 +241,7 @@ class AdaptiveCommand(CommandObject):
                 enc.update(
                     passes=1,
                     bitrate=self.config.bitrate,
-                    rate_distribution=RateDistribution.CQ_VBV,
+                    rate_distribution=EncoderRateDistribution.CQ_VBV,
                     crf=self.config.crf,
                 )
                 enc.svt_open_gop = True
@@ -242,7 +249,7 @@ class AdaptiveCommand(CommandObject):
             elif self.config.crf != -1:
                 enc.update(
                     passes=1,
-                    rate_distribution=RateDistribution.CQ,
+                    rate_distribution=EncoderRateDistribution.CQ,
                     crf=self.config.crf,
                 )
                 enc.qm_max = 8
@@ -259,7 +266,7 @@ class AdaptiveCommand(CommandObject):
 
                 enc.update(
                     passes=3,
-                    rate_distribution=RateDistribution.VBR,
+                    rate_distribution=EncoderRateDistribution.VBR,
                     bitrate=self.chunk.ideal_bitrate,
                 )
                 enc.svt_bias_pct = 20

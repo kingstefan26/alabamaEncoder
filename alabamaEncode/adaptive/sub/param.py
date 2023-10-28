@@ -3,15 +3,14 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 
-from alabamaEncode.encoders.EncoderConfig import EncoderConfigObject
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 from alabamaEncode.utils.ffmpegUtil import get_video_vmeth
 
 
 class AutoParam:
-    def __init__(self, chunks: ChunkSequence, config: EncoderConfigObject):
+    def __init__(self, chunks: ChunkSequence, config: AlabamaContext):
         self.chunks = chunks
         self.config = config
 
@@ -28,7 +27,11 @@ class AutoParam:
         svt = self.config.get_encoder()
         svt.setup(chunk=chunk, config=self.config)
         svt.update(
-            passes=1, crf=16, rate_distribution=RateDistribution.CQ, threads=3, speed=5
+            passes=1,
+            crf=16,
+            rate_distribution=EncoderRateDistribution.CQ,
+            threads=3,
+            speed=5,
         )
         chunk.chunk_path = probe_folder + probe_name
         svt.update(output_path=chunk.chunk_path)

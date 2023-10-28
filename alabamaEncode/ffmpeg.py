@@ -1,6 +1,6 @@
 import os
 
-from alabamaEncode.alabamaPath import PathAlabama
+from alabamaEncode.path import PathAlabama
 from alabamaEncode.utils.execute import syscmd
 
 
@@ -110,6 +110,7 @@ class Ffmpeg:
         result = syscmd(cli)
         if result == "":
             raise Exception("Could not get frame rate")
+        result = result.split("/")
         return float(result[0]) / float(result[1])
 
     @staticmethod
@@ -120,33 +121,33 @@ class Ffmpeg:
         Works via demux-to-null (container stats are considered false)
         """
         common = "-show_entries packet=size -of default=nokey=1:noprint_wrappers=1"
-    
+
         command_v = f"ffprobe -v error -select_streams V:0 {common} {path.get_safe()}"
         command_a = f"ffprobe -v error -select_streams a:0 {common} {path.get_safe()}"
-    
+
         v_out = syscmd(command_v)
         if isinstance(v_out, int):
             print("Failed getting video bitrate")
             return 0, 0
         packets_v_arr = v_out.split("\n")
-    
+
         a_out = syscmd(command_a)
         if isinstance(a_out, int):
             print("Failed getting video bitrate")
             return 0, 0
         packets_a_arr = a_out.split("\n")
-    
+
         packets_v_bits = 0
         packets_a_bits = 0
-    
+
         for i in packets_v_arr:
             if i.isdigit():
                 packets_v_bits += int(i) * 8
-    
+
         for j in packets_a_arr:
             if j.isdigit():
                 packets_a_bits += int(j) * 8
-    
+
         real_duration = Ffmpeg.get_video_length(path)
 
         vid_bps = round(packets_v_bits / real_duration)
@@ -154,5 +155,5 @@ class Ffmpeg:
         if shutit is False:
             print(f"Video is {vid_bps} bps")
             print(f"Audio is {aud_bps} bps")
-    
+
         return vid_bps, aud_bps

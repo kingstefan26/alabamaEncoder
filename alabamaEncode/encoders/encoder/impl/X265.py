@@ -1,7 +1,7 @@
 from typing import List
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderX265(AbstractEncoder):
@@ -19,13 +19,13 @@ class AbstractEncoderX265(AbstractEncoder):
         )
 
         match self.rate_distribution:
-            case RateDistribution.CQ:
+            case EncoderRateDistribution.CQ:
                 kommand += f" -crf {self.crf}"
-            case RateDistribution.CQ_VBV:
+            case EncoderRateDistribution.CQ_VBV:
                 raise Exception("FATAL: rate distribution not supported")
-            case RateDistribution.VBR_VBV:
+            case EncoderRateDistribution.VBR_VBV:
                 raise Exception("FATAL: rate distribution not supported")
-            case RateDistribution.VBR:
+            case EncoderRateDistribution.VBR:
                 raise Exception("FATAL: rate distribution not supported")
 
         match self.speed:

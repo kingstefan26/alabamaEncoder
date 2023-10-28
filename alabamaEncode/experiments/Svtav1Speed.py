@@ -3,38 +3,20 @@ Testing svtav1 speed 2v3v4 and which one is the best tradeoff
 """
 import os
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
 from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
+from alabamaEncode.sceneSplit.chunk import ChunkObject
 
 if __name__ == "__main__":
-    paths = [
-        "/mnt/data/liveAction_normal.mp4",
-        "/mnt/data/liveAction_highMotion.mkv",
-        "/mnt/data/Animation.mkv",
-        "/mnt/data/stopmotion.mkv",
-        "/mnt/data/liveAction_4k.mp4",
-        "/mnt/data/liveaction_bright.mkv",
-    ]
-    # paths = ['/mnt/data/liveAction_4k.mp4']
+    paths = get_test_files()[:6]
+
 
     for path in paths:
         print(f"\n\nDoing: {path}")
         chunk = ChunkObject(path=path, first_frame_index=0, last_frame_index=200)
 
         crope_stringe = ""
-
-        if "liveAction_normal" in path:
-            # clip is 4k but we only want to encode 1080p, also map from hdr
-            crope_stringe = "crop=3808:1744:28:208,scale=-2:1080:flags=lanczos,zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=reinhard:desat=0,zscale=t=bt709:m=bt709:r=tv"
-        elif "liveAction_highMotion" in path:
-            # crop black borders
-            crope_stringe = "crop=1920:800:0:140"
-        elif "liveAction_4k" in path:
-            # the same clip as liveAction_normal but in we dont scale down to 1080p
-            crope_stringe = "crop=3808:1744:28:208,zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=reinhard:desat=0,zscale=t=bt709:m=bt709:r=tv"
-        elif "liveaction_bright" in path:
-            crope_stringe = "crop=1920:960:0:60"
 
         svtenc = AbstractEncoderSvtenc()
 
@@ -50,7 +32,7 @@ if __name__ == "__main__":
             os.mkdir(test_env)
 
         svtenc.update(
-            rate_distribution=RateDistribution.VBR,
+            rate_distribution=EncoderRateDistribution.VBR,
             bitrate=1500,
             passes=3,
             chunk=chunk,
@@ -73,7 +55,7 @@ if __name__ == "__main__":
         elif "liveaction_bright" in path:
             svtenc.update(bitrate=1000)
 
-        svtenc.update(rate_distribution=RateDistribution.VBR, passes=3)
+        svtenc.update(rate_distribution=EncoderRateDistribution.VBR, passes=3)
 
         print(
             f"| _Vbr {svtenc.bitrate}_ |  time taken  | kpbs | vmaf  | BD Change % | time Change % |\n"

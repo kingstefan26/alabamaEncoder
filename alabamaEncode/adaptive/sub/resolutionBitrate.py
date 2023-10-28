@@ -1,10 +1,10 @@
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.sceneSplit.chunk import ChunkSequence
 
 
 def get_resolution_for_bitrate(
-    bitrate: int, chunk_sequence: ChunkSequence, config: EncoderConfig
+    bitrate: int, chunk_sequence: ChunkSequence, config: AlabamaContext
 ) -> str:
     """
     What resolution should we use for a given bitrate?
@@ -20,7 +20,7 @@ def get_resolution_for_bitrate(
 
 # prob not implementing this since its not going to be useful
 def get_bitrate_for_resolution(
-    resolution: str, chunk_sequence: ChunkSequence, config: EncoderConfig
+    resolution: str, chunk_sequence: ChunkSequence, config: AlabamaContext
 ) -> int:
     """
     What bitrate should we use for a given resolution?

@@ -3,7 +3,7 @@ import os
 
 from celery import Celery
 
-from alabamaEncode.parallelEncoding.Command import CommandObject
+from alabamaEncode.parallelEncoding.Command import BaseCommandObject
 
 BROKER_URL = os.getenv("BROKER_URL", "redis://" + os.getenv("REDIS_HOST", "localhost"))
 BACKEND_URL = os.getenv(
@@ -22,7 +22,7 @@ app.conf.update(
 
 
 @app.task
-def run_command_on_celery(command: CommandObject) -> None:
+def run_command_on_celery(command: BaseCommandObject) -> None:
     """
     Lo and behold!
     I present unto thee an exquisitely crafted manifestation of code,

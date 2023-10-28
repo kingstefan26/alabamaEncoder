@@ -7,10 +7,9 @@ import pandas as pd
 from pandas import DataFrame
 from tqdm import tqdm
 
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encodeStats import EncodeStats
-from alabamaEncode.encoders.encoder.AbstractEncoder import AbstractEncoder
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
+from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
+from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
+from alabamaEncode.sceneSplit.chunk import ChunkObject
 
 only_one = False
 
@@ -260,7 +259,9 @@ def run_tests_across_range(
 
             for bitrate in tqdm(bitrates, desc="Bitrates", leave=None):
                 enc.update(
-                    bitrate=bitrate, passes=3, rate_distribution=RateDistribution.VBR
+                    bitrate=bitrate,
+                    passes=3,
+                    rate_distribution=EncoderRateDistribution.VBR,
                 )
                 version = f"enc{enc_index}_{bitrate}kbs"
                 if enc_index == 0:
@@ -277,7 +278,7 @@ def run_tests_across_range(
             os.mkdir(crf_env)
 
         for crf in tqdm(crfs, desc="CRF", leave=None):
-            enc.update(crf=crf, passes=1, rate_distribution=RateDistribution.CQ)
+            enc.update(crf=crf, passes=1, rate_distribution=EncoderRateDistribution.CQ)
 
             version = f"enc{enc_index}_{crf}crf"
             if enc_index == 0:

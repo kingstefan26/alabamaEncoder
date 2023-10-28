@@ -14,12 +14,10 @@ from typing import List, Tuple
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.encoders import EncoderConfig
-from alabamaEncode.encoders.RateDiss import RateDistribution
-from alabamaEncode.encoders.encodeStats import EncodeStats
+from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
 from alabamaEncode.parallelEncoding.Command import BaseCommandObject
-from alabamaEncode.sceneSplit.ChunkOffset import ChunkObject
-from alabamaEncode.sceneSplit.Chunks import ChunkSequence
+from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
 from alabamaEncode.utils.ffmpegUtil import get_video_vmeth, get_video_ssim
 
 
@@ -56,9 +54,9 @@ class AutoBitrateLadder:
     Or just use crf nerd.
     """
 
-    def __init__(self, chunk_sequence: ChunkSequence, config: EncoderConfig):
+    def __init__(self, chunk_sequence: ChunkSequence, config: AlabamaContext):
         self.chunk_sequence = chunk_sequence
-        self.config: EncoderConfig = config
+        self.config: AlabamaContext = config
 
         self.chunks = get_test_chunks_out_of_a_sequence(
             self.chunk_sequence, self.random_pick_count
@@ -87,7 +85,7 @@ class AutoBitrateLadder:
         enc.update(
             speed=12,
             passes=1,
-            rate_distribution=RateDistribution.CQ,
+            rate_distribution=EncoderRateDistribution.CQ,
             crf=16,
             threads=1,
             grain_synth=0,
@@ -490,7 +488,7 @@ class AutoBitrateLadder:
             speed=6,
             passes=3,
             grain_synth=self.config.grain_synth,
-            rate_distribution=RateDistribution.VBR,
+            rate_distribution=EncoderRateDistribution.VBR,
             threads=1,
         )
         encoder.svt_bias_pct = 90
@@ -555,7 +553,7 @@ class AutoBitrateLadder:
             speed=6,
             passes=3,
             grain_synth=self.config.grain_synth,
-            rate_distribution=RateDistribution.CQ,
+            rate_distribution=EncoderRateDistribution.CQ,
             threads=1,
         )
 
@@ -648,7 +646,7 @@ class AutoBitrateLadder:
             speed=6,
             passes=3,
             grain_synth=self.config.grain_synth,
-            rate_distribution=RateDistribution.VBR,
+            rate_distribution=EncoderRateDistribution.VBR,
             threads=1,
         )
         encoder.update(
@@ -678,7 +676,7 @@ class AutoBitrateLadder:
                 speed=5,
                 passes=1,
                 grain_synth=self.config.grain_synth,
-                rate_distribution=RateDistribution.CQ,
+                rate_distribution=EncoderRateDistribution.CQ,
                 threads=1,
                 crf=crf,
                 output_path=f"{probe_folder}{c.chunk_index}_{crf}{encoder.get_chunk_file_extension()}",
@@ -714,7 +712,7 @@ class AutoBitrateLadder:
                 speed=5,
                 passes=1,
                 grain_synth=self.config.grain_synth,
-                rate_distribution=RateDistribution.CQ,
+                rate_distribution=EncoderRateDistribution.CQ,
                 threads=1,
             )
 
