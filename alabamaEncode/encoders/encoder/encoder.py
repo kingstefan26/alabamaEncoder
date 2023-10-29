@@ -35,7 +35,7 @@ class AbstractEncoder(ABC):
     output_path: str
     speed = 4
     threads = 1
-    rate_distribution: EncoderRateDistribution = (
+    rate_distribution = (
         EncoderRateDistribution.CQ
     )  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
     qm_enabled = False

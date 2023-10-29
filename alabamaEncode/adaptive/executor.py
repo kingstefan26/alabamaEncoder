@@ -1,3 +1,4 @@
+import json
 import os
 import time
 
@@ -17,12 +18,13 @@ class AdaptiveCommand(BaseCommandObject):
     Class that gets the ideal bitrate and encodes the final chunk
     """
 
-    config: AlabamaContext
+    ctx: AlabamaContext
     chunk: ChunkObject
 
-    def setup(self, chunk: ChunkObject, config: AlabamaContext):
+    def __init__(self, ctx: AlabamaContext, chunk: ChunkObject):
+        super().__init__()
+        self.ctx = ctx
         self.chunk = chunk
-        self.config = config
 
     # how long (seconds) before we time out the final encoding
     # currently set to 30 minutes
@@ -33,34 +35,34 @@ class AdaptiveCommand(BaseCommandObject):
     def run(self):
         total_start = time.time()
 
-        enc: AbstractEncoder = self.config.get_encoder()
+        enc: AbstractEncoder = self.ctx.get_encoder()
 
         enc.running_on_celery = self.run_on_celery
-        enc.setup(chunk=self.chunk, config=self.config)
-        enc.update(grain_synth=self.config.grain_synth, speed=self.config.speed)
+        enc.setup(chunk=self.chunk, config=self.ctx)
+        enc.update(grain_synth=self.ctx.grain_synth, speed=self.ctx.speed)
         rate_search_time = time.time()
-        if self.config.flag1:
+        if self.ctx.flag1:
             enc.update(
                 passes=1,
                 rate_distribution=EncoderRateDistribution.CQ,
-                crf=self.config.crf,
+                crf=self.ctx.crf,
             )
             enc.svt_open_gop = True
 
             stats: EncodeStats = enc.run(timeout_value=self.final_encode_timeout)
 
-            if stats.bitrate > self.config.cutoff_bitrate:
+            if stats.bitrate > self.ctx.cutoff_bitrate:
                 tqdm.write(
                     self.chunk.log_prefix()
-                    + f"at crf {self.config.crf} got {stats.bitrate}, cutoff {self.config.cutoff_bitrate} k/s reached, encoding three pass vbr at cutoff "
+                    + f"at crf {self.ctx.crf} got {stats.bitrate}, cutoff {self.ctx.cutoff_bitrate} k/s reached, encoding three pass vbr at cutoff "
                 )
             else:
                 tqdm.write(
                     self.chunk.log_prefix()
-                    + f"at crf {self.config.crf} got {stats.bitrate}, encoding three pass vbr at {stats.bitrate} k/s "
+                    + f"at crf {self.ctx.crf} got {stats.bitrate}, encoding three pass vbr at {stats.bitrate} k/s "
                 )
 
-            encode_bitrate = min(stats.bitrate, self.config.cutoff_bitrate)
+            encode_bitrate = min(stats.bitrate, self.ctx.cutoff_bitrate)
 
             enc.update(
                 passes=3,
@@ -74,11 +76,11 @@ class AdaptiveCommand(BaseCommandObject):
             # round to two places
             self.calc_stats(enc, stats, total_start)
             return
-        elif self.config.flag2 is True:
+        elif self.ctx.flag2 is True:
             # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
             crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
             points = []
-            target_vmaf = self.config.vmaf
+            target_vmaf = self.ctx.vmaf
 
             class POINT:
                 def __init__(self, crf, vmaf, ssim, bitrate):
@@ -100,7 +102,7 @@ class AdaptiveCommand(BaseCommandObject):
             enc.svt_open_gop = True
 
             def log_to_convex_log(str):
-                with open(f"{self.config.temp_folder}/convex.log", "a") as f:
+                with open(f"{self.ctx.temp_folder}/convex.log", "a") as f:
                     f.write(str + "\n")
 
             def get_score(p: POINT):
@@ -142,7 +144,7 @@ class AdaptiveCommand(BaseCommandObject):
             enc.svt_tune = 0
 
             probe_file_base = get_probe_file_base(
-                self.chunk.chunk_path, self.config.temp_folder
+                self.chunk.chunk_path, self.ctx.temp_folder
             )
             for crf in crfs:
                 enc.update(
@@ -215,8 +217,8 @@ class AdaptiveCommand(BaseCommandObject):
             log_to_convex_log(f"{self.chunk.log_prefix()}Convexhull crf: {crf}")
             enc.update(
                 passes=1,
-                grain_synth=self.config.grain_synth,
-                speed=self.config.speed,
+                grain_synth=self.ctx.grain_synth,
+                speed=self.ctx.speed,
                 rate_distribution=EncoderRateDistribution.CQ,
                 output_path=self.chunk.chunk_path,
                 crf=crf,
@@ -225,7 +227,7 @@ class AdaptiveCommand(BaseCommandObject):
             enc.svt_tune = 0
             enc.svt_overlay = 0
 
-            if self.config.dry_run:
+            if self.ctx.dry_run:
                 for comm in enc.get_encode_commands():
                     print(comm)
 
@@ -237,32 +239,30 @@ class AdaptiveCommand(BaseCommandObject):
             return
 
         else:
-            if self.config.crf_bitrate_mode:
+            if self.ctx.crf_bitrate_mode:
                 enc.update(
                     passes=1,
-                    bitrate=self.config.bitrate,
+                    bitrate=self.ctx.bitrate,
                     rate_distribution=EncoderRateDistribution.CQ_VBV,
-                    crf=self.config.crf,
+                    crf=self.ctx.crf,
                 )
                 enc.svt_open_gop = True
-                enc.max_bitrate = self.config.max_bitrate
-            elif self.config.crf != -1:
+                enc.max_bitrate = self.ctx.max_bitrate
+            elif self.ctx.crf != -1:
                 enc.update(
                     passes=1,
                     rate_distribution=EncoderRateDistribution.CQ,
-                    crf=self.config.crf,
+                    crf=self.ctx.crf,
                 )
                 enc.qm_max = 8
                 enc.qm_enabled = True
                 enc.qm_min = 0
                 enc.svt_open_gop = True
             else:
-                if self.config.bitrate_adjust_mode == "chunk":
-                    self.chunk.ideal_bitrate = get_ideal_bitrate(
-                        self.chunk, self.config
-                    )
+                if self.ctx.bitrate_adjust_mode == "chunk":
+                    self.chunk.ideal_bitrate = get_ideal_bitrate(self.chunk, self.ctx)
                 else:
-                    self.chunk.ideal_bitrate = self.config.bitrate
+                    self.chunk.ideal_bitrate = self.ctx.bitrate
 
                 enc.update(
                     passes=3,
@@ -274,7 +274,7 @@ class AdaptiveCommand(BaseCommandObject):
         rate_search_time = time.time() - rate_search_time
 
         try:
-            if self.config.dry_run:
+            if self.ctx.dry_run:
                 print(f"dry run chunk: {self.chunk.chunk_index}")
                 for comm in enc.get_encode_commands():
                     print(comm)
@@ -296,7 +296,7 @@ class AdaptiveCommand(BaseCommandObject):
         stats.total_fps = total_fps
         stats.target_miss_proc = taget_miss_proc
         stats.chunk_index = self.chunk.chunk_index
-        self.config.log(
+        self.ctx.log(
             f"[{self.chunk.chunk_index}] final stats:"
             f" vmaf={stats.vmaf} "
             f" time={int(stats.time_encoding)}s "
@@ -305,8 +305,9 @@ class AdaptiveCommand(BaseCommandObject):
             f" chunk_lenght={round(self.chunk.get_lenght(), 2)}s"
             f" total_fps={total_fps}"
         )
-        # save the stats to [temp_folder]/stats/chunk_[index].json
-        os.makedirs(f"{self.config.temp_folder}/stats", exist_ok=True)
-        stats.save(
-            f"{self.config.temp_folder}/stats/chunk_{self.chunk.chunk_index}.json"
-        )
+        # save the stats to [temp_folder]/chunks.log
+        try:
+            with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
+                f.write(json.dumps(stats.get_dict()) + "\n")
+        except:
+            pass

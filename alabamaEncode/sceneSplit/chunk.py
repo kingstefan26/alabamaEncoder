@@ -154,6 +154,14 @@ class ChunkObject:
         self.chunk_done = True
         return False
 
+    def is_done(self) -> bool:
+        """
+        checks if the chunk is done
+        :return: True if done
+        """
+        self.verify_integrity()
+        return self.chunk_done
+
 
 def process_chunk(args) -> ChunkObject or None:
     """

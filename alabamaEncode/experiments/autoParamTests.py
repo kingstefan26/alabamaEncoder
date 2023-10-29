@@ -14,7 +14,9 @@ if __name__ == "__main__":
     test_folder = os.path.abspath("./tst/")
     input_file = get_test_files()[0]
 
-    config = AlabamaContext(temp_folder=test_folder, grain_synth=4)
+    config = AlabamaContext()
+    config.temp_folder = test_folder
+    config.grain_synth = 4
 
     scenes: ChunkSequence = get_video_scene_list_skinny(
         input_file=input_file,

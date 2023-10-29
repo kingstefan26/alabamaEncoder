@@ -29,15 +29,17 @@ def test():
 
     bitrate_being_evaluated = 2000
 
-    ab = AutoBitrateLadder(chunk_sequence, AlabamaContext(temp_folder=testing_env))
+    context = AlabamaContext()
+    context.temp_folder = testing_env
+    ab = AutoBitrateLadder(chunk_sequence, context)
     ab.remove_ssim_translate_cache()
     ssim_db_target = ab.get_target_ssimdb(bitrate_being_evaluated)
 
-    config = AlabamaContext(
-        temp_folder=testing_env,
-        ssim_db_target=ssim_db_target,
-        bitrate=bitrate_being_evaluated,
-    )
+    config = AlabamaContext()
+
+    config.temp_folder = testing_env
+    config.ssim_db_target = ssim_db_target
+    config.bitrate = bitrate_being_evaluated
 
     chunks = get_test_chunks_out_of_a_sequence(chunk_sequence, 10)
     test_chunks: List[ChunkObject] = copy.deepcopy(chunks)

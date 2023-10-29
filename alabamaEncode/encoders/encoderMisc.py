@@ -100,6 +100,9 @@ class EncodersEnum(Enum):
     AOMENC: int = 2
     X264: int = 3
 
+    def __str__(self):
+        return self.name
+
     @staticmethod
     def from_str(encoder_name: str):
         """

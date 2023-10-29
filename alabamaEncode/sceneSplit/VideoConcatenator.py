@@ -9,7 +9,6 @@ from alabamaEncode.utils.execute import syscmd
 
 
 class VideoConcatenator:
-    mux_audio = True
     nessesary = ["ffmpeg"]
 
     def __init__(
@@ -22,6 +21,7 @@ class VideoConcatenator:
         end_offset=-1,
         title="",
         encoder_name="TestHoeEncode",
+        mux_audio=True,
     ):
         self.files = files
         self.output = output
@@ -31,6 +31,7 @@ class VideoConcatenator:
         self.end_offset = end_offset
         self.title = title
         self.encoder_name = encoder_name
+        self.mux_audio = mux_audio
         for n in self.nessesary:
             if not doesBinaryExist(n):
                 print(f"Could not find {n} in PATH")

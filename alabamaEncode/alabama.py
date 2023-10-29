@@ -1,25 +1,36 @@
+import argparse
 import os
 
 from tqdm import tqdm
 
+import alabamaEncode.final_touches
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodersEnum, EncoderRateDistribution
+from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.path import PathAlabama
+from alabamaEncode.sceneSplit.chunk import ChunkObject
+from alabamaEncode.utils.binary import doesBinaryExist
+from alabamaEncode.utils.ffmpegUtil import do_cropdetect
 
 
 class AlabamaContext:
     """A class to hold the configuration for the encoder"""
 
     video_filters: str = ""
-    bitrate: int = 0
+    bitrate: int = 2000
     temp_folder: str = ""
-    vbr_perchunk_optimisation: bool = False
-    vmaf: int
+    output_folder: str = ""
+    output_file: str = ""
+    input_file: str = ""
+    raw_input_file: str = ""
+    vbr_perchunk_optimisation: bool = True
+    vmaf: int = 96
     ssim_db_target: float = 20
     grain_synth: int = -1
     passes: (1 or 2 or 3) = 3
     crf: float = -1
     speed: int = 4
-    rate_distribution: EncoderRateDistribution
+    rate_distribution: EncoderRateDistribution = EncoderRateDistribution.CQ
     threads: int = 1
     qm_enabled: bool = False
     qm_min: int = 8
@@ -45,6 +56,26 @@ class AlabamaContext:
     matrix_coefficients: str = "bt709"
     maximum_content_light_level: str = ""
     maximum_frame_average_light_level: str = ""
+    chunk_stats_path: str = ""
+    find_best_bitrate = False
+    find_best_grainsynth = False
+    hdr = False
+    crop_string = ""
+    scale_string = ""
+
+    max_scene_length: int = 10
+    start_offset: int = -1
+    end_offset: int = -1
+    override_scenecache_path_check: bool = False
+    title = ""
+    chunk_order = "sequential"
+    audio_params = (
+        "-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1"
+    )
+    generate_previews = True
+    encoder_name = "SouAV1R"
+    encode_audio = True
+    auto_crop = False
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -52,44 +83,6 @@ class AlabamaContext:
 
     def get_encoder(self) -> AbstractEncoder:
         return self.encoder.get_encoder()
-
-    def __init__(
-        self,
-        video_filters="",
-        bitrate=0,
-        temp_folder="",
-        vbr_perchunk_optimisation=False,
-        vmaf=96,
-        grain_synth=-1,
-        passes=2,
-        crf=-1,
-        speed=3,
-        rate_distribution=EncoderRateDistribution.VBR,
-        threads=1,
-        ssim_db_target=20,
-        qm_enabled=False,
-        qm_min=8,
-        qm_max=15,
-        log_level=0,
-        dry_run=False,
-    ):
-        self.video_filters = video_filters
-        self.log_level = log_level
-        self.ssim_db_target = ssim_db_target
-        self.bitrate = bitrate
-        self.temp_folder = temp_folder
-        self.vbr_perchunk_optimisation = vbr_perchunk_optimisation
-        self.vmaf = vmaf
-        self.grain_synth = grain_synth
-        self.passes = passes
-        self.crf = crf
-        self.speed = speed
-        self.rate_distribution = rate_distribution
-        self.threads = threads
-        self.qm_enabled = qm_enabled
-        self.qm_min = qm_min
-        self.qm_max = qm_max
-        self.dry_run = dry_run
 
     def update(self, **kwargs):
         """
@@ -139,3 +132,409 @@ class AlabamaContext:
             self.qm_max = kwargs.get("qm_max")
             if not isinstance(self.qm_max, int):
                 raise Exception("FATAL: qm_max must be an int")
+
+
+def setup_context() -> AlabamaContext:
+    ctx = AlabamaContext()
+    args = parse_args(ctx)
+
+    ctx.output_file = os.path.abspath(args.output)
+
+    # get outputs folder
+    ctx.output_folder = os.path.dirname(ctx.output_file) + "/"
+
+    # turn tempfolder into a full path
+    ctx.temp_folder = ctx.output_folder + "temp/"
+    if not os.path.exists(ctx.temp_folder):
+        os.makedirs(ctx.temp_folder)
+
+    ctx.input_file = ctx.temp_folder + "temp.mkv"
+
+    ctx.raw_input_file = os.path.abspath(args.input)
+
+    if not os.path.exists(ctx.raw_input_file):
+        print(f"Input file {ctx.raw_input_file} does not exist")
+        quit()
+
+    # symlink input file to temp folder
+    if not os.path.exists(ctx.input_file):
+        os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
+        if not os.path.exists(ctx.input_file):
+            print(f"Failed to symlink input file to {ctx.input_file}")
+            quit()
+
+    ctx.log_level = args.log_level
+    ctx.dry_run = args.dry_run
+    ctx.ssim_db_target = args.ssim_db_target
+    ctx.vmaf = args.vmaf_target
+    ctx.encoder = EncodersEnum.from_str(args.encoder)
+    ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
+    ctx.use_celery = args.celery
+    ctx.flag1 = args.flag1
+    ctx.flag2 = args.flag2
+    ctx.flag3 = args.flag3
+    ctx.override_flags = args.encoder_flag_override
+    ctx.speed = args.encoder_speed_override
+    ctx.multiprocess_workers = args.multiprocess_workers
+    ctx.bitrate_adjust_mode = args.bitrate_adjust_mode
+    ctx.bitrate_undershoot = args.undershoot
+    ctx.bitrate_overshoot = args.overshoot
+    ctx.crf_bitrate_mode = args.auto_crf
+    ctx.crf = args.crf
+    ctx.chunk_stats_path = f"{ctx.temp_folder}/chunks.log"
+    ctx.hdr = args.hdr
+    ctx.max_scene_length = args.max_scene_length
+    ctx.start_offset = args.start_offset
+    ctx.end_offset = args.end_offset
+    ctx.override_scenecache_path_check = args.override_bad_wrong_cache_path
+    ctx.crop_string = args.crop_string
+    ctx.scale_string = args.scale_string
+    ctx.title = args.title
+    ctx.chunk_order = args.chunk_order
+    ctx.audio_params = args.audio_params
+    ctx.generate_previews = alabamaEncode.final_touches.generate_previews
+    ctx.encode_audio = args.encode_audio
+
+    if args.crf != -1:
+        print("Using crf mode")
+        ctx.crf = args.crf
+    if ctx.flag1 and ctx.bitrate == -1:
+        print("Flag1 requires bitrate to be set --bitrate 2M")
+        quit()
+    if "auto" in args.bitrate or "-1" in args.bitrate and ctx.flag1 and not ctx.flag2:
+        print("Flag1 and auto bitrate are mutually exclusive")
+        quit()
+
+    find_best_bitrate = False
+    if "auto" in args.bitrate or "-1" in args.bitrate:
+        find_best_bitrate = True
+    else:
+        if "M" in args.bitrate or "m" in args.bitrate:
+            ctx.bitrate = args.bitrate.replace("M", "")
+            ctx.bitrate = int(ctx.bitrate) * 1000
+        else:
+            ctx.bitrate = args.bitrate.replace("k", "")
+            ctx.bitrate = args.bitrate.replace("K", "")
+
+            try:
+                ctx.bitrate = int(args.bitrate)
+            except ValueError:
+                raise ValueError("Failed to parse bitrate")
+
+    find_best_grainsynth = True if args.grain == -1 else False
+    if find_best_grainsynth and not doesBinaryExist("butteraugli"):
+        print("Autograin requires butteraugli in path, please install it")
+        quit()
+
+    # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
+    if args.video_filters != "" and (
+        args.hdr or args.video_filters != "" or args.scale_string != ""
+    ):
+        print(
+            "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
+        )
+        quit()
+
+    ctx.grain_synth = args.grain
+    # eg crop=3840:1600:0:280,scale=1920:-2:flags=lanczos
+    ctx.video_filters = args.video_filters
+    if ctx.video_filters == "":
+        if args.autocrop:
+            output = do_cropdetect(ChunkObject(path=ctx.input_file))
+            output.replace("crop=", "")
+            if output != "":
+                args.video_filters = output
+
+        final = ""
+
+        if args.crop_string != "":
+            final += f"crop={args.crop_string}"
+
+        if args.scale_string != "":
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += f"scale={args.scale_string}:flags=lanczos"
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
+        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+
+        if args.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += tonemap_string
+
+        ctx.video_filters = final
+
+    if args.encoder == EncodersEnum.X265 and args.auto_crf == False:
+        print("x265 only supports auto crf, set `--auto_crf true`")
+        quit()
+
+    ctx.find_best_bitrate = find_best_bitrate
+    ctx.find_best_grainsynth = find_best_grainsynth
+
+    return ctx
+
+
+def parse_args(ctx: AlabamaContext):
+    parser = argparse.ArgumentParser(
+        description="Encode a video using SVT-AV1, and mux it with ffmpeg"
+    )
+    parser.add_argument("input", type=str, help="Input video file")
+    parser.add_argument("output", type=str, help="Output video file")
+
+    parser.add_argument(
+        "--encode_audio",
+        help="Mux audio",
+        action="store_true",
+        default=ctx.encode_audio,
+    )
+
+    parser.add_argument(
+        "--audio_params",
+        help="Audio params",
+        type=str,
+        default=ctx.audio_params,
+    )
+
+    parser.add_argument(
+        "--celery",
+        help="Encode on a celery cluster, that is at localhost",
+        action="store_true",
+        default=ctx.use_celery,
+    )
+
+    parser.add_argument(
+        "--autocrop",
+        help="Automatically crop the video",
+        action="store_true",
+        default=ctx.auto_crop,
+    )
+
+    parser.add_argument(
+        "--video_filters",
+        type=str,
+        default=ctx.video_filters,
+        help="Override the crop, put your vf ffmpeg there, example "
+        "scale=-2:1080:flags=lanczos,zscale=t=linear..."
+        " make sure ffmpeg on all workers has support for the filters you use",
+    )
+
+    parser.add_argument(
+        "--bitrate",
+        help="Bitrate to use, `auto` for auto bitrate selection",
+        type=str,
+        default=str(ctx.bitrate),
+    )
+
+    parser.add_argument(
+        "--overshoot",
+        help="How much proc the vbr_perchunk_optimisation is allowed to overshoot",
+        type=int,
+        default=ctx.bitrate_overshoot,
+    )
+
+    parser.add_argument(
+        "--undershoot",
+        help="How much proc the vbr_perchunk_optimisation is allowed to undershoot",
+        type=int,
+        default=ctx.bitrate_undershoot,
+    )
+
+    parser.add_argument(
+        "--vbr_perchunk_optimisation",
+        help="Enable automatic bitrate optimisation per chunk",
+        action=argparse.BooleanOptionalAction,
+        default=ctx.vbr_perchunk_optimisation,
+    )
+
+    parser.add_argument(
+        "--multiprocess_workers",
+        help="Number of workers to use for multiprocessing, if -1 the program will auto scale",
+        type=int,
+        default=ctx.multiprocess_workers,
+    )
+
+    parser.add_argument(
+        "--ssim-db-target",
+        type=float,
+        default=ctx.ssim_db_target,
+        help="What ssim dB to target when using auto bitrate,"
+        " not recommended to set manually, otherwise 21.2 is a good starting"
+        " point",
+    )
+
+    parser.add_argument(
+        "--crf",
+        help="What crf to use",
+        type=int,
+        default=ctx.crf,
+        choices=range(0, 63),
+    )
+
+    parser.add_argument(
+        "--encoder",
+        help="What encoder to use",
+        type=str,
+        default=str(EncodersEnum.SVT_AV1),
+        choices=["svt_av1", "x265", "aomenc", "x264"],
+    )
+
+    parser.add_argument(
+        "--grain",
+        help="Manually give the grainsynth value, 0 to disable, -1 for auto",
+        type=int,
+        default=ctx.grain_synth,
+        choices=range(-1, 63),
+    )
+
+    parser.add_argument(
+        "--vmaf_target",
+        help="What vmaf to target when using bitrate auto",
+        default=ctx.vmaf,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--max_scene_length",
+        help="If a scene is longer then this, it will recursively cut in the"
+        " middle it to get until each chunk is within the max",
+        type=int,
+        default=ctx.max_scene_length,
+        metavar="max_scene_length",
+    )
+
+    parser.add_argument(
+        "--auto_crf",
+        help="Alternative to auto bitrate tuning, that uses crf",
+        action="store_true",
+        default=ctx.crf_bitrate_mode,
+    )
+
+    parser.add_argument(
+        "--chunk_order",
+        help="Encode chunks in a specific order",
+        type=str,
+        default=ctx.chunk_order,
+        choices=[
+            "random",
+            "sequential",
+            "length_desc",
+            "length_asc",
+            "sequential_reverse",
+        ],
+    )
+
+    parser.add_argument(
+        "--start_offset",
+        help="Offset from the beginning of the video (in seconds), useful for cutting intros etc",
+        default=ctx.start_offset,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--end_offset",
+        help="Offset from the end of the video (in seconds), useful for cutting end credits outtros etc",
+        default=ctx.end_offset,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--bitrate_adjust_mode",
+        help="do a complexity analysis on each chunk individually and adjust "
+        "bitrate based on that, can overshoot/undershoot a lot, "
+        "otherwise do complexity analysis on all chunks ahead of time"
+        " and budget it to hit target by normalizing the bitrate",
+        type=str,
+        default=ctx.bitrate_adjust_mode,
+        choices=["chunk", "global"],
+    )
+
+    parser.add_argument(
+        "--log_level",
+        help="Set the log level, 0 silent, 1 verbose",
+        type=int,
+        default=ctx.log_level,
+    )
+
+    parser.add_argument(
+        "--generate_previews",
+        help="Generate previews for encoded file",
+        action="store_true",
+        default=ctx.generate_previews,
+    )
+
+    parser.add_argument(
+        "--override_bad_wrong_cache_path",
+        help="Override the check for input file path matching in scene cache loading",
+        action="store_true",
+        default=ctx.override_scenecache_path_check,
+    )
+
+    parser.add_argument(
+        "--hdr",
+        help="Encode in HDR`, if off and input is HDR, it will be tonemapped to SDR",
+        action="store_true",
+        default=ctx.hdr,
+    )
+
+    parser.add_argument(
+        "--crop_string",
+        help="Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter",
+        type=str,
+        default=ctx.crop_string,
+    )
+
+    parser.add_argument(
+        "--scale_string",
+        help="Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`",
+        type=str,
+        default=ctx.scale_string,
+    )
+
+    parser.add_argument(
+        "--dry_run",
+        help="Do not encode, just print what would be done",
+        action="store_true",
+        default=ctx.dry_run,
+    )
+
+    parser.add_argument(
+        "--title", help="Title of the video", type=str, default=ctx.title
+    )
+
+    parser.add_argument(
+        "--encoder_flag_override",
+        type=str,
+        default=ctx.override_flags,
+        help="Override the encoder flags with this string," " except paths",
+    )
+
+    parser.add_argument(
+        "--encoder_speed_override",
+        type=int,
+        choices=range(0, 8),
+        default=ctx.speed,
+        help="Override the encoder speed parameter",
+    )
+
+    parser.add_argument(
+        "--flag1",
+        action="store_true",
+        help="find what crf matches config.bitrate, encode at that crf and redo if the crf bitrate is higher then set",
+        default=ctx.flag1,
+    )
+
+    parser.add_argument(
+        "--flag2",
+        action="store_true",
+        help="Find bitrate automaticly for flag 1",
+        default=ctx.flag2,
+    )
+
+    parser.add_argument(
+        "--flag3",
+        action="store_true",
+        help="Find best bitrate using the top 5% of most complex chunks",
+        default=ctx.flag3,
+    )
+
+    return parser.parse_args()
