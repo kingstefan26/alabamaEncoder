@@ -65,11 +65,13 @@ class AbstractEncoder(ABC):
     svt_overlay = 0  # enable overlays
     film_grain_denoise: (0 | 1) = 1
 
-    color_primaries = "bt709"
-    transfer_characteristics = "bt709"
-    matrix_coefficients = "bt709"
+    color_primaries = 1
+    transfer_characteristics = 1
+    matrix_coefficients = 1
     maximum_content_light_level = ""
     maximum_frame_average_light_level = ""
+    chroma_sample_position = 0
+    hdr = False
 
     running_on_celery = False
 
@@ -91,12 +93,16 @@ class AbstractEncoder(ABC):
             qm_min=config.qm_min,
             qm_max=config.qm_max,
             override_flags=config.override_flags,
-            color_primaries=config.color_primaries,
-            transfer_characteristics=config.transfer_characteristics,
-            matrix_coefficients=config.matrix_coefficients,
-            maximum_content_light_level=config.maximum_content_light_level,
-            maximum_frame_average_light_level=config.maximum_frame_average_light_level,
         )
+        self.color_primaries = config.color_primaries
+        self.transfer_characteristics = config.transfer_characteristics
+        self.matrix_coefficients = config.matrix_coefficients
+        self.maximum_content_light_level = config.maximum_content_light_level
+        self.maximum_frame_average_light_level = (
+            config.maximum_frame_average_light_level
+        )
+        self.chroma_sample_position = config.chroma_sample_position
+        self.hdr = config.hdr
 
     def update(self, **kwargs):
         """
@@ -280,6 +286,7 @@ class AbstractEncoder(ABC):
             except Exception as e:
                 print(e)
                 print("Failed to get vmaf")
+                raise e
         if calcualte_ssim:
             stats.ssim = get_video_ssim(
                 self.output_path, self.chunk, video_filters=self.video_filters

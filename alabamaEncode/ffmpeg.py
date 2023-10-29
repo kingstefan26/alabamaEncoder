@@ -157,3 +157,10 @@ class Ffmpeg:
             print(f"Audio is {aud_bps} bps")
 
         return vid_bps, aud_bps
+
+    @staticmethod
+    def get_tonemap_vf() -> str:
+
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
+        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+        return tonemap_string

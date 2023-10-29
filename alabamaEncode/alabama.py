@@ -51,15 +51,10 @@ class AlabamaContext:
     flag3: bool = False
     cutoff_bitrate: int = -1
     override_flags: str = ""
-    color_primaries: str = "bt709"
-    transfer_characteristics: str = "bt709"
-    matrix_coefficients: str = "bt709"
-    maximum_content_light_level: str = ""
-    maximum_frame_average_light_level: str = ""
+
     chunk_stats_path: str = ""
     find_best_bitrate = False
     find_best_grainsynth = False
-    hdr = False
     crop_string = ""
     scale_string = ""
 
@@ -76,6 +71,14 @@ class AlabamaContext:
     encoder_name = "SouAV1R"
     encode_audio = True
     auto_crop = False
+
+    hdr = False
+    color_primaries: int = 1
+    transfer_characteristics: int = 1
+    matrix_coefficients: int = 1
+    maximum_content_light_level: int = 0
+    maximum_frame_average_light_level: int = 0
+    chroma_sample_position = 0
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -195,6 +198,13 @@ def setup_context() -> AlabamaContext:
     ctx.generate_previews = alabamaEncode.final_touches.generate_previews
     ctx.encode_audio = args.encode_audio
 
+    ctx.color_primaries = args.color_primaries
+    ctx.transfer_characteristics = args.transfer_characteristics
+    ctx.matrix_coefficients = args.matrix_coefficients
+    ctx.maximum_content_light_level = args.maximum_content_light_level
+    ctx.maximum_frame_average_light_level = args.frame_average_light
+    ctx.chroma_sample_position = args.chroma_sample_position
+
     if args.crf != -1:
         print("Using crf mode")
         ctx.crf = args.crf
@@ -254,13 +264,11 @@ def setup_context() -> AlabamaContext:
             if final != "" and final[-1] != ",":
                 final += ","
             final += f"scale={args.scale_string}:flags=lanczos"
-        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
-        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
 
         if args.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
             if final != "" and final[-1] != ",":
                 final += ","
-            final += tonemap_string
+            final += Ffmpeg.get_tonemap_vf()
 
         ctx.video_filters = final
 
@@ -535,6 +543,46 @@ def parse_args(ctx: AlabamaContext):
         action="store_true",
         help="Find best bitrate using the top 5% of most complex chunks",
         default=ctx.flag3,
+    )
+
+    # --enable-hdr 1 --color-primaries 9 --transfer-characteristics 16 --content-light 1246,410  --matrix-coefficients 9 --chroma-sample-position 2
+
+    parser.add_argument(
+        "--color-primaries",
+        type=str,
+        default=ctx.color_primaries,
+        help="Color primaries",
+    )
+    parser.add_argument(
+        "--transfer-characteristics",
+        type=str,
+        default=ctx.transfer_characteristics,
+        help="Transfer characteristics",
+    )
+    parser.add_argument(
+        "--matrix-coefficients",
+        type=str,
+        default=ctx.matrix_coefficients,
+        help="Matrix coefficients",
+    )
+    parser.add_argument(
+        "--maximum_content_light_level",
+        type=str,
+        default=ctx.maximum_content_light_level,
+        help="Maximum content light level",
+    )
+
+    parser.add_argument(
+        "--frame-average-light",
+        type=str,
+        default=ctx.maximum_frame_average_light_level,
+        help="Maximum frame average light level",
+    )
+    parser.add_argument(
+        "--chroma-sample-position",
+        type=str,
+        default=ctx.maximum_frame_average_light_level,
+        help="Chroma sample position",
     )
 
     return parser.parse_args()

@@ -79,6 +79,14 @@ def get_video_vmeth(
 
     # ffmpeg -hide_banner -i tst.mp4 -i tst_av1.webm -lavfi libvmaf='model=path=model.json:feature=name=psnr|name=ciede|name=cambi|name=psnr_hvs:log_path=out.json:log_fmt=xml:threads=12' -f null -
 
+    if (
+        Ffmpeg.get_tonemap_vf() not in video_filters
+        and Ffmpeg.is_hdr(PathAlabama(in_chunk.path)) is True
+    ):
+        if video_filters != "":
+            video_filters += ","
+        video_filters += Ffmpeg.get_tonemap_vf()
+
     null_ = in_chunk.create_chunk_ffmpeg_pipe_command(video_filters=video_filters)
     null_ += f" | ffmpeg -hide_banner -i - "
 
@@ -116,7 +124,11 @@ def get_video_vmeth(
 
     option_str = ":".join(option_arr)
 
-    null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
+    if Ffmpeg.is_hdr(PathAlabama(distorted_path)):
+        null_ += f'-i "{distorted_path}" -lavfi "[1:v]{Ffmpeg.get_tonemap_vf()}[distorted];[0:v][distorted]libvmaf=\'{option_str}\'" -f null - '
+    else:
+        null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
+
     result_string = syscmd(null_)
     try:
         vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")

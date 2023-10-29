@@ -92,13 +92,15 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                 if self.crf > 63:
                     raise Exception("FATAL: crf must be less than 63")
 
+            # --enable-hdr 1 --color-primaries 9 --transfer-characteristics 16  --matrix-coefficients 9 --chroma-sample-position 2 --content-light 1246,410
+
             kommand += f" --color-primaries {self.color_primaries}"
             kommand += f" --transfer-characteristics {self.transfer_characteristics}"
             kommand += f" --matrix-coefficients {self.matrix_coefficients}"
-            if (
-                self.maximum_content_light_level != ""
-                and self.maximum_frame_average_light_level != ""
-            ):
+
+            if self.hdr:
+                kommand += f" --enable-hdr 1"
+                kommand += f" --chroma-sample-position {self.chroma_sample_position}"
                 kommand += f" --content-light {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
 
             def bitrate_check():

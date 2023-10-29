@@ -110,7 +110,11 @@ class EncodersEnum(Enum):
         :param encoder_name:
         :return:
         """
-        if encoder_name == "SVT-AV1" or encoder_name == "svt_av1":
+        if (
+            encoder_name == "SVT-AV1"
+            or encoder_name == "svt_av1"
+            or encoder_name == "SVT_AV1"
+        ):
             return EncodersEnum.SVT_AV1
         elif encoder_name == "x265":
             return EncodersEnum.X265
