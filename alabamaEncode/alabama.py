@@ -63,6 +63,7 @@ class AlabamaContext:
     end_offset: int = -1
     override_scenecache_path_check: bool = False
     title = ""
+    sub_file = ""
     chunk_order = "sequential"
     audio_params = (
         "-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1"
@@ -197,6 +198,7 @@ def setup_context() -> AlabamaContext:
     ctx.audio_params = args.audio_params
     ctx.generate_previews = alabamaEncode.final_touches.generate_previews
     ctx.encode_audio = args.encode_audio
+    ctx.sub_file = args.subs_file
 
     ctx.color_primaries = args.color_primaries
     ctx.transfer_characteristics = args.transfer_characteristics
@@ -583,6 +585,13 @@ def parse_args(ctx: AlabamaContext):
         type=str,
         default=ctx.maximum_frame_average_light_level,
         help="Chroma sample position",
+    )
+
+    parser.add_argument(
+        "--sub_file",
+        type=str,
+        default=ctx.sub_file,
+        help="Subtitles file, eg .srt or .vvt",
     )
 
     return parser.parse_args()

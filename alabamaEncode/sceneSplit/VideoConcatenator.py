@@ -22,6 +22,7 @@ class VideoConcatenator:
         title="",
         encoder_name="TestHoeEncode",
         mux_audio=True,
+        subs_file=None,
     ):
         self.files = files
         self.output = output
@@ -32,6 +33,7 @@ class VideoConcatenator:
         self.title = title
         self.encoder_name = encoder_name
         self.mux_audio = mux_audio
+        self.subs_file = subs_file
         for n in self.nessesary:
             if not doesBinaryExist(n):
                 print(f"Could not find {n} in PATH")
@@ -108,21 +110,32 @@ class VideoConcatenator:
             title_bit = f' -metadata description="encoded by {self.encoder_name}" '
             if self.title:
                 title_bit += f' -metadata title="{self.title}"'
-            sub_hack = ""
-            if "mp4" in self.output:
-                sub_hack = " -c:s mov_text "
 
-            final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
-            print(f"running: {final_command}")
-            out = syscmd(final_command)
-
-            if (
-                "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
-                in str(out)
-            ):
-                print("Subtitle encoding failed, trying again")
+            if self.subs_file is None:
+                sub_hack = ""
+                if "mp4" in self.output:
+                    sub_hack = " -c:s mov_text "
+                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
-                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                out = syscmd(final_command)
+                if (
+                    "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
+                    in str(out)
+                ):
+                    print("Subtitle encoding failed, trying again")
+                    print(f"running: {final_command}")
+                    final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                    syscmd(final_command)
+            else:
+                subs_i = ""
+                subs_map = ""
+
+                for i, sub in enumerate(self.subs_file):
+                    subs_i += f'-i "{sub}" '
+                    subs_map += f"-map {i+2} "
+
+                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                print(f"running: {final_command}")
                 syscmd(final_command)
 
             remove_command = f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"'

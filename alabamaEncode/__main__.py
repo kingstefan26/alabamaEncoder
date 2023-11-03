@@ -359,6 +359,7 @@ def main():
                 title=config.title,
                 encoder_name=config.encoder_name,
                 mux_audio=config.encode_audio,
+                subs_file=[config.sub_file],
             )
             concat.find_files_in_dir(
                 folder_path=config.temp_folder,
