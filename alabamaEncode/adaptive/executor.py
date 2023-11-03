@@ -105,6 +105,7 @@ class AdaptiveCommand(BaseCommandObject):
                 with open(f"{self.ctx.temp_folder}/convex.log", "a") as f:
                     f.write(str + "\n")
 
+            # score func, the lowest score gets selected
             def get_score(p: POINT):
                 """
                 calc score including bitrate vmaf and 1% 5% percentiles with weights
@@ -112,17 +113,22 @@ class AdaptiveCommand(BaseCommandObject):
                 """
                 score = 0
 
+                bad_vmaf_offest = 1
+                # 95 - 1 = 94
+                vmaf_target = target_vmaf - bad_vmaf_offest
+                vmaf_target = max(100, vmaf_target)
+
                 score_bellow_target_weight = 7
-                score_above_target_weight = 3
-                score_bitrate_weight = 19
+                score_above_target_weight = 5
+                score_bitrate_weight = 20
                 score_average_weight = 2
-                score_5_percentile_target_weight = 15
+                score_5_percentile_target_weight = 5
 
                 # punish if the score is bellow target
-                score += max(0, target_vmaf - p.vmaf) * score_bellow_target_weight
+                score += max(0, vmaf_target - p.vmaf) * score_bellow_target_weight
 
                 # punish if the score is higher then target
-                score += max(0, p.vmaf - target_vmaf) * score_above_target_weight
+                score += max(0, p.vmaf - vmaf_target) * score_above_target_weight
 
                 # how 5%tile frames looked compared to overall score
                 # punishing if the video is not consistent
@@ -131,7 +137,7 @@ class AdaptiveCommand(BaseCommandObject):
                 # how 5%tile frames looked compared to target, don't if above target
                 # punishing if the worst parts of the video are bellow target
                 score += (
-                    max(0, target_vmaf - p.vmaf_percentile_5)
+                    max(0, vmaf_target - p.vmaf_percentile_5)
                     * score_5_percentile_target_weight
                 )
 
@@ -152,15 +158,18 @@ class AdaptiveCommand(BaseCommandObject):
                         probe_file_base
                         + f"convexhull.{crf}{enc.get_chunk_file_extension()}"
                     ),
-                    speed=11,
+                    speed=13,
                     passes=1,
                     grain_synth=-1,
                 )
                 enc.crf = crf
+                probe_vmaf_log = enc.output_path + ".vmaflog"
+
                 stats: EncodeStats = enc.run(
                     timeout_value=self.final_encode_timeout,
                     calculate_vmaf=True,
                     # vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
+                    vmaf_params={"log_path": probe_vmaf_log},
                 )
 
                 point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)
@@ -176,6 +185,8 @@ class AdaptiveCommand(BaseCommandObject):
                     f"{self.chunk.log_prefix()} crf: {crf} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {get_score(point)}"
                 )
 
+                if os.path.exists(probe_vmaf_log):
+                    os.remove(probe_vmaf_log)
                 points.append(point)
 
             # convex hull

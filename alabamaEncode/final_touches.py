@@ -1,4 +1,3 @@
-import glob
 import json
 import os
 import random
@@ -24,11 +23,10 @@ def print_stats(
     cut_intro: bool,
     cut_credits: bool,
 ):
-    # Load all ./temp/stats/*.json object
-    stats = []
-    for file in glob.glob(f"{output_folder}temp/stats/*.json"):
-        with open(file) as f:
-            stats.append(json.load(f))
+
+    cc = open(f"{output_folder}temp/chunks.log").read()
+    lines = cc.split("\n")
+    stats = [json.loads(line) for line in lines if line]
 
     # sum up all the time_encoding variables
     time_encoding = 0

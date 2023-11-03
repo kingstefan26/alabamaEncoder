@@ -62,10 +62,10 @@ class AbstractEncoderAomEnc(AbstractEncoder):
                     encode_command += f" --end-usage=q --cq-level={self.crf}"
                     self.passes = 2
                 case EncoderRateDistribution.CQ_VBV:
-                    if self.bitrate == -1 or self.bitrate is None:
-                        encode_command += f" --end-usage=q --cq-level={self.crf}"
-                    else:
+                    if self.bitrate != -1 and self.bitrate is not None:
                         encode_command += f" --end-usage=cq --cq-level={self.crf} --target-bitrate={self.bitrate} "
+                    else:
+                        encode_command += f" --end-usage=q --cq-level={self.crf}"
 
             if self.photon_noise_path == "":
                 encode_command += f" --enable-dnl-denoising=1 --denoise-noise-level={self.grain_synth}"

@@ -49,7 +49,7 @@ class AbstractEncoder(ABC):
 
     svt_bias_pct = 50  # 100 vbr like, 0 cbr like
     svt_open_gop = True
-    keyint: int = -1
+    keyint: int = 999999
     svt_sdc: int = 0
     svt_chroma_thing = -2
     svt_supperres_mode = 0
@@ -244,9 +244,7 @@ class AbstractEncoder(ABC):
 
             threads = vmaf_params.get("threads", 1)
 
-            # log_path = vmaf_params.get("log_path", None)
-
-            log_path = self.output_path + ".vmaflog"
+            log_path = vmaf_params.get("log_path", self.output_path + ".vmaflog")
 
             try:
                 stats.vmaf = get_video_vmeth(

@@ -158,7 +158,7 @@ class EncodersEnum(Enum):
 
 
 class EncoderRateDistribution(Enum):
-    VBR: int = 0
-    CQ: int = 1
-    CQ_VBV: int = 2
-    VBR_VBV: int = 3
+    VBR: int = 0  # constant bitrate
+    CQ: int = 1  # concant quality
+    CQ_VBV: int = 2  # concatn quality with bitrate cap
+    VBR_VBV: int = 3  #

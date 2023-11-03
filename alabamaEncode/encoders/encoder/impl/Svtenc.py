@@ -164,8 +164,8 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             if self.svt_sdc != 0:
                 kommand += f" --scd {self.svt_sdc}"  # scene detection
 
-            # if self.svt_open_gop and self.passes == 1:
-            #     kommand += " --irefresh-type 1"
+            if self.svt_open_gop and self.passes == 1:
+                kommand += " --irefresh-type 1"
 
             if self.svt_overlay == 1:
                 if self.passes == 1:

@@ -96,7 +96,7 @@ class VideoConcatenator:
 
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
-            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a {self.audio_param_override} -map_metadata -1 "{audio_output}"'
+            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} -map_metadata -1 "{audio_output}"'
             print(f"running: {encode_audio}")
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
