@@ -198,7 +198,7 @@ def setup_context() -> AlabamaContext:
     ctx.audio_params = args.audio_params
     ctx.generate_previews = alabamaEncode.final_touches.generate_previews
     ctx.encode_audio = args.encode_audio
-    ctx.sub_file = args.subs_file
+    ctx.sub_file = args.sub_file
 
     ctx.color_primaries = args.color_primaries
     ctx.transfer_characteristics = args.transfer_characteristics

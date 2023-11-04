@@ -2,6 +2,7 @@
 import asyncio
 import atexit
 import os
+import pickle
 import random
 import sys
 import time
@@ -277,16 +278,29 @@ def main():
     global runtime
     runtime = time.time()
 
-    # if a user does 'python __main__.py clear' then clear the celery queue
-    if len(sys.argv) > 1 and sys.argv[1] == "clear":
-        print("Clearing celery queue")
-        app.control.purge()
-        quit()
+    config: [AlabamaContext | None] = None
 
-    if len(sys.argv) > 1 and sys.argv[1] == "worker":
-        worker()
+    if len(sys.argv) > 1:
+        match sys.argv[1]:
+            case "clear":
+                # if a user does 'python __main__.py clear' then clear the celery queue
+                print("Clearing celery queue")
+                app.control.purge()
+                quit()
+            case "worker":
+                worker()
+            case "resume":
+                # unpickle config from the file "alabamaResume", if dosent exist in current dir quit
+                if os.path.exists("alabamaResume"):
+                    config = pickle.load(open("alabamaResume", "rb"))
+                else:
+                    print("No resume file found in curr dir")
+                    quit()
 
-    config: AlabamaContext = setup_context()
+    if config is None:
+        config = setup_context()
+        # save config to file "alabamaResume" at working dir
+        pickle.dump(config, open("alabamaResume", "wb"))
 
     global runtime_file
     runtime_file = config.temp_folder + "runtime.txt"
