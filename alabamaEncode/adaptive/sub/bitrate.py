@@ -6,7 +6,7 @@ from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
-from alabamaEncode.sceneSplit.chunk import ChunkObject
+from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.utils.ffmpegUtil import get_video_ssim
 
 

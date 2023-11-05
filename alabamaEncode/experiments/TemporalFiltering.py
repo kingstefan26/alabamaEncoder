@@ -1,40 +1,44 @@
 """
 Testing enable-tf=0 In SvtAv1
 """
+import os
+from copy import deepcopy
 
 from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
 from alabamaEncode.experiments.util.ExperimentUtil import (
-    get_test_env,
     run_tests_across_range,
     read_report,
 )
 
+experiment_name = "Testing ALT-REF (temporally filtered) frames --enable-tf, speed 4"
+
+test_env = os.getcwd() + "/data/temporal_filtering/"
+if not os.path.exists(test_env):
+    os.makedirs(test_env)
+
+report_path = test_env + experiment_name + " CRF.json"
+
 
 def run_test():
-    test_env = get_test_env()
-    # test_env = "/home/kokoniara/dev/VideoSplit/alabamaEncode/experiments/util/run_2023-10-18_23-24-55/"
-    experiment_name = (
-        "Testing ALT-REF (temporally filtered) frames --enable-tf, speed 4"
-    )
-    encControl = AbstractEncoderSvtenc()
-    encControl.update(speed=4)
-    encControl.svt_tune = 1
-    encControl.threads = 12
+    control = AbstractEncoderSvtenc()
+    control.speed = 4
+    control.threads = 12
+    control.svt_tune = 1
+    control.svt_tf = 1
 
-    encTest = AbstractEncoderSvtenc()
-    encTest.svt_tf = 0
-    encTest.svt_tune = 1
-    encTest.update(speed=4)
-    encTest.threads = 12
+    enc_test = deepcopy(control)
+    enc_test.svt_tf = 0
 
     run_tests_across_range(
-        [encControl, encTest], title=experiment_name, test_env=test_env
+        [control, enc_test],
+        title=experiment_name,
+        test_env=test_env,
+        skip_vbr=True,
     )
 
-def analyse():
-    path1 = "/home/kokoniara/dev/VideoSplit/alabamaEncode/experiments/util/run_2023-10-19_16-34-48/Testing ALT-REF (temporally filtered) frames --enable-tf, speed 4 Bitrates.json"
 
-    df = read_report(path1)
+def analyse():
+    df = read_report(report_path)
     print(df)
 
     vmaf1percenttile_change_arr = []
@@ -72,7 +76,9 @@ def analyse():
         ssim_change_arr.append((ssim_enc1 - ssim_control) / ssim_control * 100)
 
     print(f"positive means enable-tf=0 is better")
-    print(f"overall VMAF 1%tile avg: {sum(vmaf1percenttile_change_arr) / len(vmaf1percenttile_change_arr)}%")
+    print(
+        f"overall VMAF 1%tile avg: {sum(vmaf1percenttile_change_arr) / len(vmaf1percenttile_change_arr)}%"
+    )
     print(f"overall size avg: {sum(size_change_arr) / len(size_change_arr)}%")
     print(f"overall VMAF avg: {sum(vmaf_change_arr) / len(vmaf_change_arr)}%")
     print(f"overall SSIM avg: {sum(ssim_change_arr) / len(ssim_change_arr)}%")
@@ -109,9 +115,13 @@ def analyse():
         # ax.set_zlabel("size")
 
         plt.title(key)
-        plt.savefig("/home/kokoniara/dev/VideoSplit/alabamaEncode/experiments/util/run_2023-10-19_16-34-48/" + key + ".png")
+        plt.savefig(
+            test_env
+            + key
+            + ".png"
+        )
 
 
-if __name__ == '__main__':
-    # run_test()
+if __name__ == "__main__":
+    run_test()
     pass

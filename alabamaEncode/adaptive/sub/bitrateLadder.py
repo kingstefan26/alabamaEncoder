@@ -16,8 +16,9 @@ from tqdm import tqdm
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
-from alabamaEncode.parallelEncoding.Command import BaseCommandObject
-from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
+from alabamaEncode.parallelEncoding.command import BaseCommandObject, execute_commands
+from alabamaEncode.scene.chunk import ChunkObject
+from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.utils.ffmpegUtil import get_video_vmeth, get_video_ssim
 
 
@@ -132,8 +133,6 @@ class AutoBitrateLadder:
 
         commands = [GetComplexity(self, chunk) for chunk in chunk_sequence_copy.chunks]
 
-        from alabamaEncode.__main__ import execute_commands
-
         loop = asyncio.get_event_loop()
         loop.run_until_complete(
             execute_commands(
@@ -163,7 +162,7 @@ class AutoBitrateLadder:
 
     def get_best_crf_guided(self) -> int:
         """
-        :return: The best average bitrate found based on probing a random selection of chunks in the chunk sequence.
+        :return: The best average crf found based on probing a random selection of chunks in the chunk sequence.
         """
         print("Finding best bitrate")
         probe_folder = f"{self.config.temp_folder}/adapt/crf/"
@@ -383,9 +382,7 @@ class AutoBitrateLadder:
         print(f"Best avg bitrate: {avg_best} kbps")
 
         if self.config.crf_bitrate_mode:
-            print(
-                f"Using crf bitrate mode, finding crf that matches the target bitrate"
-            )
+            print(f"Using capped crf mode, finding crf that matches the target bitrate")
             target_crf = self.get_target_crf(avg_best)
             print(f"Avg crf for {avg_best}Kpbs: {target_crf}")
             self.config.crf = target_crf

@@ -7,8 +7,8 @@ import os
 from alabamaEncode.adaptive.sub.param import AutoParam
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
-from alabamaEncode.sceneSplit.chunk import ChunkSequence
-from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
+from alabamaEncode.scene.sequence import ChunkSequence
+from alabamaEncode.scene.split import get_video_scene_list_skinny
 
 if __name__ == "__main__":
     test_folder = os.path.abspath("./tst/")

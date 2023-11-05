@@ -136,28 +136,29 @@ class VideoConcatenator:
             else:
                 subs_i = ""
                 subs_map = ""
-
-                if start_offset_command != "":
-                    # offset each track using -itsoffset {offset} -ss {offset}
-                    print("Offseting subs")
-                    for sub in self.subs_file:
-                        temp_sub = f"{sub}.temp.vtt"
-                        encode_sub = f'ffmpeg -y -v error -itsoffset {self.start_offset} -ss {self.start_offset} -i "{sub}" "{temp_sub}"'
-                        print(f"running: {encode_sub}")
-
-                for i, sub in enumerate(self.subs_file):
+                if len(self.subs_file) > 0 and self.subs_file[0] != "":
                     if start_offset_command != "":
-                        subs_i += f' -i "{sub}.temp.vtt" '
-                    else:
-                        subs_i += f' -i "{sub}" '
-                    subs_map += f"-map {i+2} "
+                        # offset each track using -itsoffset {offset} -ss {offset}
+                        print("Offseting subs")
+                        for sub in self.subs_file:
+                            temp_sub = f"{sub}.temp.vtt"
+                            encode_sub = f'ffmpeg -y -v error -itsoffset {self.start_offset} -ss {self.start_offset} -i "{sub}" "{temp_sub}"'
+                            print(f"running: {encode_sub}")
+
+                    for i, sub in enumerate(self.subs_file):
+                        if start_offset_command != "":
+                            subs_i += f' -i "{sub}.temp.vtt" '
+                        else:
+                            subs_i += f' -i "{sub}" '
+                        subs_map += f"-map {i+2} "
 
                 final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
                 syscmd(final_command)
 
             if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
-                os.remove(self.output)
+                if os.path.exists(self.output):
+                    os.remove(self.output)
                 raise Exception("VIDEO CONCAT FAILED")
 
             remove_command = f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"'

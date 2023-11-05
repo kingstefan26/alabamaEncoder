@@ -5,7 +5,8 @@ from scenedetect import detect, AdaptiveDetector
 
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
+from alabamaEncode.scene.chunk import ChunkObject
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
 def get_video_scene_list_skinny(

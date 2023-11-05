@@ -5,7 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
-from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
+from alabamaEncode.scene.chunk import ChunkObject
+from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.utils.ffmpegUtil import get_video_vmeth
 
 

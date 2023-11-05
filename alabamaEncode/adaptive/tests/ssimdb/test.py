@@ -10,8 +10,9 @@ from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
-from alabamaEncode.sceneSplit.chunk import ChunkObject, ChunkSequence
-from alabamaEncode.sceneSplit.split import get_video_scene_list_skinny
+from alabamaEncode.scene.chunk import ChunkObject
+from alabamaEncode.scene.sequence import ChunkSequence
+from alabamaEncode.scene.split import get_video_scene_list_skinny
 
 
 def test():

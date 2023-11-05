@@ -8,13 +8,16 @@ from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodersEnum, EncoderRateDistribution
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.sceneSplit.chunk import ChunkObject
+from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.ffmpegUtil import do_cropdetect
 
 
 class AlabamaContext:
     """A class to hold the configuration for the encoder"""
+
+    def __str__(self):
+        return self.__dict__.__str__()
 
     video_filters: str = ""
     bitrate: int = 2000
@@ -58,6 +61,8 @@ class AlabamaContext:
     crop_string = ""
     scale_string = ""
 
+    crf_based_vmaf_targeting = True
+
     max_scene_length: int = 10
     start_offset: int = -1
     end_offset: int = -1
@@ -87,6 +92,25 @@ class AlabamaContext:
 
     def get_encoder(self) -> AbstractEncoder:
         return self.encoder.get_encoder()
+
+    def pre_run_check(self):
+        # turn tempfolder into a full path
+        self.temp_folder = self.output_folder + "temp/"
+        if not os.path.exists(self.temp_folder):
+            os.makedirs(self.temp_folder)
+
+        self.input_file = self.temp_folder + "temp.mkv"
+
+        if not os.path.exists(self.raw_input_file):
+            print(f"Input file {self.raw_input_file} does not exist")
+            quit()
+
+        # symlink input file to temp folder
+        if not os.path.exists(self.input_file):
+            os.system(f'ln -s "{self.raw_input_file}" "{self.input_file}"')
+            if not os.path.exists(self.input_file):
+                print(f"Failed to symlink input file to {self.input_file}")
+                quit()
 
     def update(self, **kwargs):
         """
@@ -143,36 +167,17 @@ def setup_context() -> AlabamaContext:
     args = parse_args(ctx)
 
     ctx.output_file = os.path.abspath(args.output)
-
-    # get outputs folder
     ctx.output_folder = os.path.dirname(ctx.output_file) + "/"
-
-    # turn tempfolder into a full path
-    ctx.temp_folder = ctx.output_folder + "temp/"
-    if not os.path.exists(ctx.temp_folder):
-        os.makedirs(ctx.temp_folder)
-
-    ctx.input_file = ctx.temp_folder + "temp.mkv"
-
     ctx.raw_input_file = os.path.abspath(args.input)
-
-    if not os.path.exists(ctx.raw_input_file):
-        print(f"Input file {ctx.raw_input_file} does not exist")
-        quit()
-
-    # symlink input file to temp folder
-    if not os.path.exists(ctx.input_file):
-        os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
-        if not os.path.exists(ctx.input_file):
-            print(f"Failed to symlink input file to {ctx.input_file}")
-            quit()
+    ctx.encoder = EncodersEnum.from_str(args.encoder)
+    ctx.chunk_stats_path = f"{ctx.temp_folder}chunks.log"
 
     ctx.log_level = args.log_level
     ctx.dry_run = args.dry_run
     ctx.ssim_db_target = args.ssim_db_target
     ctx.vmaf = args.vmaf_target
-    ctx.encoder = EncodersEnum.from_str(args.encoder)
     ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
+    ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
     ctx.use_celery = args.celery
     ctx.flag1 = args.flag1
     ctx.flag2 = args.flag2
@@ -185,7 +190,6 @@ def setup_context() -> AlabamaContext:
     ctx.bitrate_overshoot = args.overshoot
     ctx.crf_bitrate_mode = args.auto_crf
     ctx.crf = args.crf
-    ctx.chunk_stats_path = f"{ctx.temp_folder}/chunks.log"
     ctx.hdr = args.hdr
     ctx.max_scene_length = args.max_scene_length
     ctx.start_offset = args.start_offset
@@ -199,27 +203,34 @@ def setup_context() -> AlabamaContext:
     ctx.generate_previews = alabamaEncode.final_touches.generate_previews
     ctx.encode_audio = args.encode_audio
     ctx.sub_file = args.sub_file
-
     ctx.color_primaries = args.color_primaries
     ctx.transfer_characteristics = args.transfer_characteristics
     ctx.matrix_coefficients = args.matrix_coefficients
     ctx.maximum_content_light_level = args.maximum_content_light_level
     ctx.maximum_frame_average_light_level = args.frame_average_light
     ctx.chroma_sample_position = args.chroma_sample_position
+    ctx.grain_synth = args.grain
+    ctx.video_filters = args.video_filters
 
-    if args.crf != -1:
+    ctx.pre_run_check()
+
+    if ctx.crf != -1:
         print("Using crf mode")
         ctx.crf = args.crf
     if ctx.flag1 and ctx.bitrate == -1:
         print("Flag1 requires bitrate to be set --bitrate 2M")
         quit()
-    if "auto" in args.bitrate or "-1" in args.bitrate and ctx.flag1 and not ctx.flag2:
+    if (
+        "auto" in args.bitrate
+        or "-1" in args.bitrate
+        and ctx.flag1
+        and not ctx.crf_based_vmaf_targeting
+    ):
         print("Flag1 and auto bitrate are mutually exclusive")
         quit()
 
-    find_best_bitrate = False
     if "auto" in args.bitrate or "-1" in args.bitrate:
-        find_best_bitrate = True
+        ctx.find_best_bitrate = True
     else:
         if "M" in args.bitrate or "m" in args.bitrate:
             ctx.bitrate = args.bitrate.replace("M", "")
@@ -233,53 +244,47 @@ def setup_context() -> AlabamaContext:
             except ValueError:
                 raise ValueError("Failed to parse bitrate")
 
-    find_best_grainsynth = True if args.grain == -1 else False
-    if find_best_grainsynth and not doesBinaryExist("butteraugli"):
+    ctx.find_best_grainsynth = True if args.grain == -1 else False
+    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
         print("Autograin requires butteraugli in path, please install it")
         quit()
 
     # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
-    if args.video_filters != "" and (
-        args.hdr or args.video_filters != "" or args.scale_string != ""
+    if ctx.video_filters != "" and (
+        ctx.hdr or ctx.video_filters != "" or ctx.scale_string != ""
     ):
         print(
             "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
         )
         quit()
 
-    ctx.grain_synth = args.grain
-    # eg crop=3840:1600:0:280,scale=1920:-2:flags=lanczos
-    ctx.video_filters = args.video_filters
     if ctx.video_filters == "":
         if args.autocrop:
             output = do_cropdetect(ChunkObject(path=ctx.input_file))
             output.replace("crop=", "")
             if output != "":
-                args.video_filters = output
+                ctx.video_filters = output
 
         final = ""
 
-        if args.crop_string != "":
-            final += f"crop={args.crop_string}"
+        if ctx.crop_string != "":
+            final += f"crop={ctx.crop_string}"
 
-        if args.scale_string != "":
+        if ctx.scale_string != "":
             if final != "" and final[-1] != ",":
                 final += ","
-            final += f"scale={args.scale_string}:flags=lanczos"
+            final += f"scale={ctx.scale_string}:flags=lanczos"
 
-        if args.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
+        if ctx.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
             if final != "" and final[-1] != ",":
                 final += ","
             final += Ffmpeg.get_tonemap_vf()
 
         ctx.video_filters = final
 
-    if args.encoder == EncodersEnum.X265 and args.auto_crf == False:
+    if ctx.encoder == EncodersEnum.X265 and ctx.crf_bitrate_mode == False:
         print("x265 only supports auto crf, set `--auto_crf true`")
         quit()
-
-    ctx.find_best_bitrate = find_best_bitrate
-    ctx.find_best_grainsynth = find_best_grainsynth
 
     return ctx
 
@@ -413,8 +418,15 @@ def parse_args(ctx: AlabamaContext):
     )
 
     parser.add_argument(
+        "--crf_based_vmaf_targeting",
+        help="per chunk, find a crf that hits target quality and encode using that",
+        action="store_true",
+        default=ctx.crf_based_vmaf_targeting,
+    )
+
+    parser.add_argument(
         "--auto_crf",
-        help="Alternative to auto bitrate tuning, that uses crf",
+        help="Find a crf that hits target vmaf, calculate a peak bitrate cap, and encode using that",
         action="store_true",
         default=ctx.crf_bitrate_mode,
     )
@@ -515,7 +527,7 @@ def parse_args(ctx: AlabamaContext):
         "--encoder_flag_override",
         type=str,
         default=ctx.override_flags,
-        help="Override the encoder flags with this string," " except paths",
+        help="Override the encoder flags with this string, except paths",
     )
 
     parser.add_argument(
@@ -536,7 +548,7 @@ def parse_args(ctx: AlabamaContext):
     parser.add_argument(
         "--flag2",
         action="store_true",
-        help="Find bitrate automaticly for flag 1",
+        help="Used for debugging",
         default=ctx.flag2,
     )
 
@@ -546,8 +558,6 @@ def parse_args(ctx: AlabamaContext):
         help="Find best bitrate using the top 5% of most complex chunks",
         default=ctx.flag3,
     )
-
-    # --enable-hdr 1 --color-primaries 9 --transfer-characteristics 16 --content-light 1246,410  --matrix-coefficients 9 --chroma-sample-position 2
 
     parser.add_argument(
         "--color-primaries",

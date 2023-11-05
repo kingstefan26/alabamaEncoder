@@ -1,6 +1,6 @@
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.sceneSplit.chunk import ChunkSequence
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
 def get_resolution_for_bitrate(

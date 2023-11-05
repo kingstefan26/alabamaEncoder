@@ -123,10 +123,9 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                 case EncoderRateDistribution.CQ_VBV:
                     bitrate_check()
                     crf_check()
-                    kommand += f" --crf {self.crf} --mbr {self.max_bitrate}"
+                    kommand += f" --crf {self.crf} --mbr {self.bitrate}"
                 case EncoderRateDistribution.VBR_VBV:
-                    bitrate_check()
-                    kommand += f" --tbr {self.bitrate} --mbr {self.bitrate * 1.5}"
+                    raise Exception("FATAL: VBR_VBV is not supported")
 
             kommand += f" --tune {self.svt_tune}"
             kommand += f" --bias-pct {self.svt_bias_pct}"

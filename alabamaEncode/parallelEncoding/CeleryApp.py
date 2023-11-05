@@ -3,7 +3,7 @@ import os
 
 from celery import Celery
 
-from alabamaEncode.parallelEncoding.Command import BaseCommandObject
+from alabamaEncode.parallelEncoding.command import BaseCommandObject
 
 BROKER_URL = os.getenv("BROKER_URL", "redis://" + os.getenv("REDIS_HOST", "localhost"))
 BACKEND_URL = os.getenv(

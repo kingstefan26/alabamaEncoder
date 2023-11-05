@@ -7,7 +7,7 @@ import os
 from alabamaEncode.encoders.encoder.impl.X265 import AbstractEncoderX265
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
-from alabamaEncode.sceneSplit.chunk import ChunkObject
+from alabamaEncode.scene.chunk import ChunkObject
 
 if __name__ == "__main__":
     paths = get_test_files()[:3]

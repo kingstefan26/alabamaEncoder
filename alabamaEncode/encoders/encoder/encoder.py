@@ -29,7 +29,6 @@ class AbstractEncoder(ABC):
     temp_folder: str
     bitrate: int = None
     crf: int = None
-    current_scene_index: int
     passes: int = 2
     video_filters: str = ""
     output_path: str
@@ -42,7 +41,6 @@ class AbstractEncoder(ABC):
     grain_synth = 10
     qm_min = 8
     qm_max = 15
-    max_bitrate = 0
     override_flags: str = ""
 
     bit_override = 10
@@ -76,24 +74,21 @@ class AbstractEncoder(ABC):
     running_on_celery = False
 
     def setup(self, chunk, config):
-        self.update(
-            chunk=chunk,
-            temp_folder=config.temp_folder,
-            bitrate=config.bitrate,
-            crf=config.crf,
-            current_scene_index=chunk.chunk_index,
-            passes=config.passes,
-            video_filters=config.video_filters,
-            output_path=chunk.chunk_path,
-            speed=config.speed,
-            grain_synth=config.grain_synth,
-            rate_distribution=config.rate_distribution,
-            threads=config.threads,
-            qm_enabled=config.qm_enabled,
-            qm_min=config.qm_min,
-            qm_max=config.qm_max,
-            override_flags=config.override_flags,
-        )
+        self.chunk = chunk
+        self.temp_folder = config.temp_folder
+        self.bitrate = config.bitrate
+        self.crf = config.crf
+        self.passes = config.passes
+        self.video_filters = config.video_filters
+        self.output_path = chunk.chunk_path
+        self.speed = config.speed
+        self.grain_synth = config.grain_synth
+        self.rate_distribution = config.rate_distribution
+        self.threads = config.threads
+        self.qm_enabled = config.qm_enabled
+        self.qm_min = config.qm_min
+        self.qm_max = config.qm_max
+        self.override_flags = config.override_flags
         self.color_primaries = config.color_primaries
         self.transfer_characteristics = config.transfer_characteristics
         self.matrix_coefficients = config.matrix_coefficients
@@ -108,7 +103,7 @@ class AbstractEncoder(ABC):
         """
         Update the encoder with new values, with type checking
         """
-        from alabamaEncode.sceneSplit.chunk import ChunkObject
+        from alabamaEncode.scene.chunk import ChunkObject
 
         # Define a dictionary mapping attribute names to their types
         valid_attr_types = {
@@ -116,7 +111,6 @@ class AbstractEncoder(ABC):
             "temp_folder": str,
             "bitrate": int,
             "crf": int,
-            "current_scene_index": int,
             "passes": int,
             "video_filters": str,
             "output_path": str,

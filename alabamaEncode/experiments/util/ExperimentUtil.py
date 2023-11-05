@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
-from alabamaEncode.sceneSplit.chunk import ChunkObject
+from alabamaEncode.scene.chunk import ChunkObject
 
 only_one = False
 

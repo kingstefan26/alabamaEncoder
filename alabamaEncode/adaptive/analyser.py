@@ -8,19 +8,19 @@ import time
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
 from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.sceneSplit.chunk import ChunkSequence
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def do_adaptive_analasys(
+def analyze_content(
     chunk_sequence: ChunkSequence,
-    config: AlabamaContext,
+    ctx: AlabamaContext,
 ):
-    os.makedirs(f"{config.temp_folder}/adapt/", exist_ok=True)
+    os.makedirs(f"{ctx.temp_folder}/adapt/", exist_ok=True)
 
     start = time.time()
-    ab = AutoBitrateLadder(chunk_sequence, config)
+    ab = AutoBitrateLadder(chunk_sequence, ctx)
 
-    if config.flag1:
+    if ctx.flag1:
         # if config.flag2:
         #     if config.flag3:
         #         config.bitrate = ab.get_best_bitrate_guided()
@@ -30,39 +30,39 @@ def do_adaptive_analasys(
 
         ab.get_best_crf_guided()
     else:
-        if not (True if config.crf != -1 or config.flag2 else False):
-            if config.find_best_bitrate:
-                config.bitrate = ab.get_best_bitrate()
+        if ctx.crf == -1 and ctx.crf_based_vmaf_targeting is False:
+            if ctx.find_best_bitrate:
+                ctx.bitrate = ab.get_best_bitrate()
 
-            if config.vbr_perchunk_optimisation:
-                config.ssim_db_target = ab.get_target_ssimdb(config.bitrate)
+            if ctx.vbr_perchunk_optimisation:
+                ctx.ssim_db_target = ab.get_target_ssimdb(ctx.bitrate)
 
-    if config.find_best_grainsynth and config.encoder.supports_grain_synth():
+    if ctx.find_best_grainsynth and ctx.encoder.supports_grain_synth():
         param = {
             "input_file": chunk_sequence.input_file,
             "scenes": chunk_sequence,
-            "temp_folder": config.temp_folder,
-            "cache_filename": config.temp_folder + "/adapt/ideal_grain.pt",
+            "temp_folder": ctx.temp_folder,
+            "cache_filename": ctx.temp_folder + "/adapt/ideal_grain.pt",
             "scene_pick_seed": 2,
-            "video_filters": config.video_filters,
+            "video_filters": ctx.video_filters,
         }
-        if config.crf_bitrate_mode:
-            param["crf"] = config.crf
+        if ctx.crf_bitrate_mode:
+            param["crf"] = ctx.crf
         else:
-            param["bitrate"] = config.bitrate
+            param["bitrate"] = ctx.bitrate
 
-        config.grain_synth = get_best_avg_grainsynth(**param)
+        ctx.grain_synth = get_best_avg_grainsynth(**param)
 
-    config.qm_enabled = True
-    config.qm_min = 0
-    config.qm_max = 7
+    ctx.qm_enabled = True
+    ctx.qm_min = 0
+    ctx.qm_max = 7
 
-    if config.grain_synth == 0 and config.bitrate < 2000:
+    if ctx.grain_synth == 0 and ctx.bitrate < 2000:
         print("Film grain less then 0 and bitrate is low, overriding to 2 film grain")
-        config.film_grain = 2
+        ctx.film_grain = 2
 
-    if os.path.exists(f"{config.temp_folder}/adapt/"):
-        if not os.listdir(f"{config.temp_folder}/adapt/"):
-            os.rmdir(f"{config.temp_folder}/adapt/")
+    if os.path.exists(f"{ctx.temp_folder}/adapt/"):
+        if not os.listdir(f"{ctx.temp_folder}/adapt/"):
+            os.rmdir(f"{ctx.temp_folder}/adapt/")
 
     print(f"content analasys took: {int(time.time() - start)}s")
