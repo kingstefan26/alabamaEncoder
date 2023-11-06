@@ -1,9 +1,9 @@
 import os.path
 from typing import List
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
-from alabamaEncode.utils.execute import syscmd
 
 
 class AvifEncoderSvtenc:
@@ -52,7 +52,7 @@ class AvifEncoderSvtenc:
         )
 
     def run(self):
-        out = syscmd(self.get_encode_commands())
+        out = run_cli(self.get_encode_commands()).get_output()
         if (
             not os.path.exists(self.params["output_path"])
             or os.path.getsize(self.params["output_path"]) < 1
@@ -130,6 +130,8 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             kommand += f" --tune {self.svt_tune}"
             kommand += f" --bias-pct {self.svt_bias_pct}"
             kommand += f" --lp {self.threads}"
+
+            kommand += f" --aq-mode {self.svt_aq_mode}"
 
             if self.svt_supperres_mode != 0:
                 kommand += (
@@ -209,3 +211,9 @@ class AbstractEncoderSvtenc(AbstractEncoder):
         :return:
         """
         return ["ffmpeg", "SvtAv1EncApp", "ffprobe"]
+
+    def get_version(self) -> str:
+        # Svt[info]: -------------------------------------------
+        # Svt[info]: SVT [version]:	SVT-AV1 Encoder Lib v1.7.0-2-g09df835
+        o = run_cli(os.getenv("SVT_CLI_PATH", self.svt_cli_path)).get_output()
+        return o.split("\n")[1].split(" ")[-1]

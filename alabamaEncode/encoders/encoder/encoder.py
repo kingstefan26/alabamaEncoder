@@ -5,6 +5,7 @@ import time
 from abc import abstractmethod, ABC
 from typing import List
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoderMisc import (
     EncoderRateDistribution,
     EncodeStats,
@@ -13,7 +14,6 @@ from alabamaEncode.encoders.encoderMisc import (
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
 from alabamaEncode.utils.binary import doesBinaryExist
-from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import (
     get_video_vmeth,
     get_video_ssim,
@@ -61,6 +61,7 @@ class AbstractEncoder(ABC):
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     svt_tf = 1  # temporally filtered ALT-REF frames
     svt_overlay = 0  # enable overlays
+    svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
     film_grain_denoise: (0 | 1) = 1
 
     color_primaries = 1
@@ -199,7 +200,7 @@ class AbstractEncoder(ABC):
             self.output_path = original_path
 
             for command in commands:
-                output = syscmd(command, timeout_value=timeout_value)
+                output = run_cli(command, timeout_value=timeout_value).get_output()
                 out.append(output)
 
             stats.time_encoding = time.time() - start
@@ -318,3 +319,11 @@ class AbstractEncoder(ABC):
     @abstractmethod
     def get_chunk_file_extension(self) -> str:
         return ".mkv"
+
+
+    @abstractmethod
+    def get_version(self) -> str:
+        """
+        return the version of the encoder
+        """
+        pass

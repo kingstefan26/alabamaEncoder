@@ -115,6 +115,9 @@ def main():
         # we loaded the ctx from a file, so we need to re-run the pre_run_check
         ctx.pre_run_check()
 
+    version = ctx.get_encoder().get_version()
+    print(f"Using {ctx.encoder} version: {version}")
+
     global runtime_file
     runtime_file = ctx.temp_folder + "runtime.txt"
 

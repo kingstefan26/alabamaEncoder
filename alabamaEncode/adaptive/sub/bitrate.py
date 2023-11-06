@@ -3,16 +3,13 @@ import pickle
 import time
 
 from alabamaEncode.adaptive.util import get_probe_file_base
-from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
-from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.utils.ffmpegUtil import get_video_ssim
 
 
 def get_ideal_bitrate(
-    chunk: ChunkObject,
-    config: AlabamaContext,
+    chunk,
+    config,
     convex_speed=10,
     show_rate_calc_log=False,
     clamp_complexity=True,
@@ -36,7 +33,7 @@ def get_ideal_bitrate(
             print("Error loading complexity cache file, recalculating")
 
     if not ideal_rate:
-        encoder: AbstractEncoder = config.get_encoder()
+        encoder = config.get_encoder()
 
         test_probe_path = (
             f"{probe_file_base}complexity.probe.{encoder.get_chunk_file_extension()}"

@@ -4,7 +4,7 @@ import re
 
 from celery.worker.autoscale import Autoscaler as CeleryAutoscaler
 
-from alabamaEncode.utils.execute import syscmd
+from alabamaEncode.cli_executor import run_cli
 
 
 # https://gist.github.com/hussainfolio3/c5246f59f9e5c31fa720524fb45b2077
@@ -44,7 +44,7 @@ class Load:
         :return:
         """
         # Execute the 'swapon -s' and get the output
-        output = syscmd("swapon -s")
+        output = run_cli("swapon -s").get_output()
 
         # Split the output into lines
         lines = output.split("\n")[1:]  # We skip the header

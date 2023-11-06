@@ -1,8 +1,8 @@
 import os
 import re
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.utils.binary import doesBinaryExist
-from alabamaEncode.utils.execute import syscmd
 
 
 class ImageMetrics:
@@ -22,7 +22,7 @@ class ImageMetrics:
 
         cli = f'{binary} "{refrence_img_path}"  "{distorted_img_path}"'
         try:
-            result_string = syscmd(cli)
+            result_string = run_cli(cli).get_output()
             # if the result does not contain a single number, then it failed
             if not re.search(r"[\d.]+", result_string):
                 raise AttributeError
@@ -35,7 +35,7 @@ class ImageMetrics:
     def psnr_score(refrence_img_path, distorted_img_path):
         cli = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex psnr -f null -"
 
-        result_string = syscmd(cli)
+        result_string = run_cli(cli).get_output()
         try:
             # Regex to get avrage score out of:
             # [Parsed_psnr_0 @ 0x55f6705fa200] PSNR y:49.460782 u:52.207017 v:51.497660 average:50.118351
@@ -55,7 +55,7 @@ class ImageMetrics:
     def ssim_score(refrence_img_path, distorted_img_path):
         cli = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex ssim -f null -"
 
-        result_string = syscmd(cli)
+        result_string = run_cli(cli).get_output()
         try:
             match = re.search(r"All:\s*([\d.]+)", result_string)
             ssim_score = float(match.group(1))
@@ -71,7 +71,7 @@ class ImageMetrics:
     def vmaf_score(refrence_img_path, distorted_img_path):
         cli = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -lavfi libvmaf -f null -"
 
-        result_string = syscmd(cli)
+        result_string = run_cli(cli).get_output()
         try:
             vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
             match = vmafRegex.search(result_string)

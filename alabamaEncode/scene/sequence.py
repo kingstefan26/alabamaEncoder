@@ -5,7 +5,7 @@ from typing import List
 
 from tqdm import tqdm
 
-from alabamaEncode.parallelEncoding.command import execute_commands
+from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject
 
 

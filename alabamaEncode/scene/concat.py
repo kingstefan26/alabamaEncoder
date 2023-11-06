@@ -3,10 +3,10 @@ import tempfile
 import time
 from typing import List
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
 from alabamaEncode.utils.binary import doesBinaryExist
-from alabamaEncode.utils.execute import syscmd
 
 
 class VideoConcatenator:
@@ -124,7 +124,7 @@ class VideoConcatenator:
                     sub_hack = " -c:s mov_text "
                 final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
-                out = syscmd(final_command)
+                out = run_cli(final_command).get_output()
                 if (
                     "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
                     in str(out)
@@ -132,7 +132,7 @@ class VideoConcatenator:
                     print("Subtitle encoding failed, trying again")
                     print(f"running: {final_command}")
                     final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
-                    syscmd(final_command)
+                    run_cli(final_command)
             else:
                 subs_i = ""
                 subs_map = ""
@@ -154,7 +154,7 @@ class VideoConcatenator:
 
                 final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
-                syscmd(final_command)
+                run_cli(final_command)
 
             if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
                 if os.path.exists(self.output):

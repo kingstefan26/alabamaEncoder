@@ -5,9 +5,9 @@ import random
 from torf import Torrent
 from tqdm import tqdm
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.execute import syscmd
 
 
 def print_stats(
@@ -23,7 +23,6 @@ def print_stats(
     cut_intro: bool,
     cut_credits: bool,
 ):
-
     cc = open(f"{output_folder}temp/chunks.log").read()
     lines = cc.split("\n")
     stats = [json.loads(line) for line in lines if line]
@@ -144,7 +143,7 @@ def generate_previews(
         offsets.append(int(random.uniform(0, total_length)))
 
     for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
-        syscmd(
+        run_cli(
             f'ffmpeg -y -ss {offset} -i "{input_file}" -t {preview_length} -c copy "{output_folder}preview_{i}.avif"'
         )
 

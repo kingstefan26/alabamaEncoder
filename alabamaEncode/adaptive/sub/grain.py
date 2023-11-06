@@ -7,10 +7,10 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.utils.execute import syscmd
 from alabamaEncode.utils.ffmpegUtil import get_image_butteraugli_score
 
 
@@ -78,10 +78,10 @@ class AutoGrain:
         if not os.path.exists(ref_png):
             cvmand = f'ffmpeg -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 "{ref_png}"'
 
-            out = syscmd(cvmand)
+            out = run_cli(cvmand)
             if not os.path.exists(ref_png):
                 print(cvmand)
-                raise Exception("Could not create reference png: " + out)
+                raise Exception(f"Could not create reference png: {out}")
 
         avif_enc.update(in_path=ref_png)
 
@@ -101,7 +101,7 @@ class AutoGrain:
             decoded_test_png_path = avif_enc.get_params()["output_path"] + ".png"
 
             # turn the avif into a png
-            syscmd(
+            run_cli(
                 f'ffmpeg -y -i "{avif_enc.get_params()["output_path"]}" "{decoded_test_png_path}"'
             )
 

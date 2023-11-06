@@ -16,7 +16,8 @@ from tqdm import tqdm
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
-from alabamaEncode.parallelEncoding.command import BaseCommandObject, execute_commands
+from alabamaEncode.parallelEncoding.command import BaseCommandObject
+from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.utils.ffmpegUtil import get_video_vmeth, get_video_ssim

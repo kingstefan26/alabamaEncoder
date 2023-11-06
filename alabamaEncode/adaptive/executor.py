@@ -5,8 +5,6 @@ from abc import abstractmethod, ABC
 
 from tqdm import tqdm
 
-from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
-from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.alabama import AlabamaContext
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
@@ -143,6 +141,8 @@ class VbrPerChunkOptimised(AnalyzeStep):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
         enc: AbstractEncoder = ctx.get_encoder()
         enc.setup(chunk=chunk, config=ctx)
+        from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
+
         enc.update(
             grain_synth=ctx.grain_synth,
             speed=ctx.speed,
@@ -238,6 +238,8 @@ class TargetVmaf(AnalyzeStep):
         enc.update(rate_distribution=EncoderRateDistribution.CQ)
 
         enc.svt_tune = 0
+
+        from alabamaEncode.adaptive.util import get_probe_file_base
 
         probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
         for crf in crfs:

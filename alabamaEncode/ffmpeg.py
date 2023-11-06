@@ -1,7 +1,7 @@
 import os
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.execute import syscmd
 
 
 class Ffmpeg:
@@ -13,12 +13,10 @@ class Ffmpeg:
         :return: True if the video is invalid, False if the video is valid
         """
         path.check_video()
-        out = syscmd(f"ffmpeg -v error -i {path.get_safe()} -c copy -f null -")
-        # if there is no output and syscmd returns status code 0, then the file is valid
-        if isinstance(out, int) and out == 0:
-            return False
-        else:
-            return True
+
+        return not run_cli(
+            f"ffmpeg -v error -i {path.get_safe()} -c copy -f null /dev/null"
+        ).success()
 
     @staticmethod
     def get_frame_count(path: PathAlabama) -> int:
@@ -28,13 +26,13 @@ class Ffmpeg:
         :return: int
         """
         path.check_video()
-        arg = (
-            f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets "
-            f"-of csv=p=0 {path.get_safe()}"
+        return (
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 {path.get_safe()}"
+            )
+            .verify()
+            .get_as_int()
         )
-        result = syscmd(arg)
-        result = result.replace("\n", "").replace(",", "")
-        return int(result)
 
     @staticmethod
     def get_video_length(path: PathAlabama, sexagesimal=False) -> float | str:
@@ -45,22 +43,16 @@ class Ffmpeg:
         :return: float
         """
         path.check_video()
-        sex = ""
-        if sexagesimal:
-            sex = "-sexagesimal"
-        cli = (
-            f"ffprobe -v error -show_entries format=duration {sex} -of default=noprint_wrappers=1:nokey=1 "
-            f"{path.get_safe()}"
+        do_hexadecimal = "-sexagesimal" if sexagesimal else ""
+        out = (
+            run_cli(
+                f"ffprobe -v error -show_entries format=duration {do_hexadecimal} -of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
+            )
+            .verify(bad_output_hints=["N/A", "Invalid data found"])
+            .get_output()
         )
-        result = syscmd(cli)
 
-        if isinstance(result, str):
-            if "N/A" in result or "Invalid data found" in result:
-                raise ValueError(f"File {path} is invalid, (encoded with aomenc?)")
-
-        if sex:
-            return result
-        return float(result)
+        return out if sexagesimal else float(out)
 
     @staticmethod
     def get_total_bitrate(path: PathAlabama) -> float:
@@ -70,47 +62,60 @@ class Ffmpeg:
     @staticmethod
     def get_height(path: PathAlabama) -> int:
         path.check_video()
-        argv_ = f"ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 {path.get_safe()}"
-        result = syscmd(argv_)
-        result = result.strip()
-        result = result.replace(",", "")
-        return int(result)
+        return (
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 {path.get_safe()}"
+            )
+            .verify()
+            .filter_output(",")
+            .get_as_int()
+        )
 
     @staticmethod
     def get_width(path: PathAlabama) -> int:
         path.check_video()
-        argv_ = f"ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 {path.get_safe()}"
-        result = syscmd(argv_)
-        result = result.strip()
-        result = result.replace(",", "")
-        return int(result)
+        return (
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 {path.get_safe()}"
+            )
+            .verify()
+            .filter_output(",")
+            .get_as_int()
+        )
 
     @staticmethod
     def is_hdr(path: PathAlabama) -> bool:
         """Check if a video is HDR"""
         path.check_video()
-        command = (
-            f"ffprobe -v quiet -show_entries stream=color_transfer "
-            f"-of csv=p=0 -select_streams v:0 {path.get_safe()}"
+        out = (
+            run_cli(
+                (
+                    f"ffprobe -v quiet -show_entries stream=color_transfer "
+                    f"-of csv=p=0 -select_streams v:0 {path.get_safe()}"
+                )
+            )
+            .get_output()
+            .strip()
         )
 
-        out = syscmd(command)
-
-        out = out.strip()
-
-        return True if out != "bt709" else False
+        if "bt709" in out or "unknown" in out:
+            return False
+        return True
 
     @staticmethod
     def get_video_frame_rate(file: PathAlabama) -> float:
         file.check_video()
-        cli = (
-            f"ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1"
-            f" -show_entries stream=r_frame_rate {file.get_safe()}"
+        result = (
+            run_cli(
+                (
+                    f"ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1"
+                    f" -show_entries stream=r_frame_rate {file.get_safe()}"
+                )
+            )
+            .verify(bad_output_hints=[""])
+            .get_output()
+            .split("/")
         )
-        result = syscmd(cli)
-        if result == "":
-            raise Exception("Could not get frame rate")
-        result = result.split("/")
         return float(result[0]) / float(result[1])
 
     @staticmethod
@@ -125,13 +130,13 @@ class Ffmpeg:
         command_v = f"ffprobe -v error -select_streams V:0 {common} {path.get_safe()}"
         command_a = f"ffprobe -v error -select_streams a:0 {common} {path.get_safe()}"
 
-        v_out = syscmd(command_v)
+        v_out = run_cli(command_v).get_output()
         if isinstance(v_out, int):
             print("Failed getting video bitrate")
             return 0, 0
         packets_v_arr = v_out.split("\n")
 
-        a_out = syscmd(command_a)
+        a_out = run_cli(command_a).get_output()
         if isinstance(a_out, int):
             print("Failed getting video bitrate")
             return 0, 0
@@ -160,7 +165,6 @@ class Ffmpeg:
 
     @staticmethod
     def get_tonemap_vf() -> str:
-
         # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
         tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
         return tonemap_string

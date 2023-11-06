@@ -24,5 +24,5 @@ class PathAlabama:
         if not self.exists():
             raise FileNotFoundError(f"File {self.path} does not exist")
         if self.size_bytes() < 10:
-            raise ValueError(f"File {self.path} is too small to be a video")
+            raise ValueError(f"File {self.path} is too small to be a vaild media file")
         return True

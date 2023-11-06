@@ -2,11 +2,11 @@ import os.path
 import re
 from typing import Any, Dict
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.metrics import ImageMetrics
 from alabamaEncode.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
-from alabamaEncode.utils.execute import syscmd
 
 
 def get_video_vmeth(
@@ -60,7 +60,7 @@ def get_video_vmeth(
             for link in links:
                 if not os.path.exists(os.path.join(vmaf_models_dir, link[1])):
                     print("Downloading VMAF model")
-                    syscmd(f"wget -O {vmaf_models_dir}/{link[1]} {link[0]}")
+                    run_cli(f"wget -O {vmaf_models_dir}/{link[1]} {link[0]}")
 
             for link in links:
                 if not os.path.exists(os.path.join(vmaf_models_dir, link[1])):
@@ -79,9 +79,8 @@ def get_video_vmeth(
 
     # ffmpeg -hide_banner -i tst.mp4 -i tst_av1.webm -lavfi libvmaf='model=path=model.json:feature=name=psnr|name=ciede|name=cambi|name=psnr_hvs:log_path=out.json:log_fmt=xml:threads=12' -f null -
 
-    if (
-        Ffmpeg.get_tonemap_vf() not in video_filters
-        and Ffmpeg.is_hdr(PathAlabama(in_chunk.path)) is True
+    if (Ffmpeg.get_tonemap_vf() in video_filters) is False and Ffmpeg.is_hdr(
+        PathAlabama(in_chunk.path)
     ):
         if video_filters != "":
             video_filters += ","
@@ -129,7 +128,7 @@ def get_video_vmeth(
     else:
         null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
 
-    result_string = syscmd(null_)
+    result_string = run_cli(null_).get_output()
     try:
         vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
         match = vmafRegex.search(result_string)
@@ -159,7 +158,7 @@ def get_video_ssim(
 
     null_ += f" | ffmpeg -hide_banner -i - -i {distorted_path} -filter_complex ssim -f null -"
 
-    result_string = syscmd(null_, "utf8")
+    result_string = run_cli(null_).get_output()
     if print_output:
         print(result_string)
     try:
@@ -186,7 +185,7 @@ def get_video_psnr(distorted_path, in_chunk: ChunkObject = None):
 
     null_ += f" -i {distorted_path} -filter_complex psnr -f null -"
 
-    result_string = syscmd(null_, "utf8")
+    result_string = run_cli(null_).get_output()
     try:
         # Regex to get avrage score out of:
         # [Parsed_psnr_0 @ 0x55f6705fa200] PSNR y:49.460782 u:52.207017 v:51.497660 average:50.118351
@@ -233,7 +232,7 @@ def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
     print("Starting cropdetect")
     sob = f"ffmpeg {in_chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -"
 
-    result_string = syscmd(sob)
+    result_string = run_cli(sob).get_output()
     try:
         # [Parsed_cropdetect_0 @ 0x557cd612b6c0] x1:191 x2:1728 y1:0 y2:799 w:1536 h:800 x:192 y:0 pts:100498 t:4.187417 limit:0.094118 crop=1536:800:192:0
         # get the crop=number:number:number:number
