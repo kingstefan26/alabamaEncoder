@@ -32,7 +32,7 @@ class CliResult:
             raise RuntimeError(fail_message)
         if bad_output_hints:
             for hint in bad_output_hints:
-                if hint in self.output:
+                if hint in self.output and hint != "":
                     raise RuntimeError(fail_message)
                 if hint == self.output:
                     raise RuntimeError(fail_message)
@@ -41,8 +41,9 @@ class CliResult:
     def get_as_int(self) -> int:
         return int(self.output.strip())
 
-    def filter_output(self, filter: str) -> str:
-        return self.output.strip().replace(filter, "")
+    def filter_output(self, filter: str):
+        self.output = self.output.strip().replace(filter, "")
+        return self
 
     def get_as_float(self) -> float:
         return float(self.output.strip())
