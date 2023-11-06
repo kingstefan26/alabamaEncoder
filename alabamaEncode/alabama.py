@@ -79,12 +79,13 @@ class AlabamaContext:
     auto_crop = False
 
     hdr = False
-    color_primaries: int = 1
-    transfer_characteristics: int = 1
-    matrix_coefficients: int = 1
+    color_primaries = "bt709"
+    transfer_characteristics = "bt709"
+    matrix_coefficients = "bt709"
     maximum_content_light_level: int = 0
     maximum_frame_average_light_level: int = 0
     chroma_sample_position = 0
+    svt_master_display = ""
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -160,6 +161,63 @@ class AlabamaContext:
             self.qm_max = kwargs.get("qm_max")
             if not isinstance(self.qm_max, int):
                 raise Exception("FATAL: qm_max must be an int")
+
+
+def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
+    if ctx.hdr and ctx.encoder == EncodersEnum.SVT_AV1:
+        print("Running auto HDR10")
+        obj = Ffmpeg.get_first_frame_data(PathAlabama(ctx.raw_input_file))
+        color_space = obj["color_space"]
+        if "bt2020nc" in color_space:
+            color_space = "bt2020-ncl"
+
+        if ctx.matrix_coefficients == "bt709":
+            ctx.matrix_coefficients = color_space
+            print(f"Setting color space to {ctx.matrix_coefficients}")
+
+        if ctx.color_primaries == "bt709":
+            ctx.color_primaries = obj["color_primaries"]
+            print(f"Setting color primaries to {ctx.color_primaries}")
+
+        if ctx.transfer_characteristics == "bt709":
+            ctx.transfer_characteristics = obj["color_transfer"]
+            print(f"Setting transfer characteristics to {ctx.transfer_characteristics}")
+
+        ctx.chroma_sample_position = obj["chroma_location"]
+        print(f"Setting chroma sample position to {ctx.chroma_sample_position}")
+
+        for side_data in obj["side_data_list"]:
+            if side_data["side_data_type"] == "Content light level metadata":
+                ctx.maximum_content_light_level = side_data["max_content"]
+                ctx.maximum_frame_average_light_level = side_data["max_average"]
+                print(
+                    f"Setting max content light level to {ctx.maximum_content_light_level}"
+                )
+                print(
+                    f"Setting max frame average light level to {ctx.maximum_frame_average_light_level}"
+                )
+            if side_data["side_data_type"] == "Mastering display metadata":
+
+                def split_and_divide(spltting) -> float:
+                    spl = spltting.split("/")
+                    return int(spl[0]) / int(spl[1])
+
+                red_x = split_and_divide(side_data["red_x"])
+                red_y = split_and_divide(side_data["red_y"])
+                green_x = split_and_divide(side_data["green_x"])
+                green_y = split_and_divide(side_data["green_y"])
+                blue_x = split_and_divide(side_data["blue_x"])
+                blue_y = split_and_divide(side_data["blue_y"])
+                white_point_x = split_and_divide(side_data["white_point_x"])
+                white_point_y = split_and_divide(side_data["white_point_y"])
+                min_luminance = split_and_divide(side_data["min_luminance"])
+                max_luminance = split_and_divide(side_data["max_luminance"])
+                # G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)
+                ctx.svt_master_display = f"G({green_x},{green_y})B({blue_x},{blue_y})R({red_x},{red_y})WP({white_point_x},{white_point_y})L({max_luminance},{min_luminance})"
+
+                print(f"Setting svt master display to {ctx.svt_master_display}")
+
+    return ctx
 
 
 def setup_context() -> AlabamaContext:
@@ -285,6 +343,8 @@ def setup_context() -> AlabamaContext:
     if ctx.encoder == EncodersEnum.X265 and ctx.crf_bitrate_mode == False:
         print("x265 only supports auto crf, set `--auto_crf true`")
         quit()
+
+    ctx = scrape_hdr_metadata(ctx)
 
     return ctx
 

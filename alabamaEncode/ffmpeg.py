@@ -1,3 +1,4 @@
+import json
 import os
 
 from alabamaEncode.cli_executor import run_cli
@@ -168,3 +169,15 @@ class Ffmpeg:
         # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
         tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
         return tonemap_string
+
+    @staticmethod
+    def get_first_frame_data(path: PathAlabama):
+        # ffprobe -v error -select_streams v:0 -show_frames 'path' -of json -read_intervals "%+0.3"
+        path.check_video()
+        return json.loads(
+            run_cli(
+                f'ffprobe -v error -select_streams v:0 -show_frames -of json -read_intervals "%+0.3" {path.get_safe()}'
+            )
+            .verify()
+            .get_output()
+        )["frames"][0]

@@ -102,6 +102,8 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                 kommand += f" --enable-hdr 1"
                 kommand += f" --chroma-sample-position {self.chroma_sample_position}"
                 kommand += f" --content-light {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
+                if self.svt_master_display != "":
+                    kommand += f' --mastering-display "{self.svt_master_display}"'
 
             def bitrate_check():
                 """

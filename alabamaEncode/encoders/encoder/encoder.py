@@ -64,13 +64,27 @@ class AbstractEncoder(ABC):
     svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
     film_grain_denoise: (0 | 1) = 1
 
+    # --color-primaries 9 = bt2020
     color_primaries = 1
+
+    # --transfer-characteristics 16 = smpte2084
     transfer_characteristics = 1
+
+    # --matrix-coefficients 9 = bt2020-ncl
     matrix_coefficients = 1
+
+    # --content-light 1014,436
     maximum_content_light_level = ""
     maximum_frame_average_light_level = ""
+
+    # --chroma-sample-position 2 colocated/topleft
     chroma_sample_position = 0
+
+    # --enable-hdr 1
     hdr = False
+
+    # --mastering-display "G(0.17,0.797)B(0.131,0.046)R(0.708,0.292)WP(0.3127,0.329)L(1,000,0.0001)" G(x,y)B(x,y)R(x,y)WP(x,y)L(max,mi
+    svt_master_display = ""
 
     running_on_celery = False
 
@@ -98,6 +112,7 @@ class AbstractEncoder(ABC):
             config.maximum_frame_average_light_level
         )
         self.chroma_sample_position = config.chroma_sample_position
+        self.svt_master_display = config.svt_master_display
         self.hdr = config.hdr
 
     def update(self, **kwargs):
@@ -319,7 +334,6 @@ class AbstractEncoder(ABC):
     @abstractmethod
     def get_chunk_file_extension(self) -> str:
         return ".mkv"
-
 
     @abstractmethod
     def get_version(self) -> str:
