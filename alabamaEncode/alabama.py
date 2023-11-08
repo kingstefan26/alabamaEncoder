@@ -1,20 +1,21 @@
 import argparse
 import os
+import time
 
 from tqdm import tqdm
 
 import alabamaEncode.final_touches
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodersEnum, EncoderRateDistribution
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.ffmpegUtil import do_cropdetect
 
 
 class AlabamaContext:
-    """A class to hold the configuration for the encoder"""
+    """A class to hold the configuration for an encoding instance"""
 
     def __str__(self):
         return self.__dict__.__str__()
@@ -54,6 +55,7 @@ class AlabamaContext:
     flag3: bool = False
     cutoff_bitrate: int = -1
     override_flags: str = ""
+    bitrate_string = ""
 
     chunk_stats_path: str = ""
     find_best_bitrate = False
@@ -94,73 +96,57 @@ class AlabamaContext:
     def get_encoder(self) -> AbstractEncoder:
         return self.encoder.get_encoder()
 
-    def pre_run_check(self):
-        # turn tempfolder into a full path
-        self.temp_folder = self.output_folder + "temp/"
-        if not os.path.exists(self.temp_folder):
-            os.makedirs(self.temp_folder)
 
-        self.input_file = self.temp_folder + "temp.mkv"
+def setup_video_filters(ctx: AlabamaContext) -> AlabamaContext:
+    # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
+    if ctx.video_filters != "" and (
+        ctx.hdr or ctx.video_filters != "" or ctx.scale_string != ""
+    ):
+        print(
+            "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
+        )
+        quit()
 
-        if not os.path.exists(self.raw_input_file):
-            print(f"Input file {self.raw_input_file} does not exist")
+    if ctx.video_filters == "":
+        final = ""
+
+        if ctx.crop_string != "":
+            final += f"crop={ctx.crop_string}"
+
+        if ctx.scale_string != "":
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += f"scale={ctx.scale_string}:flags=lanczos"
+
+        if ctx.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
+            if final != "" and final[-1] != ",":
+                final += ","
+            final += Ffmpeg.get_tonemap_vf()
+
+        ctx.video_filters = final
+    return ctx
+
+
+def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
+    # turn tempfolder into a full path
+    ctx.temp_folder = ctx.output_folder + "temp/"
+    if not os.path.exists(ctx.temp_folder):
+        os.makedirs(ctx.temp_folder)
+
+    ctx.input_file = ctx.temp_folder + "temp.mkv"
+
+    if not os.path.exists(ctx.raw_input_file):
+        print(f"Input file {ctx.raw_input_file} does not exist")
+        quit()
+
+    # symlink input file to temp folder
+    if not os.path.exists(ctx.input_file):
+        os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
+        if not os.path.exists(ctx.input_file):
+            print(f"Failed to symlink input file to {ctx.input_file}")
             quit()
 
-        # symlink input file to temp folder
-        if not os.path.exists(self.input_file):
-            os.system(f'ln -s "{self.raw_input_file}" "{self.input_file}"')
-            if not os.path.exists(self.input_file):
-                print(f"Failed to symlink input file to {self.input_file}")
-                quit()
-
-    def update(self, **kwargs):
-        """
-        Update the config with new values, with type checking
-        """
-        if "temp_folder" in kwargs:
-            self.temp_folder = kwargs.get("temp_folder")
-            if not os.path.isdir(self.temp_folder):
-                raise Exception("FATAL: temp_folder must be a valid directory")
-        if "bitrate" in kwargs:
-            self.bitrate = kwargs.get("bitrate")
-            if not isinstance(self.bitrate, int):
-                raise Exception("FATAL: bitrate must be an int")
-        if "crf" in kwargs:
-            self.crf = kwargs.get("crf")
-            if not isinstance(self.crf, int):
-                raise Exception("FATAL: crf must be an int")
-        if "passes" in kwargs:
-            self.passes = kwargs.get("passes")
-            if not isinstance(self.passes, int):
-                raise Exception("FATAL: passes must be an int")
-        if "video_filters" in kwargs:
-            self.video_filters = kwargs.get("video_filters")
-            if not isinstance(self.video_filters, str):
-                raise Exception("FATAL: video_filters must be a str")
-        if "speed" in kwargs:
-            self.speed = kwargs.get("speed")
-            if not isinstance(self.speed, int):
-                raise Exception("FATAL: speed must be an int")
-        if "threads" in kwargs:
-            self.threads = kwargs.get("threads")
-            if not isinstance(self.threads, int):
-                raise Exception("FATAL: threads must be an int")
-        if "rate_distribution" in kwargs:
-            self.rate_distribution = kwargs.get("rate_distribution")
-            if not isinstance(self.rate_distribution, EncoderRateDistribution):
-                raise Exception("FATAL: rate_distribution must be an RateDistribution")
-        if "qm_enabled" in kwargs:
-            self.qm_enabled = kwargs.get("qm_enabled")
-            if not isinstance(self.qm_enabled, bool):
-                raise Exception("FATAL: qm_enabled must be an bool")
-        if "qm_min" in kwargs:
-            self.qm_min = kwargs.get("qm_min")
-            if not isinstance(self.qm_min, int):
-                raise Exception("FATAL: qm_min must be an int")
-        if "qm_max" in kwargs:
-            self.qm_max = kwargs.get("qm_max")
-            if not isinstance(self.qm_max, int):
-                raise Exception("FATAL: qm_max must be an int")
+    return ctx
 
 
 def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
@@ -220,6 +206,74 @@ def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
     return ctx
 
 
+def setup_rd(ctx: AlabamaContext) -> AlabamaContext:
+    if ctx.crf != -1:
+        print("Using crf mode")
+    else:
+        if "auto" in ctx.bitrate_string or "-1" in ctx.bitrate_string:
+            if ctx.flag1 and not ctx.crf_based_vmaf_targeting:
+                print("Flag1 and auto bitrate are mutually exclusive")
+                quit()
+            ctx.find_best_bitrate = True
+        else:
+            if "M" in ctx.bitrate_string or "m" in ctx.bitrate_string:
+                ctx.bitrate = ctx.bitrate_string.replace("M", "")
+                ctx.bitrate = int(ctx.bitrate) * 1000
+            else:
+                ctx.bitrate = ctx.bitrate_string.replace("k", "")
+                ctx.bitrate = ctx.bitrate_string.replace("K", "")
+
+                try:
+                    ctx.bitrate = int(ctx.bitrate_string)
+                except ValueError:
+                    raise ValueError("Failed to parse bitrate")
+
+        if ctx.flag1 and ctx.bitrate == -1:
+            print("Flag1 requires bitrate to be set --bitrate 2M")
+            quit()
+    return ctx
+
+
+def do_autocrop(ctx: AlabamaContext) -> AlabamaContext:
+    if ctx.auto_crop and ctx.crop_string == "":
+        start = time.time()
+        output = do_cropdetect(ctx.input_file)
+        print(f"Computed crop: {output} in {int(time.time() - start)}s")
+        path = PathAlabama(ctx.input_file)
+        out_path = PathAlabama(ctx.output_file)
+
+        def gen_prew(ss, i):
+            run_cli(
+                f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {out_path.get_safe()}.{i}.cropped.jpg"
+            ).verify()
+            run_cli(
+                f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {out_path.get_safe()}.{i}.uncropped.jpg"
+            )
+
+        print("Creating previews")
+        gen_prew(60, 0)
+        gen_prew(120, 1)
+        print(
+            "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
+        )
+
+        if input() != "":
+            print("Aborting")
+            quit()
+
+        print(
+            f'Note: to reuse this in reusmes use `alabamaEncoder resume` or manually specify `--crop_string="{output}"`'
+        )
+        ctx.crop_string = output
+    return ctx
+
+
+def run_pipeline(ctx, transformers):
+    for transformer in transformers:
+        ctx = transformer(ctx)
+    return ctx
+
+
 def setup_context() -> AlabamaContext:
     ctx = AlabamaContext()
     args = parse_args(ctx)
@@ -229,6 +283,11 @@ def setup_context() -> AlabamaContext:
     ctx.raw_input_file = os.path.abspath(args.input)
     ctx.encoder = EncodersEnum.from_str(args.encoder)
     ctx.chunk_stats_path = f"{ctx.temp_folder}chunks.log"
+
+    ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
+    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
+        print("Autograin requires butteraugli in path, please install it")
+        quit()
 
     ctx.log_level = args.log_level
     ctx.dry_run = args.dry_run
@@ -269,82 +328,21 @@ def setup_context() -> AlabamaContext:
     ctx.chroma_sample_position = args.chroma_sample_position
     ctx.grain_synth = args.grain
     ctx.video_filters = args.video_filters
+    ctx.crf = args.crf
+    ctx.auto_crop = args.autocrop
+    ctx.bitrate_string = args.bitrate
+    ctx.auto_crop_accepted = args.auto_crop_accepted
 
-    ctx.pre_run_check()
-
-    if ctx.crf != -1:
-        print("Using crf mode")
-        ctx.crf = args.crf
-    if ctx.flag1 and ctx.bitrate == -1:
-        print("Flag1 requires bitrate to be set --bitrate 2M")
-        quit()
-    if (
-        "auto" in args.bitrate
-        or "-1" in args.bitrate
-        and ctx.flag1
-        and not ctx.crf_based_vmaf_targeting
-    ):
-        print("Flag1 and auto bitrate are mutually exclusive")
-        quit()
-
-    if "auto" in args.bitrate or "-1" in args.bitrate:
-        ctx.find_best_bitrate = True
-    else:
-        if "M" in args.bitrate or "m" in args.bitrate:
-            ctx.bitrate = args.bitrate.replace("M", "")
-            ctx.bitrate = int(ctx.bitrate) * 1000
-        else:
-            ctx.bitrate = args.bitrate.replace("k", "")
-            ctx.bitrate = args.bitrate.replace("K", "")
-
-            try:
-                ctx.bitrate = int(args.bitrate)
-            except ValueError:
-                raise ValueError("Failed to parse bitrate")
-
-    ctx.find_best_grainsynth = True if args.grain == -1 else False
-    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
-        print("Autograin requires butteraugli in path, please install it")
-        quit()
-
-    # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
-    if ctx.video_filters != "" and (
-        ctx.hdr or ctx.video_filters != "" or ctx.scale_string != ""
-    ):
-        print(
-            "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
-        )
-        quit()
-
-    if ctx.video_filters == "":
-        if args.autocrop:
-            output = do_cropdetect(ChunkObject(path=ctx.input_file))
-            output.replace("crop=", "")
-            if output != "":
-                ctx.video_filters = output
-
-        final = ""
-
-        if ctx.crop_string != "":
-            final += f"crop={ctx.crop_string}"
-
-        if ctx.scale_string != "":
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += f"scale={ctx.scale_string}:flags=lanczos"
-
-        if ctx.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += Ffmpeg.get_tonemap_vf()
-
-        ctx.video_filters = final
-
-    if ctx.encoder == EncodersEnum.X265 and ctx.crf_bitrate_mode == False:
-        print("x265 only supports auto crf, set `--auto_crf true`")
-        quit()
-
-    ctx = scrape_hdr_metadata(ctx)
+    ctx = run_pipeline(
+        ctx,
+        [
+            setup_paths,
+            setup_rd,
+            scrape_hdr_metadata,
+            do_autocrop,
+            setup_video_filters,
+        ],
+    )
 
     return ctx
 

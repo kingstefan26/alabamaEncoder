@@ -220,25 +220,40 @@ def get_image_butteraugli_score(refrence_img_path, distorted_img_path):
     #     return 0
 
 
-def do_cropdetect(in_chunk: ChunkObject = None, path: str = None):
-    if in_chunk is None and path is None:
-        raise ValueError("Either in_chunk or path must be set")
-    if in_chunk is None and path is not None:
-        lenght = Ffmpeg.get_frame_count(PathAlabama(path))
-        lenght = int(lenght / 2)
-        in_chunk = ChunkObject(
-            path=path, last_frame_index=lenght, first_frame_index=lenght - 100
-        )
-    print("Starting cropdetect")
-    sob = f"ffmpeg {in_chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -"
+def do_cropdetect(path: str = None):
+    alabama = PathAlabama(path)
+    alabama.check_video()
+    fps = Ffmpeg.get_video_frame_rate(alabama)
+    length = Ffmpeg.get_video_length(alabama) * fps
 
-    result_string = run_cli(sob).get_output()
-    try:
-        # [Parsed_cropdetect_0 @ 0x557cd612b6c0] x1:191 x2:1728 y1:0 y2:799 w:1536 h:800 x:192 y:0 pts:100498 t:4.187417 limit:0.094118 crop=1536:800:192:0
-        # get the crop=number:number:number:number
+    #  create a 10-frame long chunk at 20% 40% 60% 80% of the length
+    probe_chunks = []
+    for i in range(0, 100, 20):
+        first_frame_index = int(length * (i / 100))
+        probe_chunks.append(
+            ChunkObject(
+                path=path,
+                last_frame_index=first_frame_index + 10,
+                first_frame_index=first_frame_index,
+                framerate=fps,
+            )
+        )
+
+    # function that takes a chunk and output its first cropdetect
+    def get_crop(chunk) -> str:
+        result_string = run_cli(
+            f"ffmpeg {chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -"
+        ).get_output()
         match = re.search(r"-?\d+:-?\d+:-?\d+:-?\d+", result_string)
-        print(f"Finished cropdetect, parsed {match.group(0)}")
-        return match.group(0)
-    except AttributeError:
-        print(f"Failed auto-detecting crop from {in_chunk.path}")
-        return ""
+        try:
+            return match.group(0)
+        except AttributeError:
+            return ""
+
+    # get the crops
+    crops = [get_crop(chunk) for chunk in probe_chunks]
+
+    # out of the 5 crops, get the most common crop
+    most_common_crop = max(set(crops), key=crops.count)
+
+    return most_common_crop
