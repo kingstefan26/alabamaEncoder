@@ -173,9 +173,10 @@ class TargetVmaf(AnalyzeStep):
         enc.qm_max = 8
         enc.qm_min = 0
         # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
-        crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
-        points = []
-        target_vmaf = ctx.vmaf
+        bad_vmaf_offest = (
+            1  # if we target vmaf 95, lets target 94 since the probes are speed 13
+        )
+        target_vmaf = ctx.vmaf - bad_vmaf_offest
 
         class POINT:
             def __init__(self, crf, vmaf, ssim, bitrate):
@@ -203,25 +204,19 @@ class TargetVmaf(AnalyzeStep):
             """
             score = 0
 
-            bad_vmaf_offest = 1
-            # 95 - 1 = 94
-            vmaf_target = target_vmaf - bad_vmaf_offest
-            vmaf_target = max(100, vmaf_target)
-
             model_weights = ctx.crf_model_weights.split(",")
-
             score_bellow_target_weight = float(model_weights[0])  # 7
-            score_above_target_weight = float(model_weights[1])  # 2
+            score_above_target_weight = float(model_weights[1])  # 4
             score_bitrate_weight = float(model_weights[2])  # 15
             score_average_weight = float(model_weights[3])  # 2
             score_5_percentile_target_weight = float(model_weights[4])  # 5
 
             # punish if the score is bellow target
-            weight = max(0, vmaf_target - p.vmaf) * score_bellow_target_weight
+            weight = max(0, target_vmaf - p.vmaf) * score_bellow_target_weight
             score += weight
 
             # punish if the score is higher then target
-            target_weight = max(0, p.vmaf - vmaf_target) * score_above_target_weight
+            target_weight = max(0, p.vmaf - target_vmaf) * score_above_target_weight
             score += target_weight
 
             # how 5%tile frames looked compared to overall score
@@ -232,7 +227,7 @@ class TargetVmaf(AnalyzeStep):
             # how 5%tile frames looked compared to target, don't if above target
             # punishing if the worst parts of the video are bellow target
             weight_ = (
-                max(0, vmaf_target - p.vmaf_percentile_5)
+                max(0, target_vmaf - p.vmaf_percentile_5)
                 * score_5_percentile_target_weight
             )
             score += weight_
@@ -241,11 +236,6 @@ class TargetVmaf(AnalyzeStep):
             bitrate_weight = max(1, (p.bitrate / 100)) * score_bitrate_weight
             score += bitrate_weight  # bitrate
 
-            # print(f"{chunk.log_prefix()}added {weight} for vmaf bellow target")
-            # print(f"{chunk.log_prefix()}added {target_weight} for vmaf above target")
-            # print(f"{chunk.log_prefix()}added {average_weight} for vmaf average")
-            # print(f"{chunk.log_prefix()}added {weight_} for vmaf 5%tile bellow target")
-            # print(f"{chunk.log_prefix()}added {bitrate_weight} for bitrate")
             return score
 
         enc.update(rate_distribution=EncoderRateDistribution.CQ)
@@ -255,18 +245,18 @@ class TargetVmaf(AnalyzeStep):
         from alabamaEncode.adaptive.util import get_probe_file_base
 
         probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
-        for crf in crfs:
+
+        def crf_to_point(crf_point) -> POINT:
             enc.update(
                 output_path=(
                     probe_file_base
-                    + f"convexhull.{crf}{enc.get_chunk_file_extension()}"
+                    + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
                 ),
-                speed=13,
+                speed=12,
                 passes=1,
                 grain_synth=-1,
             )
-            enc.crf = crf
-            enc.svt_aq_mode = 0
+            enc.crf = crf_point
             probe_vmaf_log = enc.output_path + ".vmaflog"
 
             stats: EncodeStats = enc.run(
@@ -274,10 +264,12 @@ class TargetVmaf(AnalyzeStep):
                 vmaf_params={
                     "log_path": probe_vmaf_log,
                     "disable_enchancment_gain": False,
+                    "uhd_model": ctx.vmaf_4k_model,
+                    "phone_model": ctx.vmaf_phone_model,
                 },
             )
 
-            point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)
+            point = POINT(crf_point, stats.vmaf, stats.ssim, stats.bitrate)
 
             point.vmaf_percentile_1 = stats.vmaf_percentile_1
             point.vmaf_percentile_5 = stats.vmaf_percentile_1
@@ -287,48 +279,58 @@ class TargetVmaf(AnalyzeStep):
             point.vmaf_avg = stats.vmaf_avg
 
             log_to_convex_log(
-                f"{chunk.log_prefix()} crf: {crf} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {get_score(point)}"
+                f"{chunk.log_prefix()} crf: {crf_point} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {get_score(point)}"
             )
 
             if os.path.exists(probe_vmaf_log):
                 os.remove(probe_vmaf_log)
-            points.append(point)
+            return point
 
-        # convex hull
-
-        closest_score = float("inf")
-        crf = -1
-
-        ## PICK CLOSEST TO TARGET QUALITY
-        # pick the crf from point closest to target_vmaf
-        # for p in points:
-        #     if abs(target_vmaf - closest_score) > abs(target_vmaf - p.vmaf):
-        #         crf = p.crf
-        #         closest_score = p.vmaf
-
-        ## PICK LOWEST BITRATE WITH QUALITY ABOVE TARGET
-        # pick the crf from point with lowest bitrate with vmaf above target_vmaf
+        # crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
+        # points = []
+        #
+        # for crf in crfs:
+        #     point = crf_to_point(crf)
+        #     points.append(point)
+        #
+        # closest_score = float("inf")
+        # crf = -1
+        #
+        # ## PICK LOWEST SCORE
         # if len(points) == 1:
         #     crf = points[
         #         0
         #     ].crf  # case where there is only one point that is bellow target vmaf
         # else:
         #     for p in points:
-        #         if p.vmaf >= target_vmaf and p.bitrate < closest_score:
+        #         score = get_score(p)
+        #         if score < closest_score:
         #             crf = p.crf
-        #             closest_score = p.bitrate
+        #             closest_score = score
 
-        ## PICK LOWEST SCORE
-        if len(points) == 1:
-            crf = points[
-                0
-            ].crf  # case where there is only one point that is bellow target vmaf
-        else:
-            for p in points:
-                score = get_score(p)
-                if score < closest_score:
-                    crf = p.crf
-                    closest_score = score
+        def ternary_search(low, high, max_depth, epsilon=1e-9):
+            depth = 0
+
+            while high - low > epsilon and depth < max_depth:
+                mid1 = low + (high - low) / 3
+                mid2 = high - (high - low) / 3
+
+                mid1_score = get_score(crf_to_point(int(mid1)))
+                mid2_score = get_score(crf_to_point(int(mid2)))
+
+                if mid1_score < mid2_score:
+                    high = mid2
+                else:
+                    low = mid1
+
+                depth += 1
+
+            return (low + high) / 2
+
+        # Set your initial range and maximum depth
+        low, high = 0, 63
+        max_depth = 4
+        crf = int(ternary_search(low, high, max_depth))
 
         # print(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         log_to_convex_log(f"{chunk.log_prefix()}Convexhull crf: {crf}")

@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import time
 from typing import List
@@ -57,7 +58,9 @@ class AlabamaContext:
     cutoff_bitrate: int = -1
     override_flags: str = ""
     bitrate_string = ""
-    crf_model_weights = "7,2,15,2,5"
+    crf_model_weights = "7,2,10,2,7"
+
+    resolution_preset = ""
 
     chunk_stats_path: str = ""
     find_best_bitrate = False
@@ -66,6 +69,8 @@ class AlabamaContext:
     scale_string = ""
 
     crf_based_vmaf_targeting = True
+    vmaf_4k_model = False
+    vmaf_phone_model = False
 
     max_scene_length: int = 10
     start_offset: int = -1
@@ -81,6 +86,7 @@ class AlabamaContext:
     encoder_name = "SouAV1R"
     encode_audio = True
     auto_crop = False
+    auto_accept_autocrop = False
 
     hdr = False
     color_primaries = "bt709"
@@ -153,57 +159,89 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
 
 def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
     if ctx.hdr and ctx.encoder == EncodersEnum.SVT_AV1:
-        print("Running auto HDR10")
-        obj = Ffmpeg.get_first_frame_data(PathAlabama(ctx.raw_input_file))
-        color_space = obj["color_space"]
-        if "bt2020nc" in color_space:
-            color_space = "bt2020-ncl"
+        cache_path = f"{ctx.temp_folder}hdr.cache"
+        if not os.path.exists(cache_path):
+            print("Running auto HDR10")
+            obj = Ffmpeg.get_first_frame_data(PathAlabama(ctx.raw_input_file))
+            color_space = obj["color_space"]
+            if "bt2020nc" in color_space:
+                color_space = "bt2020-ncl"
 
-        if ctx.matrix_coefficients == "bt709":
-            ctx.matrix_coefficients = color_space
-            print(f"Setting color space to {ctx.matrix_coefficients}")
+            if ctx.matrix_coefficients == "bt709":
+                ctx.matrix_coefficients = color_space
+                print(f"Setting color space to {ctx.matrix_coefficients}")
 
-        if ctx.color_primaries == "bt709":
-            ctx.color_primaries = obj["color_primaries"]
-            print(f"Setting color primaries to {ctx.color_primaries}")
+            if ctx.color_primaries == "bt709":
+                ctx.color_primaries = obj["color_primaries"]
+                print(f"Setting color primaries to {ctx.color_primaries}")
 
-        if ctx.transfer_characteristics == "bt709":
-            ctx.transfer_characteristics = obj["color_transfer"]
-            print(f"Setting transfer characteristics to {ctx.transfer_characteristics}")
-
-        ctx.chroma_sample_position = obj["chroma_location"]
-        print(f"Setting chroma sample position to {ctx.chroma_sample_position}")
-
-        for side_data in obj["side_data_list"]:
-            if side_data["side_data_type"] == "Content light level metadata":
-                ctx.maximum_content_light_level = side_data["max_content"]
-                ctx.maximum_frame_average_light_level = side_data["max_average"]
+            if ctx.transfer_characteristics == "bt709":
+                ctx.transfer_characteristics = obj["color_transfer"]
                 print(
-                    f"Setting max content light level to {ctx.maximum_content_light_level}"
+                    f"Setting transfer characteristics to {ctx.transfer_characteristics}"
                 )
-                print(
-                    f"Setting max frame average light level to {ctx.maximum_frame_average_light_level}"
-                )
-            if side_data["side_data_type"] == "Mastering display metadata":
 
-                def split_and_divide(spltting) -> float:
-                    spl = spltting.split("/")
-                    return int(spl[0]) / int(spl[1])
+            ctx.chroma_sample_position = obj["chroma_location"]
+            print(f"Setting chroma sample position to {ctx.chroma_sample_position}")
 
-                red_x = split_and_divide(side_data["red_x"])
-                red_y = split_and_divide(side_data["red_y"])
-                green_x = split_and_divide(side_data["green_x"])
-                green_y = split_and_divide(side_data["green_y"])
-                blue_x = split_and_divide(side_data["blue_x"])
-                blue_y = split_and_divide(side_data["blue_y"])
-                white_point_x = split_and_divide(side_data["white_point_x"])
-                white_point_y = split_and_divide(side_data["white_point_y"])
-                min_luminance = split_and_divide(side_data["min_luminance"])
-                max_luminance = split_and_divide(side_data["max_luminance"])
-                # G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)
-                ctx.svt_master_display = f"G({green_x},{green_y})B({blue_x},{blue_y})R({red_x},{red_y})WP({white_point_x},{white_point_y})L({max_luminance},{min_luminance})"
+            for side_data in obj["side_data_list"]:
+                if side_data["side_data_type"] == "Content light level metadata":
+                    ctx.maximum_content_light_level = side_data["max_content"]
+                    ctx.maximum_frame_average_light_level = side_data["max_average"]
+                    print(
+                        f"Setting max content light level to {ctx.maximum_content_light_level}"
+                    )
+                    print(
+                        f"Setting max frame average light level to {ctx.maximum_frame_average_light_level}"
+                    )
+                if side_data["side_data_type"] == "Mastering display metadata":
 
-                print(f"Setting svt master display to {ctx.svt_master_display}")
+                    def split_and_divide(spltting) -> float:
+                        spl = spltting.split("/")
+                        return int(spl[0]) / int(spl[1])
+
+                    red_x = split_and_divide(side_data["red_x"])
+                    red_y = split_and_divide(side_data["red_y"])
+                    green_x = split_and_divide(side_data["green_x"])
+                    green_y = split_and_divide(side_data["green_y"])
+                    blue_x = split_and_divide(side_data["blue_x"])
+                    blue_y = split_and_divide(side_data["blue_y"])
+                    white_point_x = split_and_divide(side_data["white_point_x"])
+                    white_point_y = split_and_divide(side_data["white_point_y"])
+                    min_luminance = split_and_divide(side_data["min_luminance"])
+                    max_luminance = split_and_divide(side_data["max_luminance"])
+                    # G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)
+                    ctx.svt_master_display = f"G({green_x},{green_y})B({blue_x},{blue_y})R({red_x},{red_y})WP({white_point_x},{white_point_y})L({max_luminance},{min_luminance})"
+
+                    print(f"Setting svt master display to {ctx.svt_master_display}")
+
+            cache_obj = {}
+            cache_obj["matrix_coefficients"] = ctx.matrix_coefficients
+            cache_obj["color_primaries"] = ctx.color_primaries
+            cache_obj["transfer_characteristics"] = ctx.transfer_characteristics
+            cache_obj["chroma_sample_position"] = ctx.chroma_sample_position
+            cache_obj["maximum_content_light_level"] = ctx.maximum_content_light_level
+            cache_obj[
+                "maximum_frame_average_light_level"
+            ] = ctx.maximum_frame_average_light_level
+            cache_obj["svt_master_display"] = ctx.svt_master_display
+
+            # save as json
+            with open(cache_path, "w") as f:
+                f.write(json.dumps(cache_obj))
+        else:
+            print("Loading HDR10 metadata from cache")
+            with open(cache_path) as f:
+                cache_obj = json.loads(f.read())
+            ctx.matrix_coefficients = cache_obj["matrix_coefficients"]
+            ctx.color_primaries = cache_obj["color_primaries"]
+            ctx.transfer_characteristics = cache_obj["transfer_characteristics"]
+            ctx.chroma_sample_position = cache_obj["chroma_sample_position"]
+            ctx.maximum_content_light_level = cache_obj["maximum_content_light_level"]
+            ctx.maximum_frame_average_light_level = cache_obj[
+                "maximum_frame_average_light_level"
+            ]
+            ctx.svt_master_display = cache_obj["svt_master_display"]
 
     return ctx
 
@@ -236,46 +274,78 @@ def setup_rd(ctx: AlabamaContext) -> AlabamaContext:
     return ctx
 
 
+def compute_resolution_presets(ctx: AlabamaContext) -> AlabamaContext:
+    if ctx.resolution_preset != "" and ctx.scale_string == "":
+        # 4k 1440p 1080p 768p 720p 540p 480p 360p
+        match ctx.resolution_preset:
+            case "4k":
+                ctx.scale_string = "3840:-2"
+            case "1440p":
+                ctx.scale_string = "2560:-2"
+            case "1080p":
+                ctx.scale_string = "1920:-2"
+            case "768p":
+                ctx.scale_string = "1366:-2"
+            case "720p":
+                ctx.scale_string = "1280:-2"
+            case "540p":
+                ctx.scale_string = "960:-2"
+            case "480p":
+                ctx.scale_string = "854:-2"
+            case "360p":
+                ctx.scale_string = "640:-2"
+            case _:
+                raise ValueError(
+                    f'Cannot interpret resolution preset "{ctx.resolution_preset}", refer to the help command'
+                )
+    return ctx
+
+
 def do_autocrop(ctx: AlabamaContext) -> AlabamaContext:
     if ctx.auto_crop and ctx.crop_string == "":
         cache_path = f"{ctx.temp_folder}cropdetect.cache"
         if not os.path.exists(cache_path):
             start = time.time()
+            print("Running cropdetect...")
             output = do_cropdetect(ctx.input_file)
             print(f"Computed crop: {output} in {int(time.time() - start)}s")
             path = PathAlabama(ctx.input_file)
             out_path = PathAlabama(ctx.output_file)
 
             def gen_prew(ss, i) -> List[str]:
-                p = f"{out_path.get_safe()}.{i}.cropped.jpg"
+                p = f'"{out_path.get()}.{i}.cropped.jpg"'
                 run_cli(
                     f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {p}"
                 ).verify()
-                p2 = f"{out_path.get_safe()}.{i}.uncropped.jpg"
+                p2 = f'"{out_path.get()}.{i}.uncropped.jpg"'
                 run_cli(
                     f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {p2}"
                 )
-                return [p, p2]
+                return [p.replace('"', ""), p2.replace('"', "")]
 
-            print("Creating previews")
-            generated_paths = gen_prew(60, 0)
-            generated_paths += gen_prew(120, 1)
-            print(
-                "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
-            )
+            if not ctx.auto_accept_autocrop:
+                print("Creating previews")
+                generated_paths = gen_prew(60, 0)
+                generated_paths += gen_prew(120, 1)
+                print(
+                    "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
+                )
 
-            if input() != "":
-                print("Aborting")
+                if input() != "":
+                    print("Aborting")
+                    for p in generated_paths:
+                        if os.path.exists(p):
+                            os.remove(p)
+                    quit()
+
                 for p in generated_paths:
-                    os.remove(p)
-                quit()
-
-            for p in generated_paths:
-                os.remove(p)
+                    if os.path.exists(p):
+                        os.remove(p)
 
             with open(cache_path, "w") as f:
                 f.write(output)
         else:
+            print("Loading autocrop from cache")
             with open(cache_path) as f:
                 output = f.read()
         ctx.crop_string = output
@@ -341,6 +411,10 @@ def setup_context() -> AlabamaContext:
     ctx.auto_crop = args.autocrop
     ctx.bitrate_string = args.bitrate
     ctx.crf_model_weights = args.crf_model_weights
+    ctx.vmaf_phone_model = args.vmaf_phone_model
+    ctx.vmaf_4k_model = args.vmaf_4k_model
+    ctx.auto_accept_autocrop = args.auto_accept_autocrop
+    ctx.resolution_preset = args.resolution_preset
 
     ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
     if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
@@ -354,6 +428,7 @@ def setup_context() -> AlabamaContext:
             setup_rd,
             scrape_hdr_metadata,
             do_autocrop,
+            compute_resolution_presets,
             setup_video_filters,
         ],
     )
@@ -681,6 +756,34 @@ def parse_args(ctx: AlabamaContext):
         type=str,
         default=ctx.crf_model_weights,
         help="Weights for the crf model, comma separated, 5 values, see readme",
+    )
+
+    parser.add_argument(
+        "--vmaf_phone_model",
+        action="store_true",
+        default=ctx.vmaf_phone_model,
+        help="use vmaf phone model for auto crf tuning",
+    )
+
+    parser.add_argument(
+        "--vmaf_4k_model",
+        action="store_true",
+        default=ctx.vmaf_4k_model,
+        help="use vmaf 4k model for auto crf tuning",
+    )
+
+    parser.add_argument(
+        "--auto_accept_autocrop",
+        action="store_true",
+        default=ctx.auto_accept_autocrop,
+        help="Automatically accept autocrop",
+    )
+
+    parser.add_argument(
+        "--resolution_preset",
+        type=str,
+        default=ctx.resolution_preset,
+        help="Preset for the scale filter, possible choises are 4k 1440p 1080p 768p 720p 540p 480p 360p",
     )
 
     return parser.parse_args()

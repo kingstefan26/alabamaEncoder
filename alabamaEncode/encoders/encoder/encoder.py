@@ -247,6 +247,7 @@ class AbstractEncoder(ABC):
                 vmaf_params = {}
 
             uhd_model = vmaf_params.get("uhd_model", False)
+            phone_model = vmaf_params.get("phone_model", False)
             disable_enchancment_gain = vmaf_params.get(
                 "disable_enchancment_gain", False
             )
@@ -261,6 +262,7 @@ class AbstractEncoder(ABC):
                     self.chunk,
                     video_filters=self.video_filters,
                     uhd_model=uhd_model,
+                    phone_model=phone_model,
                     disable_enchancment_gain=disable_enchancment_gain,
                     log_path=log_path,
                     threads=threads,

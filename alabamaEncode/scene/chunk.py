@@ -5,8 +5,11 @@ from alabamaEncode.path import PathAlabama
 
 
 class WrongFrameCountError(Exception):
-    def __init__(self):
-        super().__init__("The frame count of the chunk is not equal to the expected")
+    def __init__(self, expected_frame_count: int = -1, actual_frame_count: int = -1):
+        # super().__init__("The frame count of the chunk is not equal to the expected")
+        super().__init__(
+            f"Expected {expected_frame_count} frames, got {actual_frame_count}"
+        )
 
 
 class FfmpegDecodeFailException(Exception):
@@ -123,7 +126,7 @@ class ChunkObject:
     def log_prefix(self):
         return f"[{self.chunk_index}] "
 
-    def verify_integrity(self) -> bool:
+    def verify_integrity(self, length_of_sequence=-1) -> bool:
         """
         checks the integrity of a chunk
         :return: True if invalid
@@ -139,7 +142,18 @@ class ChunkObject:
             expected_frame_count = self.last_frame_index - self.first_frame_index
 
             if actual_frame_count != expected_frame_count:
-                raise WrongFrameCountError()
+                if (
+                    length_of_sequence != -1
+                    and length_of_sequence == self.chunk_index + 1
+                ):
+                    print(
+                        f"{self.log_prefix()}Frame count mismatch, but it's the last chunk, so it's ok"
+                    )
+                else:
+                    raise WrongFrameCountError(
+                        actual_frame_count=actual_frame_count,
+                        expected_frame_count=expected_frame_count,
+                    )
         except Exception as e:
             if isinstance(e, WrongFrameCountError) or isinstance(
                 e, FfmpegDecodeFailException

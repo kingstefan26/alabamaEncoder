@@ -15,8 +15,8 @@ def verify_integrity(args) -> ChunkObject or None:
     :param args:
     :return:
     """
-    chunk, pbar = args
-    result: bool = chunk.verify_integrity()
+    chunk, pbar, sequence_length = args
+    result: bool = chunk.verify_integrity(sequence_length)
     pbar.update()
     return chunk if result else None
 
@@ -65,7 +65,7 @@ class ChunkSequence:
 
         with tqdm(total=total_chunks, desc="Checking files", unit="file") as pbar:
             with ThreadPool(check_workers) as pool:
-                process_args = [(c, pbar) for c in seq_chunks]
+                process_args = [(c, pbar, len(self.chunks)) for c in seq_chunks]
                 invalid_chunks: List[ChunkObject or None] = list(
                     pool.imap(verify_integrity, process_args)
                 )

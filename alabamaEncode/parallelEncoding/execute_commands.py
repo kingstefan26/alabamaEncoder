@@ -20,13 +20,14 @@ async def execute_commands(
     :param multiprocess_workers: number of workers in multiprocess mode, -1 for auto adjust
     :param override_sequential: if true, will run sequentially if there are less than 10 scenes
     """
-    if len(command_objects) < 10 and override_sequential == True:
-        print("Less than 10 scenes, running encodes sequentially")
-
-        for command in command_objects:
-            command.run()
-
-    elif use_celery:
+    # if len(command_objects) < 10 and override_sequential == True:
+    #     print("Less than 10 scenes, running encodes sequentially")
+    #
+    #     for command in command_objects:
+    #         command.run()
+    #
+    # elif use_celery:
+    if use_celery:
         for a in command_objects:
             a.run_on_celery = True
 
