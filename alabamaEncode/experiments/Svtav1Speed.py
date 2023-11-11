@@ -68,7 +68,7 @@ if __name__ == "__main__":
             svtenc.update(output_path=f"{test_env}speed{speed}.ivf", speed=speed)
             print(svtenc.get_encode_commands())
             quit()
-            stats = svtenc.run(override_if_exists=False, calculate_vmaf=True)
+            stats = alabamaEncode.core.run(override_if_exists=False, calculate_vmaf=True)
 
             curr_db_rate = stats.size / stats.vmaf
             if speed == 4:

@@ -1,5 +1,6 @@
 # get broken/backend url from env
 import os
+import traceback
 
 from celery import Celery
 
@@ -49,6 +50,10 @@ def run_command_on_celery(command: BaseCommandObject) -> None:
     # invoking the convergence of distributed computing and asynchronous sorcery,
     # whereupon the symphony of computational prowess reaches its crescendo.
 
-    command.run()  # And thus, with a flourish and a flicker,
+    try:
+        command.run()  # And thus, with a flourish and a flicker,
+    except:
+        traceback.print_exc()
+
     # the command is executed upon the hallowed ground of Celery,
     # harmonizing with the cosmic vibrations and adding a celestial touch to our mortal programming endeavors.

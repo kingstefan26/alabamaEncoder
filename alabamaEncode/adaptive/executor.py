@@ -208,31 +208,44 @@ class TargetVmaf(AnalyzeStep):
             vmaf_target = target_vmaf - bad_vmaf_offest
             vmaf_target = max(100, vmaf_target)
 
-            score_bellow_target_weight = 7
-            score_above_target_weight = 5
-            score_bitrate_weight = 20
-            score_average_weight = 2
-            score_5_percentile_target_weight = 5
+            model_weights = ctx.crf_model_weights.split(",")
+
+            score_bellow_target_weight = float(model_weights[0])  # 7
+            score_above_target_weight = float(model_weights[1])  # 2
+            score_bitrate_weight = float(model_weights[2])  # 15
+            score_average_weight = float(model_weights[3])  # 2
+            score_5_percentile_target_weight = float(model_weights[4])  # 5
 
             # punish if the score is bellow target
-            score += max(0, vmaf_target - p.vmaf) * score_bellow_target_weight
+            weight = max(0, vmaf_target - p.vmaf) * score_bellow_target_weight
+            score += weight
 
             # punish if the score is higher then target
-            score += max(0, p.vmaf - vmaf_target) * score_above_target_weight
+            target_weight = max(0, p.vmaf - vmaf_target) * score_above_target_weight
+            score += target_weight
 
             # how 5%tile frames looked compared to overall score
             # punishing if the video is not consistent
-            score += abs(p.vmaf_avg - p.vmaf) * score_average_weight
+            average_weight = abs(p.vmaf_avg - p.vmaf) * score_average_weight
+            score += average_weight
 
             # how 5%tile frames looked compared to target, don't if above target
             # punishing if the worst parts of the video are bellow target
-            score += (
+            weight_ = (
                 max(0, vmaf_target - p.vmaf_percentile_5)
                 * score_5_percentile_target_weight
             )
+            score += weight_
 
             # we punish the hardest for bitrate
-            score += (p.bitrate / 1000) * score_bitrate_weight  # bitrate
+            bitrate_weight = max(1, (p.bitrate / 100)) * score_bitrate_weight
+            score += bitrate_weight  # bitrate
+
+            # print(f"{chunk.log_prefix()}added {weight} for vmaf bellow target")
+            # print(f"{chunk.log_prefix()}added {target_weight} for vmaf above target")
+            # print(f"{chunk.log_prefix()}added {average_weight} for vmaf average")
+            # print(f"{chunk.log_prefix()}added {weight_} for vmaf 5%tile bellow target")
+            # print(f"{chunk.log_prefix()}added {bitrate_weight} for bitrate")
             return score
 
         enc.update(rate_distribution=EncoderRateDistribution.CQ)
@@ -253,12 +266,15 @@ class TargetVmaf(AnalyzeStep):
                 grain_synth=-1,
             )
             enc.crf = crf
+            enc.svt_aq_mode = 0
             probe_vmaf_log = enc.output_path + ".vmaflog"
 
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                # vmaf_params={"uhd_model": True, "disable_enchancment_gain": False},
-                vmaf_params={"log_path": probe_vmaf_log},
+                vmaf_params={
+                    "log_path": probe_vmaf_log,
+                    "disable_enchancment_gain": False,
+                },
             )
 
             point = POINT(crf, stats.vmaf, stats.ssim, stats.bitrate)
@@ -314,6 +330,7 @@ class TargetVmaf(AnalyzeStep):
                     crf = p.crf
                     closest_score = score
 
+        # print(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         log_to_convex_log(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         enc.update(
             passes=1,
@@ -362,6 +379,27 @@ def finalencode_factory(ctx: AlabamaContext) -> FinalEncodeStep:
     return final_step
 
 
+class Timer:
+    def __init__(self):
+        self.timers = {}
+
+    def start(self, name: str):
+        self.timers[name] = time.time()
+
+    def stop(self, name: str):
+        if name not in self.timers:
+            raise Exception("Timer not started")
+        self.timers[name] = time.time() - self.timers[name]
+        return self.timers[name]
+
+    def finish(self, loud=False):
+        if loud:
+            print("timers:")
+            for key in self.timers:
+                print(f"{key}: {self.timers[key]}s")
+        return self.timers
+
+
 class AdaptiveCommand(BaseCommandObject):
     """
     Class that gets the ideal bitrate and encodes the final chunk
@@ -386,9 +424,12 @@ class AdaptiveCommand(BaseCommandObject):
 
         analyze_step: AnalyzeStep = analyzer_factory(self.ctx)
 
-        rate_search_time = time.time()
+        # using with statement with MessageWriter
+        timeing = Timer()
+
+        timeing.start("analyze_step")
         enc = analyze_step.run(self.ctx, self.chunk)
-        rate_search_time = time.time() - rate_search_time
+        rate_search_time = timeing.stop("analyze_step")
 
         enc.running_on_celery = self.run_on_celery
 
@@ -400,12 +441,16 @@ class AdaptiveCommand(BaseCommandObject):
             print(s)
             return
 
-        final_stats = None
+        timeing.start("final_step")
 
+        final_stats = None
         try:
-            final_stats = final_step.run(enc, self.chunk, self.ctx)
+            final_stats = final_step.run(enc, chunk=self.chunk, ctx=self.ctx)
         except Exception as e:
             print(f"[{self.chunk.chunk_index}] error while encoding: {e}")
+
+        final_step = timeing.stop("final_step")
+        timeing.finish()
 
         # round to two places
         total_fps = round(self.chunk.get_frame_count() / (time.time() - total_start), 2)

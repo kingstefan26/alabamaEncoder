@@ -238,7 +238,6 @@ class AbstractEncoder(ABC):
 
             if stats.time_encoding < 1:
                 stats.time_encoding = 1
-                print("WARINING: ENDODING TIME LESS THEN A SECOND, setting to 1")
 
             stats.status = EncodeStatus.DONE
 

@@ -2,6 +2,7 @@ import os
 import pickle
 import time
 
+import alabamaEncode.core
 from alabamaEncode.adaptive.util import get_probe_file_base
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 from alabamaEncode.utils.ffmpegUtil import get_video_ssim
@@ -53,7 +54,7 @@ def get_ideal_bitrate(
             rate_distribution=EncoderRateDistribution.VBR,
         )
 
-        encoder.run(override_if_exists=False)
+        alabamaEncode.core.run(override_if_exists=False)
 
         try:
             (ssim, ssim_db) = get_video_ssim(

@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+from typing import List
 
 from tqdm import tqdm
 
@@ -56,6 +57,7 @@ class AlabamaContext:
     cutoff_bitrate: int = -1
     override_flags: str = ""
     bitrate_string = ""
+    crf_model_weights = "7,2,15,2,5"
 
     chunk_stats_path: str = ""
     find_best_bitrate = False
@@ -236,34 +238,46 @@ def setup_rd(ctx: AlabamaContext) -> AlabamaContext:
 
 def do_autocrop(ctx: AlabamaContext) -> AlabamaContext:
     if ctx.auto_crop and ctx.crop_string == "":
-        start = time.time()
-        output = do_cropdetect(ctx.input_file)
-        print(f"Computed crop: {output} in {int(time.time() - start)}s")
-        path = PathAlabama(ctx.input_file)
-        out_path = PathAlabama(ctx.output_file)
+        cache_path = f"{ctx.temp_folder}cropdetect.cache"
+        if not os.path.exists(cache_path):
+            start = time.time()
+            output = do_cropdetect(ctx.input_file)
+            print(f"Computed crop: {output} in {int(time.time() - start)}s")
+            path = PathAlabama(ctx.input_file)
+            out_path = PathAlabama(ctx.output_file)
 
-        def gen_prew(ss, i):
-            run_cli(
-                f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {out_path.get_safe()}.{i}.cropped.jpg"
-            ).verify()
-            run_cli(
-                f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {out_path.get_safe()}.{i}.uncropped.jpg"
+            def gen_prew(ss, i) -> List[str]:
+                p = f"{out_path.get_safe()}.{i}.cropped.jpg"
+                run_cli(
+                    f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {p}"
+                ).verify()
+                p2 = f"{out_path.get_safe()}.{i}.uncropped.jpg"
+                run_cli(
+                    f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {p2}"
+                )
+                return [p, p2]
+
+            print("Creating previews")
+            generated_paths = gen_prew(60, 0)
+            generated_paths += gen_prew(120, 1)
+            print(
+                "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
             )
 
-        print("Creating previews")
-        gen_prew(60, 0)
-        gen_prew(120, 1)
-        print(
-            "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
-        )
+            if input() != "":
+                print("Aborting")
+                for p in generated_paths:
+                    os.remove(p)
+                quit()
 
-        if input() != "":
-            print("Aborting")
-            quit()
+            for p in generated_paths:
+                os.remove(p)
 
-        print(
-            f'Note: to reuse this in reusmes use `alabamaEncoder resume` or manually specify `--crop_string="{output}"`'
-        )
+            with open(cache_path, "w") as f:
+                f.write(output)
+        else:
+            with open(cache_path) as f:
+                output = f.read()
         ctx.crop_string = output
     return ctx
 
@@ -284,11 +298,7 @@ def setup_context() -> AlabamaContext:
     ctx.encoder = EncodersEnum.from_str(args.encoder)
     ctx.chunk_stats_path = f"{ctx.temp_folder}chunks.log"
 
-    ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
-    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
-        print("Autograin requires butteraugli in path, please install it")
-        quit()
-
+    ctx.grain_synth = args.grain
     ctx.log_level = args.log_level
     ctx.dry_run = args.dry_run
     ctx.ssim_db_target = args.ssim_db_target
@@ -326,12 +336,16 @@ def setup_context() -> AlabamaContext:
     ctx.maximum_content_light_level = args.maximum_content_light_level
     ctx.maximum_frame_average_light_level = args.frame_average_light
     ctx.chroma_sample_position = args.chroma_sample_position
-    ctx.grain_synth = args.grain
     ctx.video_filters = args.video_filters
     ctx.crf = args.crf
     ctx.auto_crop = args.autocrop
     ctx.bitrate_string = args.bitrate
-    ctx.auto_crop_accepted = args.auto_crop_accepted
+    ctx.crf_model_weights = args.crf_model_weights
+
+    ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
+    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
+        print("Autograin requires butteraugli in path, please install it")
+        quit()
 
     ctx = run_pipeline(
         ctx,
@@ -660,6 +674,13 @@ def parse_args(ctx: AlabamaContext):
         type=str,
         default=ctx.sub_file,
         help="Subtitles file, eg .srt or .vvt",
+    )
+
+    parser.add_argument(
+        "--crf_model_weights",
+        type=str,
+        default=ctx.crf_model_weights,
+        help="Weights for the crf model, comma separated, 5 values, see readme",
     )
 
     return parser.parse_args()
