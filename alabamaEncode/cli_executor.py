@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import List
 
@@ -20,12 +21,16 @@ class CliResult:
         return self.output
 
     def verify(
-        self, fail_message: str = "Cli failed", bad_output_hints: List[str] = None
+        self,
+        fail_message: str = "Cli failed",
+        bad_output_hints: List[str] = None,
+        files: List[str] = None,
     ):
         """
         :param fail_message: message to raise if the cli failed
         :param bad_output_hints: list of strings that,
         when found in the output, will cause the verification to fail
+        :param files: list of files that must exist
         :return: self for pipelining
         """
         if not self.success():
@@ -35,6 +40,10 @@ class CliResult:
                 if hint in self.output and hint != "":
                     raise RuntimeError(fail_message)
                 if hint == self.output:
+                    raise RuntimeError(fail_message)
+        if files:
+            for file in files:
+                if not os.path.exists(file):
                     raise RuntimeError(fail_message)
         return self
 
