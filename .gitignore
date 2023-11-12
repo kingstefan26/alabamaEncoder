@@ -21,5 +21,6 @@ dist/
 video_encoder.egg-info/
 build/
 test_codes/**
+venv/**
 
 **.vmaflog

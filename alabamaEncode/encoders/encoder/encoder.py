@@ -43,6 +43,8 @@ class AbstractEncoder(ABC):
     qm_max = 15
     override_flags: str = ""
 
+    aom_cli_path = "aomenc"
+
     bit_override = 10
 
     svt_bias_pct = 50  # 100 vbr like, 0 cbr like

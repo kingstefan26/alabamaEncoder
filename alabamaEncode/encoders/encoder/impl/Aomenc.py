@@ -1,13 +1,31 @@
+import os
+import re
 from copy import copy
 from typing import List
 
+from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderAomEnc(AbstractEncoder):
     def get_needed_path(self) -> List[str]:
-        return ["aomenc"]
+        return [self.get_bin()]
+
+    def get_bin(self):
+        return os.getenv("AOM_CLI_PATH", self.aom_cli_path)
+
+    def get_version(self) -> str:
+        # Included encoders:
+        #
+        # av1    - AOMedia Project AV1 Encoder Psy v3.6.0 (default)
+        match = re.search(
+            r"av1\s+-\s+AOMedia Project AV1 Encoder\s+(.*)",
+            run_cli(f"{self.get_bin()} --help").get_output(),
+        )
+        if match is None:
+            raise Exception("FATAL: Could not find av1 encoder version")
+        return match.group(1)
 
     def __init__(self):
         super().__init__()
@@ -20,20 +38,22 @@ class AbstractEncoderAomEnc(AbstractEncoder):
             video_filters=self.video_filters
         )
         encode_command += " | "
-        encode_command += f"aomenc - "
+        encode_command += f"{self.get_bin()} - "
         encode_command += " --quiet "
         encode_command += f'-o "{self.output_path}" '
 
         # 1 thread cuz we generally run this chunked
-        encode_command += f"--threads=1 "
+        encode_command += f"--threads={self.threads} "
 
-        if self.override_flags == "":
-            encode_command += f"--cpu-used={self.speed} "
-            encode_command += f"--bit-depth=10 "
+        encode_command += f"--cpu-used={self.speed} "
+        encode_command += f"--bit-depth={self.bit_override} "
 
-            # STOLEN FROM ROOTATKAI IN #BENCHMARKS CUZ HE SAID ITS GOOD OR WHATEVER
-            # --lag-in-frames=48 --tune-content=psy --tune=ssim --sb-size=dynamic --enable-qm=1 --qm-min=0 --qm-max=8 --row-mt=1 --disable-kf --kf-max-dist=9999 --kf-min-dist=1
-            # --disable-trellis-quant=0 --arnr-maxframes=15
+        if not self.override_flags:
+            pass
+        elif self.override_flags == "":
+            # STOLEN FROM ROOTATKAI IN #BENCHMARKS CUZ HE SAID ITS GOOD OR WHATEVER --lag-in-frames=48
+            # --tune-content=psy --tune=ssim --sb-size=dynamic --enable-qm=1 --qm-min=0 --qm-max=8 --row-mt=1
+            # --disable-kf --kf-max-dist=9999 --kf-min-dist=1 --disable-trellis-quant=0 --arnr-maxframes=15
             encode_command += f"--lag-in-frames=48 "
             encode_command += f"--tune-content=psy "
             encode_command += " --tune=ssim "
@@ -47,32 +67,31 @@ class AbstractEncoderAomEnc(AbstractEncoder):
             encode_command += f"--kf-min-dist=1 "
             encode_command += f"--disable-trellis-quant=0 "
             encode_command += f"--arnr-maxframes=15 "
-
-            if self.use_webm:
-                encode_command += " --webm"
-            else:
-                encode_command += " --ivf"
-
-            match self.rate_distribution:
-                case EncoderRateDistribution.VBR:
-                    encode_command += (
-                        f" --end-usage=vbr --target-bitrate={self.bitrate}"
-                    )
-                case EncoderRateDistribution.CQ:
-                    encode_command += f" --end-usage=q --cq-level={self.crf}"
-                    self.passes = 2
-                case EncoderRateDistribution.CQ_VBV:
-                    if self.bitrate != -1 and self.bitrate is not None:
-                        encode_command += f" --end-usage=cq --cq-level={self.crf} --target-bitrate={self.bitrate} "
-                    else:
-                        encode_command += f" --end-usage=q --cq-level={self.crf}"
-
-            if self.photon_noise_path == "":
-                encode_command += f" --enable-dnl-denoising=1 --denoise-noise-level={self.grain_synth}"
-            else:
-                encode_command += f' --enable-dnl-denoising=0 --film-grain-table="{self.photon_noise_path}"'
         else:
             encode_command += self.override_flags
+
+        if self.use_webm:
+            encode_command += " --webm"
+        else:
+            encode_command += " --ivf"
+
+        match self.rate_distribution:
+            case EncoderRateDistribution.VBR:
+                encode_command += f" --end-usage=vbr --target-bitrate={self.bitrate}"
+            case EncoderRateDistribution.CQ:
+                encode_command += f" --end-usage=q --cq-level={self.crf}"
+            case EncoderRateDistribution.CQ_VBV:
+                if self.bitrate != -1 and self.bitrate is not None:
+                    encode_command += f" --end-usage=cq --cq-level={self.crf} --target-bitrate={self.bitrate} "
+                else:
+                    encode_command += f" --end-usage=q --cq-level={self.crf}"
+
+        if self.photon_noise_path == "":
+            encode_command += (
+                f" --enable-dnl-denoising=0 --denoise-noise-level={self.grain_synth}"
+            )
+        else:
+            encode_command += f' --enable-dnl-denoising=0 --film-grain-table="{self.photon_noise_path}"'
 
         if self.passes == 2:
             encode_command += f' --fpf="{self.output_path}.log"'

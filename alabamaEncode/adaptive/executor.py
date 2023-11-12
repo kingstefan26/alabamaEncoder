@@ -177,6 +177,7 @@ class TargetVmaf(AnalyzeStep):
             1  # if we target vmaf 95, lets target 94 since the probes are speed 13
         )
         target_vmaf = ctx.vmaf - bad_vmaf_offest
+        target_5percentile_vmaf = target_vmaf - bad_vmaf_offest
 
         class POINT:
             def __init__(self, crf, vmaf, ssim, bitrate):
@@ -197,7 +198,7 @@ class TargetVmaf(AnalyzeStep):
                 f.write(str + "\n")
 
         # score func, the lowest score gets selected
-        def get_score(p: POINT):
+        def point_to_score(p: POINT):
             """
             calc score including bitrate vmaf and 1% 5% percentiles with weights
             to get the smallest video but with reasonable vmaf and 5% vmaf scores
@@ -247,15 +248,15 @@ class TargetVmaf(AnalyzeStep):
         probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
 
         def crf_to_point(crf_point) -> POINT:
-            enc.update(
-                output_path=(
-                    probe_file_base
-                    + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
-                ),
-                speed=12,
-                passes=1,
-                grain_synth=-1,
+            enc.output_path = (
+                probe_file_base
+                + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
             )
+            enc.speed = 12
+            enc.passes = 1
+            enc.threads = 1
+            enc.grain_synth = -1
+            enc.override_flags = None
             enc.crf = crf_point
             probe_vmaf_log = enc.output_path + ".vmaflog"
 
@@ -279,60 +280,110 @@ class TargetVmaf(AnalyzeStep):
             point.vmaf_avg = stats.vmaf_avg
 
             log_to_convex_log(
-                f"{chunk.log_prefix()} crf: {crf_point} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {get_score(point)}"
+                f"{chunk.log_prefix()} crf: {crf_point} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {point_to_score(point)}"
             )
 
             if os.path.exists(probe_vmaf_log):
                 os.remove(probe_vmaf_log)
             return point
 
-        # crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
-        # points = []
-        #
-        # for crf in crfs:
-        #     point = crf_to_point(crf)
-        #     points.append(point)
-        #
-        # closest_score = float("inf")
-        # crf = -1
-        #
-        # ## PICK LOWEST SCORE
-        # if len(points) == 1:
-        #     crf = points[
-        #         0
-        #     ].crf  # case where there is only one point that is bellow target vmaf
-        # else:
-        #     for p in points:
-        #         score = get_score(p)
-        #         if score < closest_score:
-        #             crf = p.crf
-        #             closest_score = score
+        def get_score(_crf):
+            return point_to_score(crf_to_point(int(_crf)))
 
-        def ternary_search(low, high, max_depth, epsilon=1e-9):
-            depth = 0
+        def opt_primitive() -> int:
+            crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
+            points = []
 
-            while high - low > epsilon and depth < max_depth:
-                mid1 = low + (high - low) / 3
-                mid2 = high - (high - low) / 3
+            for crf in crfs:
+                point = crf_to_point(crf)
+                points.append(point)
 
-                mid1_score = get_score(crf_to_point(int(mid1)))
-                mid2_score = get_score(crf_to_point(int(mid2)))
+            closest_score = float("inf")
+            crf = -1
 
-                if mid1_score < mid2_score:
-                    high = mid2
-                else:
-                    low = mid1
+            ## PICK LOWEST SCORE
+            if len(points) == 1:
+                crf = points[
+                    0
+                ].crf  # case where there is only one point that is bellow target vmaf
+            else:
+                for p in points:
+                    score = get_score(p)
+                    if score < closest_score:
+                        crf = p.crf
+                        closest_score = score
+            return crf
 
-                depth += 1
+        def optimisation_tenary(_get_score, max_probes) -> int:
+            def ternary_search(low, high, max_depth, epsilon=1e-9):
+                depth = 0
 
-            return (low + high) / 2
+                while high - low > epsilon and depth < max_depth:
+                    mid1 = low + (high - low) / 3
+                    mid2 = high - (high - low) / 3
 
-        # Set your initial range and maximum depth
-        low, high = 0, 63
-        max_depth = 4
-        crf = int(ternary_search(low, high, max_depth))
+                    mid1_score = _get_score(mid1)
+                    mid2_score = _get_score(mid2)
 
-        # print(f"{chunk.log_prefix()}Convexhull crf: {crf}")
+                    if mid1_score < mid2_score:
+                        high = mid2
+                    else:
+                        low = mid1
+
+                    depth += 1
+
+                return (low + high) / 2
+
+            # Set your initial range and maximum depth
+            low, high = 0, 63
+            max_depth = max_probes / 2
+            return int(ternary_search(low, high, max_depth))
+
+        def opt_optuna(_get_score, max_probes) -> int:
+            import optuna
+
+            def objective(trial):
+                value = trial.suggest_int("value", 0, 63)
+                return _get_score(value)
+
+            # quiet logs to 0
+            optuna.logging.set_verbosity(0)
+            study = optuna.create_study(direction="minimize")
+            study.optimize(objective, n_trials=max_probes)
+            result = study.best_params["value"]
+
+            return int(result)
+
+        def opt_optuna_modelless(_crf_to_point, max_probes) -> int:
+            import optuna
+
+            def objective(trial):
+                crf_trial = trial.suggest_int("crf", 15, 63)
+                point = _crf_to_point(crf_trial)
+
+                diff_vmaf = abs(target_vmaf - point.vmaf)
+                percentile_diff = abs(target_5percentile_vmaf - point.vmaf_percentile_5)
+                bitrate = point.bitrate / 1000
+                # divide by 1000 to 1000kb/s -> 1
+                # since optuna will prioritize lower bitrate if its in 1000s
+                return (
+                    diff_vmaf,
+                    percentile_diff,
+                    bitrate,
+                )
+
+            # optuna.logging.set_verbosity(0)
+            study = optuna.create_study(directions=["minimize", "minimize", "minimize"])
+
+            study.optimize(objective, n_trials=max_probes)
+
+            return study.best_trials[0].params["crf"]
+
+        # crf = opt_primitive()
+        # crf = optimisation_tenary(get_score, 8)
+        crf = opt_optuna(get_score, 8)
+        # crf = opt_optuna_modelless(crf_to_point, 8)
+
         log_to_convex_log(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         enc.update(
             passes=1,
@@ -345,6 +396,7 @@ class TargetVmaf(AnalyzeStep):
 
         enc.svt_tune = 0
         enc.svt_overlay = 0
+        enc.override_flags = ctx.override_flags
 
         return enc
 
