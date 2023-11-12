@@ -542,10 +542,10 @@ def parse_args(ctx: AlabamaContext):
 
     parser.add_argument(
         "--grain",
-        help="Manually give the grainsynth value, 0 to disable, -1 for auto",
+        help="Manually give the grainsynth value, 0 to disable, -1 for auto, -2 for auto per scene",
         type=int,
         default=ctx.grain_synth,
-        choices=range(-1, 63),
+        choices=range(-2, 63),
     )
 
     parser.add_argument(

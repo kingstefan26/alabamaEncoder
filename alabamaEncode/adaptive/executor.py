@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import time
@@ -143,6 +144,8 @@ class TargetVmaf(AnalyzeStep):
     def run(
         self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
     ) -> AbstractEncoder:
+        original = copy.deepcopy(enc)
+
         # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
         bad_vmaf_offest = (
             1  # if we target vmaf 95, lets target 94 since the probes are speed 13
@@ -223,10 +226,10 @@ class TargetVmaf(AnalyzeStep):
                 probe_file_base
                 + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
             )
-            enc.speed = 12
+            enc.speed = 10
             enc.passes = 1
             enc.threads = 1
-            enc.grain_synth = -1
+            enc.grain_synth = 3
             enc.override_flags = None
             enc.crf = crf_point
             probe_vmaf_log = enc.output_path + ".vmaflog"
@@ -366,7 +369,24 @@ class TargetVmaf(AnalyzeStep):
         enc.svt_tune = 0
         enc.svt_overlay = 0
         enc.override_flags = ctx.override_flags
+        enc.speed = original.speed
+        enc.grain_synth = original.grain_synth
 
+        return enc
+
+
+class GrainSynth(AnalyzeStep):
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
+        from alabamaEncode.adaptive.sub.grain2 import calc_grainsynth_of_scene
+
+        from alabamaEncode.adaptive.util import get_probe_file_base
+
+        probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
+        enc.grain_synth = calc_grainsynth_of_scene(
+            chunk, probe_file_base, scale_vf=ctx.scale_string, crop_vf=ctx.crop_string
+        )
         return enc
 
 
@@ -406,6 +426,10 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
                 steps.append(VbrPerChunkOptimised())
             else:
                 steps.append(PlainVbr())
+
+    if ctx.grain_synth == -2:
+        steps.append(GrainSynth())
+
     if len(steps) == 0:
         raise Exception("Failed to Create the analyze steps in analyzer_factory")
     return steps
@@ -450,9 +474,12 @@ class AdaptiveCommand(BaseCommandObject):
         timeing = Timer()
 
         timeing.start("analyze_step")
-        enc = analyze_steps[0].run(self.ctx, self.chunk, None)
-        for step in analyze_steps[1:]:
+
+        enc = None
+        for step in analyze_steps:
+            timeing.start(f"analyze_step_{step.__class__.__name__}")
             enc = step.run(self.ctx, self.chunk, enc)
+            timeing.stop(f"analyze_step_{step.__class__.__name__}")
 
         rate_search_time = timeing.stop("analyze_step")
 

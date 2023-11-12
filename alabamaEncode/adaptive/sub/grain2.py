@@ -13,7 +13,11 @@ from alabamaEncode.scene.chunk import ChunkObject
 
 
 def calc_grainsynth_of_scene(
-    _chunk: ChunkObject, probe_dir: str, encoder_max_grain: int = 50
+    _chunk: ChunkObject,
+    probe_dir: str,
+    encoder_max_grain: int = 50,
+    scale_vf="",
+    crop_vf="",
 ) -> int:
     chunk: ChunkObject = copy.deepcopy(_chunk)
 
@@ -21,10 +25,22 @@ def calc_grainsynth_of_scene(
     test1_path = probe_dir + "test1.png"
     test2_path = probe_dir + "test2.png"
 
+    a = f""
+    if crop_vf != "" and crop_vf is not None:
+        a += f"crop={crop_vf}"
+
+    if scale_vf != "" and scale_vf is not None:
+        if a != "":
+            a += ","
+        a += f"scale={scale_vf}:flags=lanczos"
+
     b = "nlmeans=s=4:p=5:r=15,format=pix_fmts=yuv420p"
     c = "nlmeans=s=1.8:p=7:r=9,format=pix_fmts=yuv420p"
 
-    avvs = f"ffmpeg -v error -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1"
+    if a != "":
+        b = f"{a},{b}"
+        c = f"{a},{c}"
+        a = f" -vf {a}"
 
     gs = []
 
@@ -33,7 +49,10 @@ def calc_grainsynth_of_scene(
     for i in range(loop_count):
         curr = chunk.first_frame_index + int((chunk_frame_lenght / loop_count) * i)
         chunk.first_frame_index = curr
-        cli = f"{avvs}  -pix_fmt yuv420p {reference_path}"
+        if chunk.first_frame_index > chunk.last_frame_index:
+            chunk.first_frame_index = chunk.last_frame_index - 1
+        avvs = f"ffmpeg -v error -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1"
+        cli = f"{avvs}  {a} -pix_fmt yuv420p {reference_path}"
         cli1 = f"{avvs} -vf {b} {test1_path}"
         cli2 = f"{avvs} -vf {c} {test2_path}"
 
@@ -47,6 +66,7 @@ def calc_grainsynth_of_scene(
 
         run_cli(cli2).verify(files=[test2_path])
         test1_size = os.path.getsize(test2_path)
+        os.remove(test2_path)
 
         grain_factor = ref_size * 100.0 / test1_size
         grain_factor = (
@@ -57,11 +77,12 @@ def calc_grainsynth_of_scene(
 
         # magic empirical values
         grain_factor = max(0.0, min(100.0, grain_factor))
+        # print(f"{chunk.log_prefix()}grain factor: {grain_factor}")
         gs.append(grain_factor)
 
     final_grain = mean(gs)
     final_grain /= 100.0 / encoder_max_grain
     final_grain = int(final_grain)
 
-    print("grain adjusted for encoder max: " + str(final_grain))
+    # print(f"{chunk.log_prefix()}grain adjusted for encoder max: {final_grain}")
     return final_grain
