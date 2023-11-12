@@ -2,6 +2,7 @@ import json
 import os
 import time
 from abc import abstractmethod, ABC
+from typing import List
 
 from tqdm import tqdm
 
@@ -10,6 +11,7 @@ from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
+from alabamaEncode.timer import Timer
 
 
 class AnalyzeStep(ABC):
@@ -18,7 +20,9 @@ class AnalyzeStep(ABC):
     """
 
     @abstractmethod
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         pass
 
 
@@ -83,95 +87,62 @@ class WeridCapedCrfFinalEncode(FinalEncodeStep):
 
 
 class CapedCrf(AnalyzeStep):
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
-        enc: AbstractEncoder = ctx.get_encoder()
-        enc.setup(chunk=chunk, config=ctx)
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         enc.update(
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
             rate_distribution=EncoderRateDistribution.CQ_VBV,
             bitrate=ctx.max_bitrate,
             crf=ctx.crf,
             passes=1,
         )
         enc.svt_open_gop = True
-        enc.qm_enabled = True
-        enc.qm_max = 8
-        enc.qm_min = 0
         return enc
 
 
 class PlainCrf(AnalyzeStep):
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
-        enc: AbstractEncoder = ctx.get_encoder()
-        enc.setup(chunk=chunk, config=ctx)
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         enc.update(
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
             rate_distribution=EncoderRateDistribution.CQ,
             crf=ctx.crf,
             passes=1,
         )
         enc.svt_open_gop = True
-        enc.qm_enabled = True
-        enc.qm_max = 8
-        enc.qm_min = 0
         return enc
 
 
 class PlainVbr(AnalyzeStep):
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
-        enc: AbstractEncoder = ctx.get_encoder()
-        enc.setup(chunk=chunk, config=ctx)
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         enc.update(
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
-            rate_distribution=EncoderRateDistribution.VBR,
-            bitrate=ctx.bitrate,
-            passes=3,
+            rate_distribution=EncoderRateDistribution.VBR, bitrate=ctx.bitrate, passes=3
         )
-        enc.qm_enabled = True
-        enc.qm_max = 8
-        enc.qm_min = 0
         enc.svt_bias_pct = 20
         return enc
 
 
 class VbrPerChunkOptimised(AnalyzeStep):
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
-        enc: AbstractEncoder = ctx.get_encoder()
-        enc.setup(chunk=chunk, config=ctx)
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
 
         enc.update(
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
             rate_distribution=EncoderRateDistribution.VBR,
             bitrate=get_ideal_bitrate(chunk, ctx),
             passes=3,
         )
-        enc.qm_enabled = True
-        enc.qm_max = 8
-        enc.qm_min = 0
         enc.svt_bias_pct = 20
         return enc
 
 
 class TargetVmaf(AnalyzeStep):
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject) -> AbstractEncoder:
-        enc: AbstractEncoder = ctx.get_encoder()
-        enc.setup(chunk=chunk, config=ctx)
-        enc.update(
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
-            rate_distribution=EncoderRateDistribution.CQ,
-            crf=ctx.crf,
-            passes=1,
-        )
-        enc.svt_open_gop = True
-        enc.qm_enabled = True
-        enc.qm_max = 8
-        enc.qm_min = 0
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
         # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
         bad_vmaf_offest = (
             1  # if we target vmaf 95, lets target 94 since the probes are speed 13
@@ -239,7 +210,7 @@ class TargetVmaf(AnalyzeStep):
 
             return score
 
-        enc.update(rate_distribution=EncoderRateDistribution.CQ)
+        enc.update(rate_distribution=EncoderRateDistribution.CQ, passes=1)
 
         enc.svt_tune = 0
 
@@ -387,8 +358,6 @@ class TargetVmaf(AnalyzeStep):
         log_to_convex_log(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         enc.update(
             passes=1,
-            grain_synth=ctx.grain_synth,
-            speed=ctx.speed,
             rate_distribution=EncoderRateDistribution.CQ,
             output_path=chunk.chunk_path,
             crf=crf,
@@ -401,25 +370,45 @@ class TargetVmaf(AnalyzeStep):
         return enc
 
 
-def analyzer_factory(ctx: AlabamaContext) -> AnalyzeStep:
-    analyze_step = None
+class BaseAnalyzer(AnalyzeStep):
+    def run(
+        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
+    ) -> AbstractEncoder:
+        enc = ctx.get_encoder()
+        enc.setup(chunk=chunk, config=ctx)
+        enc.update(
+            grain_synth=ctx.grain_synth,
+            speed=ctx.speed,
+            rate_distribution=EncoderRateDistribution.CQ,
+            crf=ctx.crf,
+            passes=1,
+        )
+        enc.qm_enabled = True
+        enc.qm_max = 8
+        enc.qm_min = 0
+        return enc
+
+
+def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
+    steps = [BaseAnalyzer()]
+
     if ctx.flag1 is True:
-        analyze_step = PlainCrf()
+        steps.append(PlainCrf())
     elif ctx.crf_based_vmaf_targeting is True:
-        analyze_step = TargetVmaf()
+        steps.append(TargetVmaf())
     else:
         if ctx.crf_bitrate_mode:
-            analyze_step = CapedCrf()
+            steps.append(CapedCrf())
         elif ctx.crf != -1:
-            analyze_step = PlainCrf()
+            steps.append(PlainCrf())
         else:
             if ctx.bitrate_adjust_mode == "chunk":
-                analyze_step = VbrPerChunkOptimised()
+                steps.append(VbrPerChunkOptimised())
             else:
-                analyze_step = PlainVbr()
-    if analyze_step is None:
-        raise Exception("Failed to Create the analyze step in analyzer_factory")
-    return analyze_step
+                steps.append(PlainVbr())
+    if len(steps) == 0:
+        raise Exception("Failed to Create the analyze steps in analyzer_factory")
+    return steps
 
 
 def finalencode_factory(ctx: AlabamaContext) -> FinalEncodeStep:
@@ -431,27 +420,6 @@ def finalencode_factory(ctx: AlabamaContext) -> FinalEncodeStep:
     if final_step is None:
         raise Exception("final_step is None, LOGIC BUG")
     return final_step
-
-
-class Timer:
-    def __init__(self):
-        self.timers = {}
-
-    def start(self, name: str):
-        self.timers[name] = time.time()
-
-    def stop(self, name: str):
-        if name not in self.timers:
-            raise Exception("Timer not started")
-        self.timers[name] = time.time() - self.timers[name]
-        return self.timers[name]
-
-    def finish(self, loud=False):
-        if loud:
-            print("timers:")
-            for key in self.timers:
-                print(f"{key}: {self.timers[key]}s")
-        return self.timers
 
 
 class AdaptiveCommand(BaseCommandObject):
@@ -476,13 +444,16 @@ class AdaptiveCommand(BaseCommandObject):
     def run(self):
         total_start = time.time()
 
-        analyze_step: AnalyzeStep = analyzer_factory(self.ctx)
+        analyze_steps: List[AnalyzeStep] = analyzer_factory(self.ctx)
 
         # using with statement with MessageWriter
         timeing = Timer()
 
         timeing.start("analyze_step")
-        enc = analyze_step.run(self.ctx, self.chunk)
+        enc = analyze_steps[0].run(self.ctx, self.chunk, None)
+        for step in analyze_steps[1:]:
+            enc = step.run(self.ctx, self.chunk, enc)
+
         rate_search_time = timeing.stop("analyze_step")
 
         enc.running_on_celery = self.run_on_celery
