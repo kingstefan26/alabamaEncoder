@@ -237,8 +237,7 @@ def get_video_scene_list_skinny(
         for i, chunk in enumerate(seq.chunks):
             chunk.chunk_index = i
 
-        print(f"Saving scene cache to {cache_file_path}")
         pickle.dump(seq, open(cache_file_path, "wb"))
 
-    print(f"Found {len(seq)} scenes")
+    print(f"Computed {len(seq)} scenes")
     return seq

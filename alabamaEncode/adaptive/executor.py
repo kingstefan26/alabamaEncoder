@@ -47,7 +47,7 @@ class PlainFinalEncode(FinalEncodeStep):
     def run(
         self, enc: AbstractEncoder, chunk: ChunkObject, ctx: AlabamaContext
     ) -> EncodeStats:
-        return enc.run()
+        return enc.run(calculate_vmaf=True)
 
     def dry_run(self, enc: AbstractEncoder, chunk: ChunkObject) -> str:
         joined = " && ".join(enc.get_encode_commands())
@@ -148,7 +148,7 @@ class TargetVmaf(AnalyzeStep):
 
         # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
         bad_vmaf_offest = (
-            1  # if we target vmaf 95, lets target 94 since the probes are speed 13
+            0  # if we target vmaf 95, lets target 94 since the probes are speed 13
         )
         target_vmaf = ctx.vmaf - bad_vmaf_offest
         target_5percentile_vmaf = target_vmaf - bad_vmaf_offest
@@ -387,6 +387,9 @@ class GrainSynth(AnalyzeStep):
         enc.grain_synth = calc_grainsynth_of_scene(
             chunk, probe_file_base, scale_vf=ctx.scale_string, crop_vf=ctx.crop_string
         )
+        grain_log = f"{ctx.temp_folder}grain.log"
+        with open(grain_log, "a") as f:
+            f.write(f"{chunk.log_prefix()}computed gs {enc.grain_synth}\n")
         return enc
 
 
@@ -501,7 +504,7 @@ class AdaptiveCommand(BaseCommandObject):
         except Exception as e:
             print(f"[{self.chunk.chunk_index}] error while encoding: {e}")
 
-        final_step = timeing.stop("final_step")
+        timeing.stop("final_step")
         timeing.finish()
 
         # round to two places

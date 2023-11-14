@@ -65,8 +65,10 @@ async def execute_commands(
         target_cpu_utilization = 1.1
         max_swap_usage = 25
         cpu_threshold = 0.3
-        concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
         max_limit = sys.maxsize if multiprocess_workers == -1 else multiprocess_workers
+        concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
+        if multiprocess_workers != -1:
+            concurent_jobs_limit = multiprocess_workers
 
         loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor()

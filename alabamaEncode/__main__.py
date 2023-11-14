@@ -12,6 +12,7 @@ from alabamaEncode.parallelEncoding.worker import worker
 
 runtime = -1
 runtime_file = ""
+lock_file_path = ""
 
 
 @atexit.register
@@ -35,6 +36,8 @@ def at_exit():
         try:
             with open(runtime_file, "w") as f:
                 f.write(str(current_session_runtime + saved_runtime))
+            if os.path.exists(lock_file_path):
+                os.remove(lock_file_path)
         except:
             pass
 
@@ -72,7 +75,30 @@ def main():
         pickle.dump(ctx, open("alabamaResume", "wb"))
 
     global runtime_file
+    global lock_file_path
     runtime_file = ctx.temp_folder + "runtime.txt"
+    lock_file_path = ctx.output_folder + "lock"
+
+    if os.path.exists(lock_file_path):
+        print(
+            "Lock file exists, are you sure another instance is not using encoding in this folder? "
+            "if not delete the lock file and try again"
+        )
+        quit()
+    else:
+        open(lock_file_path, "w").close()
+
+    output_lock = ctx.temp_folder + "output.lock"
+    if not os.path.exists(output_lock):
+        with open(output_lock, "w") as f:
+            f.write(ctx.raw_input_file)
+    else:
+        output_file_from_lock = open(output_lock).read()
+        if output_file_from_lock != ctx.raw_input_file:
+            print(
+                f"Output file from lock file {output_file_from_lock} does not match output file from ctx {ctx.raw_input_file}"
+            )
+            quit()
 
     run(ctx)
 

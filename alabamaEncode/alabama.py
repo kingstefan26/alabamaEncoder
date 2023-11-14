@@ -159,6 +159,11 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
 
 def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
     if ctx.hdr and ctx.encoder == EncodersEnum.SVT_AV1:
+        if not Ffmpeg.is_hdr(PathAlabama(ctx.raw_input_file)):
+            print("Input file is not HDR, disabling HDR mode")
+            ctx.hdr = False
+            return ctx
+
         cache_path = f"{ctx.temp_folder}hdr.cache"
         if not os.path.exists(cache_path):
             print("Running auto HDR10")
@@ -783,7 +788,7 @@ def parse_args(ctx: AlabamaContext):
         "--resolution_preset",
         type=str,
         default=ctx.resolution_preset,
-        help="Preset for the scale filter, possible choises are 4k 1440p 1080p 768p 720p 540p 480p 360p",
+        help="Preset for the scale filter, possible choices are 4k 1440p 1080p 768p 720p 540p 480p 360p",
     )
 
     return parser.parse_args()

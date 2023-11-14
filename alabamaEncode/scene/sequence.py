@@ -80,9 +80,11 @@ class ChunkSequence:
             for c in invalid_chunks:
                 if os.path.exists(c.chunk_path):
                     os.remove(c.chunk_path)
-                    del_count = +1
+                    del_count += 1
             return True
-        print(f"Deleted {del_count} invalid files 😂")
+
+        if del_count > 0:
+            print(f"Deleted {del_count} invalid files 😂")
 
         undone_chunks_count = len([c for c in self.chunks if not c.chunk_done])
 

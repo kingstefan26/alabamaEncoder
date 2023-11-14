@@ -47,7 +47,8 @@ class Ffmpeg:
         do_hexadecimal = "-sexagesimal" if sexagesimal else ""
         out = (
             run_cli(
-                f"ffprobe -v error -show_entries format=duration {do_hexadecimal} -of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
+                f"ffprobe -v error -show_entries format=duration {do_hexadecimal} -of default=noprint_wrappers=1"
+                f":nokey=1 {path.get_safe()}"
             )
             .verify(bad_output_hints=["N/A", "Invalid data found"])
             .get_output()
@@ -176,7 +177,7 @@ class Ffmpeg:
         path.check_video()
         return json.loads(
             run_cli(
-                f'ffprobe -v error -select_streams v:0 -show_frames -of json -read_intervals "%+0.3" {path.get_safe()}'
+                f'ffprobe -v error -select_streams v:0 -show_frames -of json -read_intervals "1%+#1" {path.get_safe()}'
             )
             .verify()
             .get_output()

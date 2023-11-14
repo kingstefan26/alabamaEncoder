@@ -54,8 +54,8 @@ class VideoConcatenator:
                 pass
         files = f_2
 
-        print(f"Found {len(files)} files")
-        print("Sorting files")
+        # print(f"Found {len(files)} files")
+        # print("Sorting files")
         # sort files by name by interpreting their name as an integer
         files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
 

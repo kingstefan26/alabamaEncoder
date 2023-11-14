@@ -3,6 +3,7 @@ Testing the implementation of auto grain synth
 """
 import os
 
+from alabamaEncode.adaptive.sub.grain2 import calc_grainsynth_of_scene
 from alabamaEncode.scene.split import get_video_scene_list_skinny
 
 if __name__ == "__main__":
@@ -34,12 +35,12 @@ if __name__ == "__main__":
         max_scene_length=10,
     )
 
-    total_frame_count = sum([x.last_frame_index - x.first_frame_index for x in scene_list.chunks])
+    # total_frame_count = sum([x.last_frame_index - x.first_frame_index for x in scene_list.chunks])
 
-    print(f"Total frame count: {total_frame_count}")
+    # print(f"Total frame count: {total_frame_count}")
 
-    # for chunk in scene_list.chunks:
-    #     calc_grainsynth_of_scene(
-    #         chunk, test_env, crop_vf="3840:1920:0:120", scale_vf="1920:-2"
-    #     )
-    #     print("\n\n")
+    for chunk in scene_list.chunks:
+        calc_grainsynth_of_scene(
+            chunk, test_env, crop_vf="3840:1920:0:120", scale_vf="1920:-2"
+        )
+        print("\n\n")

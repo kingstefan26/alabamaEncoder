@@ -43,31 +43,7 @@ def print_stats(
 
     print_and_save(f"Total encoding time across chunks: {time_encoding} seconds\n\n")
 
-    # get the worst/best/med target_miss_proc
-    target_miss_proc = []
-    for stat in stats:
-        # turn the string into a float then round to two places
-        target_miss_proc.append(round(float(stat["target_miss_proc"]), 2))
-    target_miss_proc.sort()
-    print_and_save("Target miss from encode per chunk encode bitrate:")
-    print_and_save(
-        f"Average target_miss_proc: {round(sum(target_miss_proc) / len(target_miss_proc), 2)}"
-    )
-    print_and_save(f"Worst target_miss_proc: {target_miss_proc[-1]}")
-    print_and_save(f"Best target_miss_proc: {target_miss_proc[0]}")
-    print_and_save(
-        f"Median target_miss_proc: {target_miss_proc[int(len(target_miss_proc) / 2)]}"
-    )
-
-    print_and_save("\n\n")
-
     total_bitrate = int(Ffmpeg.get_total_bitrate(PathAlabama(output))) / 1000
-    print_and_save(
-        f"Total bitrate: {total_bitrate} kb/s, config bitrate: {config_bitrate} kb/s"
-    )
-    # vid_bitrate, _ = get_source_bitrates(output)
-    bitrate_miss = round((total_bitrate - config_bitrate) / config_bitrate * 100, 2)
-    print_and_save(f"Bitrate miss from config bitrate: {bitrate_miss}%")
 
     print_and_save("\n\n")
 
@@ -94,7 +70,8 @@ def print_stats(
         2,
     )
     print_and_save(
-        f"- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease from source `{size_decrease}%`"
+        f"- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease "
+        f"from source `{size_decrease}%`"
     )
     print_and_save(f"- grain synth `{grain_synth}`")
 
