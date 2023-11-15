@@ -141,6 +141,11 @@ class VbrPerChunkOptimised(AnalyzeStep):
 
 
 class TargetVmaf(AnalyzeStep):
+    def __init__(self, alg_type="optuna", probes=8, probe_speed=10):
+        self.alg_type = alg_type
+        self.probes = probes
+        self.probe_speed = probe_speed
+
     def run(
         self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
     ) -> AbstractEncoder:
@@ -168,6 +173,8 @@ class TargetVmaf(AnalyzeStep):
             vmaf_avg = 0
 
         def log_to_convex_log(str):
+            if ctx.log_level >= 2:
+                tqdm.write(str)
             with open(f"{ctx.temp_folder}/convex.log", "a") as f:
                 f.write(str + "\n")
 
@@ -202,7 +209,7 @@ class TargetVmaf(AnalyzeStep):
             # how 5%tile frames looked compared to target, don't if above target
             # punishing if the worst parts of the video are bellow target
             weight_ = (
-                max(0, target_vmaf - p.vmaf_percentile_5)
+                abs(target_vmaf - p.vmaf_percentile_5)
                 * score_5_percentile_target_weight
             )
             score += weight_
@@ -226,7 +233,7 @@ class TargetVmaf(AnalyzeStep):
                 probe_file_base
                 + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
             )
-            enc.speed = 10
+            enc.speed = self.probe_speed
             enc.passes = 1
             enc.threads = 1
             enc.grain_synth = 3
@@ -313,6 +320,30 @@ class TargetVmaf(AnalyzeStep):
             max_depth = max_probes / 2
             return int(ternary_search(low, high, max_depth))
 
+        def optimisation_binary(_get_score, max_probes) -> int:
+            def binary_search(low, high, max_depth, epsilon=1e-9):
+                depth = 0
+                score = float("inf")
+                while low <= high and depth < max_depth:
+                    mid = (low + high) // 2
+
+                    mid_score = _get_score(mid)
+
+                    if mid_score < score:
+                        high = mid - 1
+                    else:
+                        low = mid + 1
+
+                    score = mid_score
+
+                    depth += 1
+
+                return (low + high) / 2
+
+            # Set your initial range and maximum depth
+            low, high = 0, 63
+            return int(binary_search(low, high, max_probes))
+
         def opt_optuna(_get_score, max_probes) -> int:
             import optuna
 
@@ -353,10 +384,19 @@ class TargetVmaf(AnalyzeStep):
 
             return study.best_trials[0].params["crf"]
 
-        # crf = opt_primitive()
-        # crf = optimisation_tenary(get_score, 8)
-        crf = opt_optuna(get_score, 8)
-        # crf = opt_optuna_modelless(crf_to_point, 8)
+        match self.alg_type:
+            case "optuna":
+                crf = opt_optuna(get_score, self.probes)
+            case "modelless":
+                crf = opt_optuna_modelless(crf_to_point, self.probes)
+            case "primitive":
+                crf = opt_primitive()
+            case "ternary":
+                crf = optimisation_tenary(get_score, self.probes)
+            case "binary":
+                crf = optimisation_binary(get_score, self.probes)
+            case _:
+                raise Exception(f"Unknown alg_type {self.alg_type}")
 
         log_to_convex_log(f"{chunk.log_prefix()}Convexhull crf: {crf}")
         enc.update(

@@ -79,12 +79,12 @@ def get_video_vmeth(
 
     # ffmpeg -hide_banner -i tst.mp4 -i tst_av1.webm -lavfi libvmaf='model=path=model.json:feature=name=psnr|name=ciede|name=cambi|name=psnr_hvs:log_path=out.json:log_fmt=xml:threads=12' -f null -
 
-    if (Ffmpeg.get_tonemap_vf() in video_filters) is False and Ffmpeg.is_hdr(
-        PathAlabama(in_chunk.path)
-    ):
-        if video_filters != "":
-            video_filters += ","
-        video_filters += Ffmpeg.get_tonemap_vf()
+    # if (Ffmpeg.get_tonemap_vf() in video_filters) is False and Ffmpeg.is_hdr(
+    #     PathAlabama(in_chunk.path)
+    # ):
+    #     if video_filters != "":
+    #         video_filters += ","
+    #     video_filters += Ffmpeg.get_tonemap_vf()
 
     null_ = in_chunk.create_chunk_ffmpeg_pipe_command(video_filters=video_filters)
     null_ += f" | ffmpeg -hide_banner -i - "
@@ -123,10 +123,11 @@ def get_video_vmeth(
 
     option_str = ":".join(option_arr)
 
-    if Ffmpeg.is_hdr(PathAlabama(distorted_path)):
-        null_ += f'-i "{distorted_path}" -lavfi "[1:v]{Ffmpeg.get_tonemap_vf()}[distorted];[0:v][distorted]libvmaf=\'{option_str}\'" -f null - '
-    else:
-        null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
+    # if Ffmpeg.is_hdr(PathAlabama(distorted_path)):
+    #     null_ += f'-i "{distorted_path}" -lavfi "[1:v]{Ffmpeg.get_tonemap_vf()}[distorted];[0:v][distorted]libvmaf=\'{option_str}\'" -f null - '
+    # else:
+    #     null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
+    null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
 
     result_string = run_cli(null_).get_output()
     try:

@@ -212,7 +212,7 @@ class AbstractEncoderSvtenc(AbstractEncoder):
 
         :return:
         """
-        return ["ffmpeg", "SvtAv1EncApp", "ffprobe"]
+        return ["ffmpeg", os.getenv("SVT_CLI_PATH", self.svt_cli_path), "ffprobe"]
 
     def get_version(self) -> str:
         # Svt[info]: -------------------------------------------

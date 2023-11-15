@@ -33,6 +33,22 @@ class AbstractEncoderX264(AbstractEncoder):
 
         kommand += f" --threads {self.threads} "
 
+        if self.hdr:
+            kommand += f" --input-depth {self.bit_override} "
+            colormatrix = self.matrix_coefficients
+            if colormatrix == "bt2020-ncl":
+                colormatrix = "bt2020nc"
+            chromeloc = self.chroma_sample_position
+            if chromeloc == "topleft":
+                chromeloc = "0"
+            kommand += (
+                f" --colorprim {self.color_primaries} --transfer {self.transfer_characteristics} "
+                f"--colormatrix {colormatrix} --chromaloc {chromeloc} "
+                f"--cll {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
+            )
+            if self.svt_master_display:
+                kommand += f' --mastering-display "{self.svt_master_display}" '
+
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:
                 self.passes = 1
@@ -70,10 +86,12 @@ class AbstractEncoderX264(AbstractEncoder):
 
         # if this is not optimal, yell at @oofer_dww on disc
         if self.speed < 5:
-            kommand += (
-                "--no-fast-pskip --bframes 8 --scenecut 20 --aq-mode 3 --merange 48 --no-mbtree "
-                "--non-deterministic"
-            )
+            pass
+            # kommand += (
+            #     "--no-fast-pskip --bframes 8 --scenecut 20 --aq-mode 3 --merange 48 --no-mbtree "
+            #     "--non-deterministic"
+            # )
+            # kommand += " --no-mbtree --vbv-maxrate 20000 --vbv-bufsize 25000 --nal-hrd vbr --rc-lookahead 40 "
 
         kommand += f" --keyint {self.keyint} "
 
