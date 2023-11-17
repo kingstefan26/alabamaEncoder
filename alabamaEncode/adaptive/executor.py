@@ -141,7 +141,7 @@ class VbrPerChunkOptimised(AnalyzeStep):
 
 
 class TargetVmaf(AnalyzeStep):
-    def __init__(self, alg_type="optuna", probes=8, probe_speed=10):
+    def __init__(self, alg_type="optuna", probes=8, probe_speed=6):
         self.alg_type = alg_type
         self.probes = probes
         self.probe_speed = probe_speed
@@ -226,12 +226,12 @@ class TargetVmaf(AnalyzeStep):
 
         from alabamaEncode.adaptive.util import get_probe_file_base
 
-        probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
+        probe_file_base = get_probe_file_base(chunk.chunk_path)
 
         def crf_to_point(crf_point) -> POINT:
-            enc.output_path = (
-                probe_file_base
-                + f"convexhull.{crf_point}{enc.get_chunk_file_extension()}"
+            enc.output_path = os.path.join(
+                probe_file_base,
+                f"convexhull.{crf_point}{enc.get_chunk_file_extension()}",
             )
             enc.speed = self.probe_speed
             enc.passes = 1
@@ -320,29 +320,56 @@ class TargetVmaf(AnalyzeStep):
             max_depth = max_probes / 2
             return int(ternary_search(low, high, max_depth))
 
-        def optimisation_binary(_get_score, max_probes) -> int:
-            def binary_search(low, high, max_depth, epsilon=1e-9):
-                depth = 0
-                score = float("inf")
-                while low <= high and depth < max_depth:
-                    mid = (low + high) // 2
+        def optimisation_binary(max_probes) -> int:
+            low_crf = 10
+            high_crf = 45
+            epsilon_down = 0.3
 
-                    mid_score = _get_score(mid)
+            mid_crf = 0
+            depth = 0
 
-                    if mid_score < score:
-                        high = mid - 1
-                    else:
-                        low = mid + 1
+            while low_crf <= high_crf and depth < max_probes:
+                mid_crf = (low_crf + high_crf) // 2
+                enc.crf = mid_crf
+                enc.output_path = os.path.join(
+                    probe_file_base,
+                    f"convexhull.{mid_crf}{enc.get_chunk_file_extension()}",
+                )
+                enc.speed = self.probe_speed
+                enc.passes = 1
+                enc.threads = 1
+                enc.grain_synth = 3
+                enc.override_flags = None
+                stats: EncodeStats = enc.run(
+                    calculate_vmaf=True,
+                    vmaf_params={
+                        "log_path": (enc.output_path + ".vmaflog"),
+                        "disable_enchancment_gain": False,
+                        "uhd_model": ctx.vmaf_4k_model,
+                        "phone_model": ctx.vmaf_phone_model,
+                    },
+                )
 
-                    score = mid_score
+                log_to_convex_log(
+                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {stats.vmaf_percentile_1} 5%: {stats.vmaf_percentile_5} avg: {stats.vmaf_avg} score: {stats.vmaf}"
+                )
 
-                    depth += 1
+                if mid_crf == high_crf or mid_crf == low_crf:
+                    break
 
-                return (low + high) / 2
+                if high_crf - 2 <= mid_crf:
+                    break
 
-            # Set your initial range and maximum depth
-            low, high = 0, 63
-            return int(binary_search(low, high, max_probes))
+                if abs(stats.vmaf - target_vmaf) <= epsilon_down:
+                    break
+                elif stats.vmaf > target_vmaf:
+                    low_crf = mid_crf + 1
+                else:
+                    high_crf = mid_crf - 1
+
+                depth += 1
+
+            return mid_crf
 
         def opt_optuna(_get_score, max_probes) -> int:
             import optuna
@@ -394,7 +421,7 @@ class TargetVmaf(AnalyzeStep):
             case "ternary":
                 crf = optimisation_tenary(get_score, self.probes)
             case "binary":
-                crf = optimisation_binary(get_score, self.probes)
+                crf = optimisation_binary(self.probes)
             case _:
                 raise Exception(f"Unknown alg_type {self.alg_type}")
 
@@ -458,7 +485,13 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
     if ctx.flag1 is True:
         steps.append(PlainCrf())
     elif ctx.crf_based_vmaf_targeting is True:
-        steps.append(TargetVmaf())
+        steps.append(
+            TargetVmaf(
+                alg_type=ctx.target_vmaf_model,
+                probes=ctx.vmaf_probe_count,
+                probe_speed=ctx.probe_speed_override,
+            )
+        )
     else:
         if ctx.crf_bitrate_mode:
             steps.append(CapedCrf())

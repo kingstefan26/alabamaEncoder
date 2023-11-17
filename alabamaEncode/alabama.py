@@ -59,6 +59,8 @@ class AlabamaContext:
     override_flags: str = ""
     bitrate_string = ""
     crf_model_weights = "7,2,10,2,7"
+    target_vmaf_model = "binary"
+    vmaf_probe_count = 6
 
     resolution_preset = ""
 
@@ -87,6 +89,7 @@ class AlabamaContext:
     encode_audio = True
     auto_crop = False
     auto_accept_autocrop = False
+    probe_speed_override = speed
 
     hdr = False
     color_primaries = "bt709"
@@ -137,11 +140,15 @@ def setup_video_filters(ctx: AlabamaContext) -> AlabamaContext:
 
 def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
     # turn tempfolder into a full path
-    ctx.temp_folder = ctx.output_folder + "temp/"
+    ctx.output_folder = os.path.normpath(ctx.output_folder)
+
+    ctx.temp_folder = os.path.join(ctx.output_folder, "temp")
     if not os.path.exists(ctx.temp_folder):
         os.makedirs(ctx.temp_folder)
 
-    ctx.input_file = ctx.temp_folder + "temp.mkv"
+    ctx.temp_folder = ctx.temp_folder + "/"
+
+    ctx.input_file = os.path.join(ctx.temp_folder, "temp.mkv")
 
     if not os.path.exists(ctx.raw_input_file):
         print(f"Input file {ctx.raw_input_file} does not exist")
@@ -149,7 +156,12 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
 
     # symlink input file to temp folder
     if not os.path.exists(ctx.input_file):
-        os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
+        os.symlink(ctx.raw_input_file, ctx.input_file)
+        # if os.name == 'nt':
+        #     os
+        #     run_cli(f'New-Item -ItemType SymbolicLink -Path "{ctx.raw_input_file}" -Target "{ctx.input_file}"')
+        # else:
+        #     os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
         if not os.path.exists(ctx.input_file):
             print(f"Failed to symlink input file to {ctx.input_file}")
             quit()
@@ -158,7 +170,9 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
 
 
 def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
-    if ctx.hdr and ctx.encoder == EncodersEnum.SVT_AV1:
+    if ctx.hdr and (
+        ctx.encoder == EncodersEnum.SVT_AV1 or ctx.encoder == EncodersEnum.X264
+    ):
         if not Ffmpeg.is_hdr(PathAlabama(ctx.raw_input_file)):
             print("Input file is not HDR, disabling HDR mode")
             ctx.hdr = False
@@ -420,6 +434,9 @@ def setup_context() -> AlabamaContext:
     ctx.vmaf_4k_model = args.vmaf_4k_model
     ctx.auto_accept_autocrop = args.auto_accept_autocrop
     ctx.resolution_preset = args.resolution_preset
+    ctx.target_vmaf_model = args.target_vmaf_model
+    ctx.vmaf_probe_count = args.vmaf_probe_count
+    ctx.probe_speed_override = args.probe_speed_override
 
     ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
     if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
@@ -789,6 +806,27 @@ def parse_args(ctx: AlabamaContext):
         type=str,
         default=ctx.resolution_preset,
         help="Preset for the scale filter, possible choices are 4k 1440p 1080p 768p 720p 540p 480p 360p",
+    )
+
+    parser.add_argument(
+        "--target_vmaf_model",
+        type=str,
+        default=ctx.target_vmaf_model,
+        help="optuna modelless primitive ternary binary",
+    )
+
+    parser.add_argument(
+        "--vmaf_probe_count",
+        type=int,
+        default=ctx.vmaf_probe_count,
+        help="Number of frames to probe for vmaf, higher is more accurate but slower",
+    )
+
+    parser.add_argument(
+        "--probe_speed_override",
+        type=int,
+        default=ctx.speed,
+        help="Override the speed for target vmaf probes",
     )
 
     return parser.parse_args()

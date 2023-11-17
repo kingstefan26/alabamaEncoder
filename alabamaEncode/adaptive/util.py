@@ -33,26 +33,28 @@ def get_test_chunks_out_of_a_sequence(
     return copy.deepcopy(chunks)
 
 
-def get_probe_file_base(encoded_scene_path, temp_folder) -> str:
+def get_probe_file_base(encoded_scene_path, temp_folder="") -> str:
     """
-    This filename will be used to craete grain/rate probes
-    eg:
-    if filename is "./test/1.ivf"
-    then ill create
-    "./test/1_rate_probes/probe.bitrate.speed12.grain0.ivf"
-    "./test/1_rate_probes/probe.bitrate.speed12.grain1.ivf"
-    "./test/1_rate_probes/probe.grain0.speed12.avif"
-    etc
+    :argument encoded_scene_path: /home/test/out/temp/1.ivf
+    return /home/test/out/temp/1_rate_probes
+
+    another:
+    /home/test/out/temp/42.ivf -> /home/test/out/temp/42_rate_probes/
     """
-    encoded_scene_path = copy.deepcopy(encoded_scene_path)
+    # get base file name without an extension
+    file_without_extension = os.path.splitext(os.path.basename(encoded_scene_path))[0]
+
+    # temp folder
     path_without_file = os.path.dirname(encoded_scene_path)
-    filename = os.path.basename(encoded_scene_path)
-    filename_without_ext = os.path.splitext(filename)[0]
-    # new folder for the rate probes
+
+    # join
     probe_folder_path = os.path.join(
-        temp_folder, path_without_file, filename_without_ext + "_rate_probes"
+        path_without_file, (file_without_extension + "_rate_probes")
     )
-    # make the folder
+
+    # add trailing slash
+    probe_folder_path += os.path.sep
+
     os.makedirs(probe_folder_path, exist_ok=True)
     # new file base
-    return os.path.join(probe_folder_path, filename_without_ext)
+    return probe_folder_path

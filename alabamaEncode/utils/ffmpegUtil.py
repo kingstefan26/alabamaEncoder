@@ -129,7 +129,7 @@ def get_video_vmeth(
     #     null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
     null_ += f'-i "{distorted_path}" -lavfi libvmaf="{option_str}" -f null - '
 
-    result_string = run_cli(null_).get_output()
+    result_string = run_cli(null_).verify().get_output()
     try:
         vmafRegex = re.compile(r"VMAF score: ([0-9]+\.[0-9]+)")
         match = vmafRegex.search(result_string)

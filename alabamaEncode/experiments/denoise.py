@@ -29,28 +29,28 @@ if __name__ == "__main__":
     enc.chunk = ChunkObject(
         path="/mnt/data/objective-1-fast/Netflix_PierSeaside_1920x1080_60fps_8bit_420_60f.y4m"
     )
-    enc.grain_synth = 3
+    # enc.grain_synth = 3
     enc.speed = 1
     enc.rate_distribution = EncoderRateDistribution.CQ
-    enc.crf = 20
-    enc.qm_enabled = 1
-    enc.qm_min = 0
-    enc.qm_max = 15
-    enc.threads = 12
-    enc.output_path = os.path.devnull
+    # enc.crf = 20
+    # enc.qm_enabled = 1
+    # enc.qm_min = 0
+    # enc.qm_max = 15
+    # enc.threads = 12
+    # enc.output_path = os.path.devnull
 
-    enc.matrix_coefficients = "bt2020-ncl"
-    enc.color_primaries = "bt2020"
-    enc.transfer_characteristics = "smpte2084"
-    enc.chroma_sample_position = "topleft"
-    enc.maximum_content_light_level = 358
-    enc.maximum_frame_average_light_level = 92
+    # enc.matrix_coefficients = "bt2020-ncl"
+    # enc.color_primaries = "bt2020"
+    # enc.transfer_characteristics = "smpte2084"
+    # enc.chroma_sample_position = "topleft"
+    # enc.maximum_content_light_level = 358
+    # enc.maximum_frame_average_light_level = 92
     # enc.svt_master_display = (
     #     "G(0.265,0.69)B(0.15,0.06)R(0.68,0.32)WP(0.3127,0.329)L(1000.0,0.005)"
     # )
-    enc.passes = 1
-    enc.hdr = True
-    enc.svt_cli_path = "/home/kokoniara/.local/opt/SvtAv1EncApp"
+    # enc.passes = 1
+    # enc.hdr = True
+    # enc.svt_cli_path = "/home/kokoniara/.local/opt/SvtAv1EncApp"
 
     # enc.video_filters = "atadenoise,hqdn3d=4,unsharp=7:7:0.5"
     enc.video_filters = "scale=1920:-2"

@@ -34,7 +34,7 @@ class AbstractEncoderX264(AbstractEncoder):
         kommand += f" --threads {self.threads} "
 
         if self.hdr:
-            kommand += f" --input-depth {self.bit_override} "
+            kommand += f" --output-depth {self.bit_override} "
             colormatrix = self.matrix_coefficients
             if colormatrix == "bt2020-ncl":
                 colormatrix = "bt2020nc"
@@ -46,8 +46,8 @@ class AbstractEncoderX264(AbstractEncoder):
                 f"--colormatrix {colormatrix} --chromaloc {chromeloc} "
                 f"--cll {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
             )
-            if self.svt_master_display:
-                kommand += f' --mastering-display "{self.svt_master_display}" '
+            # if self.svt_master_display:
+            #     kommand += f' --mastering-display "{self.svt_master_display}" '
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:

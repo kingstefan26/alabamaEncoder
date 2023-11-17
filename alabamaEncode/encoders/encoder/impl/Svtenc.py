@@ -73,6 +73,9 @@ class AbstractEncoderSvtenc(AbstractEncoder):
 
         path_env = os.getenv("SVT_CLI_PATH", self.svt_cli_path)
 
+        if " " in path_env:
+            path_env = f'"{path_env}"'
+
         kommand = (
             f"{self.get_ffmpeg_pipe_command()} | "
             f"{path_env}"
