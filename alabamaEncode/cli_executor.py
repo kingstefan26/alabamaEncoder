@@ -1,5 +1,8 @@
 import os
 import subprocess
+import sys
+from queue import Queue
+from threading import Thread
 from typing import List
 
 
@@ -74,3 +77,57 @@ def run_cli(cmd, timeout_value=-1) -> CliResult:
     output = p.stdout.read()
 
     return CliResult(p.returncode, output.decode("utf8"))
+
+
+def _run_command(
+    cmd: str, result_queue: Queue, stream_to_stdout: bool, error_flag: List[bool]
+):
+    process = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    output = ""
+    for line in iter(lambda: process.stdout.read(1), b""):
+        if stream_to_stdout:
+            sys.stdout.buffer.write(line)
+        output += str(line)
+
+    process.wait()
+    result_queue.put(CliResult(process.returncode, output))
+
+    if process.returncode != 0:
+        error_flag[0] = True
+
+
+def run_cli_parallel(
+    cmds: List[str], timeout_value=-1, stream_to_stdout=False
+) -> List[CliResult]:
+    results = []
+    result_queue = Queue()
+    error_flag = [False]
+
+    threads = []
+    for cmd in cmds:
+        thread = Thread(
+            target=_run_command, args=(cmd, result_queue, stream_to_stdout, error_flag)
+        )
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join(timeout=timeout_value)
+
+    # If any process finished with a non-zero code, terminate the remaining processes
+    if any(error_flag):
+        raise RuntimeError("One or more processes  finished with a non-zero exit code.")
+
+    # Retrieve results from the queue
+    while len(results) < len(cmds):
+        out = result_queue.get()
+        if out is not None:
+            results.append(out)
+
+    return results
