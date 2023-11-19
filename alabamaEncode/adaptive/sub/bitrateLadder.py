@@ -221,8 +221,6 @@ class AutoBitrateLadder:
 
         commands = [GetBestCrf(self, chunk) for chunk in chunks_for_crf_probe]
 
-        from alabamaEncode.__main__ import execute_commands
-
         asyncio.get_event_loop().run_until_complete(
             execute_commands(
                 self.config.use_celery,
@@ -365,8 +363,6 @@ class AutoBitrateLadder:
 
         commands = [GetBestBitrate(self, chunk) for chunk in chunks]
 
-        from alabamaEncode.__main__ import execute_commands
-
         asyncio.get_event_loop().run_until_complete(
             execute_commands(
                 self.config.use_celery,
@@ -439,8 +435,6 @@ class AutoBitrateLadder:
         # pool.join()
 
         commands = [GetBestBitrate(self, chunk) for chunk in chunks]
-
-        from alabamaEncode.__main__ import execute_commands
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(

@@ -330,7 +330,7 @@ class TargetVmaf(AnalyzeStep):
         def optimisation_binary(max_probes) -> int:
             low_crf = 10
             high_crf = 55
-            epsilon_down = 0.3
+            epsilon_down = 0.1
 
             mid_crf = 0
             depth = 0

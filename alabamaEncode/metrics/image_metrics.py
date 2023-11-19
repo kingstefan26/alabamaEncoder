@@ -1,6 +1,7 @@
 import os
 import re
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.utils.binary import doesBinaryExist
 
@@ -33,7 +34,7 @@ class ImageMetrics:
 
     @staticmethod
     def psnr_score(refrence_img_path, distorted_img_path):
-        cli = f" ffmpeg -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex psnr -f null -"
+        cli = f"{get_binary('ffmpeg')} -hide_banner -i {refrence_img_path} -i {distorted_img_path} -filter_complex psnr -f null -"
 
         result_string = run_cli(cli).get_output()
         try:

@@ -7,6 +7,7 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
 from alabamaEncode.scene.chunk import ChunkObject
@@ -76,7 +77,7 @@ class AutoGrain:
         # Create a reference png
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
-            cvmand = f'ffmpeg -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 "{ref_png}"'
+            cvmand = f'{get_binary("ffmpeg")} -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 "{ref_png}"'
 
             out = run_cli(cvmand)
             if not os.path.exists(ref_png):
@@ -102,7 +103,7 @@ class AutoGrain:
 
             # turn the avif into a png
             run_cli(
-                f'ffmpeg -y -i "{avif_enc.get_params()["output_path"]}" "{decoded_test_png_path}"'
+                f'{get_binary("ffmpeg")} -y -i "{avif_enc.get_params()["output_path"]}" "{decoded_test_png_path}"'
             )
 
             if not os.path.exists(decoded_test_png_path):

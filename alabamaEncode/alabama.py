@@ -7,6 +7,7 @@ from typing import List
 from tqdm import tqdm
 
 import alabamaEncode.final_touches
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncodersEnum, EncoderRateDistribution
@@ -32,7 +33,7 @@ class AlabamaContext:
     vbr_perchunk_optimisation: bool = True
     vmaf: int = 96
     ssim_db_target: float = 20
-    grain_synth: int = -1
+    grain_synth: int = 0
     passes: (1 or 2 or 3) = 3
     crf: float = -1
     speed: int = 4
@@ -334,11 +335,11 @@ def do_autocrop(ctx: AlabamaContext) -> AlabamaContext:
             def gen_prew(ss, i) -> List[str]:
                 p = f'"{out_path.get()}.{i}.cropped.jpg"'
                 run_cli(
-                    f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {p}"
+                    f"{get_binary('ffmpeg')} -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {p}"
                 ).verify()
                 p2 = f'"{out_path.get()}.{i}.uncropped.jpg"'
                 run_cli(
-                    f"ffmpeg -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {p2}"
+                    f"{get_binary('ffmpeg')} -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {p2}"
                 )
                 return [p.replace('"', ""), p2.replace('"', "")]
 
@@ -559,7 +560,7 @@ def parse_args(ctx: AlabamaContext):
         help="What encoder to use",
         type=str,
         default=str(EncodersEnum.SVT_AV1),
-        choices=["svt_av1", "x265", "aomenc", "x264"],
+        choices=["svt_av1", "x265", "aomenc", "x264", "vpx_9"],
     )
 
     parser.add_argument(

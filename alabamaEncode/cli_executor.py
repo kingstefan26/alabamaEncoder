@@ -5,6 +5,8 @@ from queue import Queue
 from threading import Thread
 from typing import List
 
+__all__ = ["run_cli", "run_cli_parallel", "CliResult"]
+
 
 class CliResult:
     def __init__(self, return_code, output):
@@ -33,7 +35,7 @@ class CliResult:
         :param fail_message: message to raise if the cli failed
         :param bad_output_hints: list of strings that,
         when found in the output, will cause the verification to fail
-        :param files: list of files that must exist
+        :param files: a list of files that must exist
         :return: self for pipelining
         """
         if not self.success():
@@ -53,8 +55,8 @@ class CliResult:
     def get_as_int(self) -> int:
         return int(self.output.strip())
 
-    def filter_output(self, filter: str):
-        self.output = self.output.strip().replace(filter, "")
+    def filter_output(self, filter_str: str):
+        self.output = self.output.strip().replace(filter_str, "")
         return self
 
     def get_as_float(self) -> float:

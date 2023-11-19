@@ -4,6 +4,7 @@ import random
 from torf import Torrent
 from tqdm import tqdm
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
@@ -26,12 +27,13 @@ def print_stats(
     time_encoding = 0
 
     # remove old stat.txt
-    if os.path.exists(f"{output_folder}stat.txt"):
-        os.remove(f"{output_folder}stat.txt")
+    result_file = f"{output_folder}/stat.txt"
+    if os.path.exists(result_file):
+        os.remove(result_file)
 
     def print_and_save(s: str):
         print(s)
-        with open(f"{output_folder}stat.txt", "a") as stat_file:
+        with open(result_file, "a") as stat_file:
             stat_file.write(s + "\n")
 
     print_and_save(f"Total encoding time across chunks: {time_encoding} seconds\n\n")
@@ -114,7 +116,8 @@ def generate_previews(
 
     for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
         run_cli(
-            f'ffmpeg -y -ss {offset} -i "{input_file}" -t {preview_length} -c copy "{output_folder}preview_{i}.avif"'
+            f'{get_binary("ffmpeg")} -y -ss {offset} -i "{input_file}" -t {preview_length} '
+            f'-c copy "{output_folder}/preview_{i}.avif"'
         )
 
 

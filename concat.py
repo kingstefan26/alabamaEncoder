@@ -5,6 +5,7 @@ import sys
 
 from tqdm import tqdm
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
 
@@ -161,7 +162,7 @@ if mux_audio:
         os.system(command)
 else:
     print("not muxing audio")
-    argv_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -c copy "{output}"'
+    argv_ = f'{get_binary("ffmpeg")} -v error -f concat -safe 0 -i mhmconcat -c copy "{output}"'
     print("Running: " + argv_)
     os.system(argv_)
     print("Removing mhmconcat")

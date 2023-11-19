@@ -3,6 +3,7 @@ import tempfile
 import time
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
 from alabamaEncode.path import PathAlabama
@@ -83,7 +84,7 @@ class VideoConcatenator:
                 f.write(f"file '{file}'\n")
 
         vid_output = self.output + ".videoonly.mkv"
-        concat_command = f'ffmpeg -y -stats -v error -f concat -safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
+        concat_command = f'{get_binary("ffmpeg")} -y -stats -v error -f concat -safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
 
         print("Concating Video")
         print(f"running: {concat_command}")
@@ -105,7 +106,7 @@ class VideoConcatenator:
 
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
-            encode_audio = f'ffmpeg -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} -map_metadata -1 "{audio_output}"'
+            encode_audio = f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} -map_metadata -1 "{audio_output}"'
             print(f"running: {encode_audio}")
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
@@ -122,7 +123,7 @@ class VideoConcatenator:
                 sub_hack = ""
                 if "mp4" in self.output:
                     sub_hack = " -c:s mov_text "
-                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
                 out = run_cli(final_command).get_output()
                 if (
@@ -131,7 +132,7 @@ class VideoConcatenator:
                 ):
                     print("Subtitle encoding failed, trying again")
                     print(f"running: {final_command}")
-                    final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                    final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                     run_cli(final_command)
             else:
                 subs_i = ""
@@ -142,7 +143,7 @@ class VideoConcatenator:
                         print("Offseting subs")
                         for sub in self.subs_file:
                             temp_sub = f"{sub}.temp.vtt"
-                            encode_sub = f'ffmpeg -y -v error -itsoffset {self.start_offset} -ss {self.start_offset} -i "{sub}" "{temp_sub}"'
+                            encode_sub = f'{get_binary("ffmpeg")} -y -v error -itsoffset {self.start_offset} -ss {self.start_offset} -i "{sub}" "{temp_sub}"'
                             print(f"running: {encode_sub}")
 
                     for i, sub in enumerate(self.subs_file):
@@ -152,7 +153,7 @@ class VideoConcatenator:
                             subs_i += f' -i "{sub}" '
                         subs_map += f"-map {i+2} "
 
-                final_command = f'ffmpeg -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
                 print(f"running: {final_command}")
                 run_cli(final_command)
 
