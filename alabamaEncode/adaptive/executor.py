@@ -47,7 +47,14 @@ class PlainFinalEncode(FinalEncodeStep):
     def run(
         self, enc: AbstractEncoder, chunk: ChunkObject, ctx: AlabamaContext
     ) -> EncodeStats:
-        return enc.run(calculate_vmaf=True)
+        return enc.run(
+            calculate_vmaf=True,
+            vmaf_params={
+                "disable_enchancment_gain": False,
+                "uhd_model": ctx.vmaf_4k_model,
+                "phone_model": ctx.vmaf_phone_model,
+            },
+        )
 
     def dry_run(self, enc: AbstractEncoder, chunk: ChunkObject) -> str:
         joined = " && ".join(enc.get_encode_commands())
@@ -322,7 +329,7 @@ class TargetVmaf(AnalyzeStep):
 
         def optimisation_binary(max_probes) -> int:
             low_crf = 10
-            high_crf = 45
+            high_crf = 55
             epsilon_down = 0.3
 
             mid_crf = 0
@@ -338,12 +345,11 @@ class TargetVmaf(AnalyzeStep):
                 enc.speed = self.probe_speed
                 enc.passes = 1
                 enc.threads = 1
-                enc.grain_synth = 3
+                enc.grain_synth = 0
                 enc.override_flags = None
                 stats: EncodeStats = enc.run(
                     calculate_vmaf=True,
                     vmaf_params={
-                        "log_path": (enc.output_path + ".vmaflog"),
                         "disable_enchancment_gain": False,
                         "uhd_model": ctx.vmaf_4k_model,
                         "phone_model": ctx.vmaf_phone_model,

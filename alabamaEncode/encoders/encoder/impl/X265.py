@@ -1,20 +1,18 @@
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderX265(AbstractEncoder):
-    def get_needed_path(self) -> List[str]:
-        return ["ffmpeg", "ffprobe", "x265"]
-
     def get_encode_commands(self) -> List[str]:
         if self.speed == 0:
             self.speed = 1
         self.passes = 1
 
         kommand = (
-            f"ffmpeg -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libx265 -vf {self.video_filters} "
+            f"{get_binary('ffmpeg')} -y {self.chunk.get_ss_ffmpeg_command_pair()} -c:v libx265 -vf {self.video_filters} "
             f"-an -sn -pix_fmt yuv420p10le"
         )
 

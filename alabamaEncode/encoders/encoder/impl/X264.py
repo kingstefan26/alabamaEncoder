@@ -1,19 +1,17 @@
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderX264(AbstractEncoder):
-    def get_needed_path(self) -> List[str]:
-        return ["ffmpeg", "ffprobe"]
-
     def get_version(self) -> str:
         # x264 core:164 r3095 baee400
         # Syntax: x264 [options] -o outfile infile
         return (
-            run_cli("x264 --help")
+            run_cli(f"{get_binary('x264')} --help")
             .get_output()
             .split("\n")[0]
             .replace("x264", "")
@@ -29,7 +27,9 @@ class AbstractEncoderX264(AbstractEncoder):
 
         self.speed = max(min(self.speed, 9), 0)
 
-        kommand = f" {self.get_ffmpeg_pipe_command()} | x264 - --stdin y4m "
+        kommand = (
+            f" {self.get_ffmpeg_pipe_command()} | {get_binary('x264')} - --stdin y4m "
+        )
 
         kommand += f" --threads {self.threads} "
 

@@ -1,19 +1,14 @@
-import os
 import re
 from copy import copy
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
 
 
 class AbstractEncoderAomEnc(AbstractEncoder):
-    def get_needed_path(self) -> List[str]:
-        return [self.get_bin()]
-
-    def get_bin(self):
-        return os.getenv("AOM_CLI_PATH", self.aom_cli_path)
 
     def get_version(self) -> str:
         # Included encoders:
@@ -21,7 +16,7 @@ class AbstractEncoderAomEnc(AbstractEncoder):
         # av1    - AOMedia Project AV1 Encoder Psy v3.6.0 (default)
         match = re.search(
             r"av1\s+-\s+AOMedia Project AV1 Encoder\s+(.*)",
-            run_cli(f"{self.get_bin()} --help").get_output(),
+            run_cli(f"{get_binary('aomenc')} --help").get_output(),
         )
         if match is None:
             raise Exception("FATAL: Could not find av1 encoder version")
@@ -38,7 +33,7 @@ class AbstractEncoderAomEnc(AbstractEncoder):
             video_filters=self.video_filters
         )
         encode_command += " | "
-        encode_command += f"{self.get_bin()} - "
+        encode_command += f"{get_binary('aomenc')} - "
         encode_command += " --quiet "
         encode_command += f'-o "{self.output_path}" '
 

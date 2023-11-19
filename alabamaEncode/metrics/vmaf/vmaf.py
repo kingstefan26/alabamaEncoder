@@ -1,6 +1,7 @@
 import json
 import os
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.vmaf.options import VmafOptions
@@ -16,8 +17,11 @@ def calc_vmaf(
     vmaf_options: VmafOptions = None,
     log_path="",
 ):
-    pipe_ref_path = f"/tmp/{os.path.basename(chunk.path)}.pipe"
-    pipe_dist_path = f"/tmp/{os.path.basename(chunk.chunk_path)}.pipe"
+    assert vmaf_options is not None
+
+    random_bit = os.urandom(16).hex()
+    pipe_ref_path = f"/tmp/{os.path.basename(chunk.path)}_{random_bit}.pipe"
+    pipe_dist_path = f"/tmp/{os.path.basename(chunk.chunk_path)}_{random_bit}.pipe"
 
     dist_filter = ""
 
@@ -37,11 +41,11 @@ def calc_vmaf(
         dist_filter = f" -vf {comparison_scaling} "
 
     first_pipe_command = (
-        f"ffmpeg -v error -nostdin {chunk.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le  "
+        f"{get_binary('ffmpeg')} -v error -nostdin {chunk.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le  "
         f'-an -sn -strict -1 -vf "{video_filters}" -f yuv4mpegpipe - > {pipe_ref_path}'
     )
     second_pipe_command = (
-        f"ffmpeg -v error -nostdin -i {chunk.chunk_path} -pix_fmt yuv420p10le -an -sn "
+        f"{get_binary('ffmpeg')} -v error -nostdin -filmgrain 0 -i {chunk.chunk_path} -pix_fmt yuv420p10le -an -sn "
         f"-strict -1 {dist_filter} -f yuv4mpegpipe - > {pipe_dist_path} "
     )
 
@@ -57,7 +61,7 @@ def calc_vmaf(
     assert os.path.exists(pipe_dist_path)
 
     vmaf_command = (
-        f'vmaf --json --output {log_path} --model {vmaf_options.get_model()} --reference "{pipe_ref_path}" '
+        f'{get_binary("vmaf")} --json --output {log_path} --model {vmaf_options.get_model()} --reference "{pipe_ref_path}" '
         f'--distorted "{pipe_dist_path}" --threads {threads}'
     )
 

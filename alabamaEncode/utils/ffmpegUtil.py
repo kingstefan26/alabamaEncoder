@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.metrics import ImageMetrics
+from alabamaEncode.metrics.image_metrics import ImageMetrics
 from alabamaEncode.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
 

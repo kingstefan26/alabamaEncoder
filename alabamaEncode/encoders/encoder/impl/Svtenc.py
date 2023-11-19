@@ -1,6 +1,7 @@
 import os.path
 from typing import List
 
+from alabamaEncode.bin_utils import get_binary
 from alabamaEncode.cli_executor import run_cli
 from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
 from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
@@ -46,7 +47,7 @@ class AvifEncoderSvtenc:
         )
 
         return (
-            f'ffmpeg -hide_banner -y -i "{self.params["in_path"]}" {self.params["vf"]} -c:v libsvtav1 {ratebit} '
+            f'{get_binary("ffmpeg")} -hide_banner -y -i "{self.params["in_path"]}" {self.params["vf"]} -c:v libsvtav1 {ratebit} '
             f'-svtav1-params tune=0:lp={self.params["threads"]}:film-grain={self.params["grain_synth"]}'
             f' -preset {self.params["speed"]} -pix_fmt {pix_fmt} "{self.params["output_path"]}"'
         )
@@ -71,14 +72,9 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             print("WARNING: keyint must be set for VBR, setting to 240")
             self.keyint = 240
 
-        path_env = os.getenv("SVT_CLI_PATH", self.svt_cli_path)
-
-        if " " in path_env:
-            path_env = f'"{path_env}"'
-
         kommand = (
             f"{self.get_ffmpeg_pipe_command()} | "
-            f"{path_env}"
+            f"{get_binary('SvtAv1EncApp')}"
             f" -i stdin"
             f" --input-depth {self.bit_override}"
         )
@@ -210,15 +206,8 @@ class AbstractEncoderSvtenc(AbstractEncoder):
     def get_chunk_file_extension(self) -> str:
         return ".ivf"
 
-    def get_needed_path(self) -> List[str]:
-        """
-
-        :return:
-        """
-        return ["ffmpeg", os.getenv("SVT_CLI_PATH", self.svt_cli_path), "ffprobe"]
-
     def get_version(self) -> str:
         # Svt[info]: -------------------------------------------
         # Svt[info]: SVT [version]:	SVT-AV1 Encoder Lib v1.7.0-2-g09df835
-        o = run_cli(os.getenv("SVT_CLI_PATH", self.svt_cli_path)).get_output()
+        o = run_cli(get_binary("SvtAv1EncApp")).get_output()
         return o.split("\n")[1].split(" ")[-1]

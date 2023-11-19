@@ -1,5 +1,4 @@
 import copy
-import json
 import os
 import time
 from abc import abstractmethod, ABC
@@ -12,10 +11,11 @@ from alabamaEncode.encoders.encoderMisc import (
     EncodeStatus,
 )
 from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.metrics.vmaf.result import VmafResult
 from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.binary import doesBinaryExist
 from alabamaEncode.utils.ffmpegUtil import (
-    get_video_vmeth,
     get_video_ssim,
 )
 
@@ -43,8 +43,6 @@ class AbstractEncoder(ABC):
     qm_max = 15
     override_flags: str = ""
 
-    aom_cli_path = "aomenc"
-
     bit_override = 10
 
     svt_bias_pct = 50  # 100 vbr like, 0 cbr like
@@ -59,7 +57,6 @@ class AbstractEncoder(ABC):
     svt_superres_kf_qthresh = 43
     svt_sframe_interval = 0
     svt_sframe_mode = 2
-    svt_cli_path = "SvtAv1EncApp"
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     svt_tf = 1  # temporally filtered ALT-REF frames
     svt_overlay = 0  # enable overlays
@@ -182,10 +179,6 @@ class AbstractEncoder(ABC):
         """
         stats = EncodeStats()
 
-        for command in self.get_needed_path():
-            if not doesBinaryExist(command):
-                raise Exception(f"Could not find {command} in path")
-
         if os.path.exists(self.output_path) and not override_if_exists:
             stats.status = EncodeStatus.DONE
         else:
@@ -244,60 +237,34 @@ class AbstractEncoder(ABC):
             stats.status = EncodeStatus.DONE
 
         if calculate_vmaf:
-            # deconstruct vmaf_params and pass them to get_video_vmeth
             if vmaf_params is None:
                 vmaf_params = {}
 
-            uhd_model = vmaf_params.get("uhd_model", False)
-            phone_model = vmaf_params.get("phone_model", False)
-            disable_enchancment_gain = vmaf_params.get(
-                "disable_enchancment_gain", False
+            local_chunk = copy.deepcopy(
+                self.chunk
+            )  # we need seeking variables from the chunk but the path from the
+            # encoder, since the encoder object might have changed the path
+            local_chunk.chunk_path = self.output_path
+
+            vmaf_result: VmafResult = calculate_metric(
+                chunk=local_chunk,
+                video_filters=self.video_filters,
+                threads=vmaf_params.get("threads", 1),
+                vmaf_options=VmafOptions(
+                    uhd=vmaf_params.get("uhd_model", False),
+                    phone=vmaf_params.get("phone_model", False),
+                    neg=vmaf_params.get("disable_enchancment_gain", False),
+                ),
             )
 
-            threads = vmaf_params.get("threads", 1)
+            stats.vmaf = vmaf_result.mean
+            stats.vmaf_percentile_1 = vmaf_result.percentile_1
+            stats.vmaf_percentile_5 = vmaf_result.percentile_5
+            stats.vmaf_percentile_10 = vmaf_result.percentile_10
+            stats.vmaf_percentile_25 = vmaf_result.percentile_25
+            stats.vmaf_percentile_50 = vmaf_result.percentile_50
+            stats.vmaf_avg = vmaf_result.mean
 
-            log_path = vmaf_params.get("log_path", self.output_path + ".vmaflog")
-
-            try:
-                stats.vmaf = get_video_vmeth(
-                    self.output_path,
-                    self.chunk,
-                    video_filters=self.video_filters,
-                    uhd_model=uhd_model,
-                    phone_model=phone_model,
-                    disable_enchancment_gain=disable_enchancment_gain,
-                    log_path=log_path,
-                    threads=threads,
-                )
-
-                try:
-                    with open(log_path) as f:
-                        vmaf_scores_obj = json.load(f)
-                    frames = []
-
-                    for frame in vmaf_scores_obj["frames"]:
-                        frames.append([frame["frameNum"], frame["metrics"]["vmaf"]])
-
-                    frames.sort(key=lambda x: x[0])
-
-                    # calc 1 5 10 25 50 percentiles
-                    vmaf_scores = [x[1] for x in frames]
-                    vmaf_scores.sort()
-                    stats.vmaf_percentile_1 = vmaf_scores[int(len(vmaf_scores) * 0.01)]
-                    stats.vmaf_percentile_5 = vmaf_scores[int(len(vmaf_scores) * 0.05)]
-                    stats.vmaf_percentile_10 = vmaf_scores[int(len(vmaf_scores) * 0.1)]
-                    stats.vmaf_percentile_25 = vmaf_scores[int(len(vmaf_scores) * 0.25)]
-                    stats.vmaf_percentile_50 = vmaf_scores[int(len(vmaf_scores) * 0.5)]
-                    stats.vmaf_avg = sum(vmaf_scores) / len(vmaf_scores)
-
-                except Exception as e:
-                    print(e)
-                    print("Failed to get vmaf percentiles")
-
-            except Exception as e:
-                print(e)
-                print("Failed to get vmaf")
-                raise e
         if calcualte_ssim:
             stats.ssim = get_video_ssim(
                 self.output_path, self.chunk, video_filters=self.video_filters
@@ -317,13 +284,6 @@ class AbstractEncoder(ABC):
         :return: A list of cli commands to encode, according to class fields
         """
         pass
-
-    @abstractmethod
-    def get_needed_path(self) -> List[str]:
-        """
-        return needed path items for encoding eg `aomenc` or `SvtAv1EncApp`
-        """
-        return ["ffmpeg", "ffprobe"]
 
     def get_ffmpeg_pipe_command(self) -> str:
         """
