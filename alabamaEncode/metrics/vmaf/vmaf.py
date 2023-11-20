@@ -1,8 +1,8 @@
 import json
 import os
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli, run_cli_parallel
+from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
+from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.result import VmafResult
@@ -30,10 +30,10 @@ def calc_vmaf(
 
         vf = []
         if video_filters != "":
-            for filter in video_filters.split(","):
-                # if not re.match(r"scale=[0-9-]+:[0-9-]+", filter):
-                #     vf.append(filter)
-                vf.append(filter)
+            for _filter in video_filters.split(","):
+                # if not re.match(r"scale=[0-9-]+:[0-9-]+", _filter):
+                #     vf.append(_filter)
+                vf.append(_filter)
 
         vf.append(comparison_scaling)
         video_filters = ",".join(vf)
@@ -61,7 +61,8 @@ def calc_vmaf(
     assert os.path.exists(pipe_dist_path)
 
     vmaf_command = (
-        f'{get_binary("vmaf")} --json --output {log_path} --model {vmaf_options.get_model()} --reference "{pipe_ref_path}" '
+        f'{get_binary("vmaf")} --json --output {log_path} --model {vmaf_options.get_model()} '
+        f'--reference "{pipe_ref_path}" '
         f'--distorted "{pipe_dist_path}" --threads {threads}'
     )
 

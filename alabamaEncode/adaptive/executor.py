@@ -7,23 +7,22 @@ from typing import List
 
 from tqdm import tqdm
 
-from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.timer import Timer
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
-from alabamaEncode.timer import Timer
 
 
 class AnalyzeStep(ABC):
     """
-    Sets up an AbstactEncoder for the final encoding, sometimes does analysis to find the parameters but doesnt have to
+    Sets up an Encoder for the final encoding, sometimes does analysis to find the parameters but doesn't have to
     """
 
     @abstractmethod
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         pass
 
 
@@ -33,20 +32,16 @@ class FinalEncodeStep(ABC):
     """
 
     @abstractmethod
-    def run(
-        self, enc: AbstractEncoder, chunk: ChunkObject, ctx: AlabamaContext
-    ) -> EncodeStats:
+    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
         pass
 
     @abstractmethod
-    def dry_run(self, enc: AbstractEncoder, chunk: ChunkObject) -> str:
+    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
         pass
 
 
 class PlainFinalEncode(FinalEncodeStep):
-    def run(
-        self, enc: AbstractEncoder, chunk: ChunkObject, ctx: AlabamaContext
-    ) -> EncodeStats:
+    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
         return enc.run(
             calculate_vmaf=True,
             vmaf_params={
@@ -56,21 +51,20 @@ class PlainFinalEncode(FinalEncodeStep):
             },
         )
 
-    def dry_run(self, enc: AbstractEncoder, chunk: ChunkObject) -> str:
+    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
         joined = " && ".join(enc.get_encode_commands())
         return joined
 
 
 class WeridCapedCrfFinalEncode(FinalEncodeStep):
-    def run(
-        self, enc: AbstractEncoder, chunk: ChunkObject, ctx: AlabamaContext
-    ) -> EncodeStats:
+    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
         stats: EncodeStats = enc.run()
 
         if stats.bitrate > ctx.cutoff_bitrate:
             tqdm.write(
                 chunk.log_prefix()
-                + f"at crf {ctx.crf} got {stats.bitrate}, cutoff {ctx.cutoff_bitrate} k/s reached, encoding three pass vbr at cutoff "
+                + f"at crf {ctx.crf} got {stats.bitrate}, cutoff {ctx.cutoff_bitrate} k/s reached,"
+                f" encoding three pass vbr at cutoff "
             )
         else:
             tqdm.write(
@@ -90,14 +84,12 @@ class WeridCapedCrfFinalEncode(FinalEncodeStep):
         stats: EncodeStats = enc.run()
         return stats
 
-    def dry_run(self, enc: AbstractEncoder, chunk: ChunkObject) -> str:
+    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
         raise Exception("dry_run not implemented for WeridCapedCrfFinalEncode")
 
 
 class CapedCrf(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         enc.update(
             rate_distribution=EncoderRateDistribution.CQ_VBV,
             bitrate=ctx.max_bitrate,
@@ -109,9 +101,7 @@ class CapedCrf(AnalyzeStep):
 
 
 class PlainCrf(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         enc.update(
             rate_distribution=EncoderRateDistribution.CQ,
             crf=ctx.crf,
@@ -122,9 +112,7 @@ class PlainCrf(AnalyzeStep):
 
 
 class PlainVbr(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         enc.update(
             rate_distribution=EncoderRateDistribution.VBR, bitrate=ctx.bitrate, passes=3
         )
@@ -133,9 +121,7 @@ class PlainVbr(AnalyzeStep):
 
 
 class VbrPerChunkOptimised(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
 
         enc.update(
@@ -153,21 +139,19 @@ class TargetVmaf(AnalyzeStep):
         self.probes = probes
         self.probe_speed = probe_speed
 
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         original = copy.deepcopy(enc)
 
         # crfs = [18, 20, 22, 24, 28, 30, 32, 36, 38, 40, 44, 48]
         bad_vmaf_offest = (
-            0  # if we target vmaf 95, lets target 94 since the probes are speed 13
+            0  # if we target vmaf 95, let's target 94 since the probes are speed 13
         )
         target_vmaf = ctx.vmaf - bad_vmaf_offest
         target_5percentile_vmaf = target_vmaf - bad_vmaf_offest
 
         class POINT:
-            def __init__(self, crf, vmaf, ssim, bitrate):
-                self.crf = crf
+            def __init__(self, _crf, vmaf, ssim, bitrate):
+                self.crf = _crf
                 self.vmaf = vmaf
                 self.ssim = ssim
                 self.bitrate = bitrate
@@ -179,11 +163,11 @@ class TargetVmaf(AnalyzeStep):
             vmaf_percentile_50 = 0
             vmaf_avg = 0
 
-        def log_to_convex_log(str):
+        def log_to_convex_log(_str):
             if ctx.log_level >= 2:
-                tqdm.write(str)
+                tqdm.write(_str)
             with open(f"{ctx.temp_folder}/convex.log", "a") as f:
-                f.write(str + "\n")
+                f.write(_str + "\n")
 
         # score func, the lowest score gets selected
         def point_to_score(p: POINT):
@@ -268,7 +252,9 @@ class TargetVmaf(AnalyzeStep):
             point.vmaf_avg = stats.vmaf_avg
 
             log_to_convex_log(
-                f"{chunk.log_prefix()} crf: {crf_point} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} avg: {point.vmaf_avg} score: {point_to_score(point)}"
+                f"{chunk.log_prefix()} crf: {crf_point} vmaf: {stats.vmaf} ssim: {stats.ssim} "
+                f"bitrate: {stats.bitrate} 1%: {point.vmaf_percentile_1} 5%: {point.vmaf_percentile_5} "
+                f"avg: {point.vmaf_avg} score: {point_to_score(point)}"
             )
 
             if os.path.exists(probe_vmaf_log):
@@ -282,45 +268,44 @@ class TargetVmaf(AnalyzeStep):
             crfs = [18, 20, 22, 24, 28, 30, 32, 34, 36, 38, 40, 44, 54]
             points = []
 
-            for crf in crfs:
-                point = crf_to_point(crf)
-                points.append(point)
+            for _crf in crfs:
+                points.append(crf_to_point(_crf))
 
             closest_score = float("inf")
-            crf = -1
+            _crf = -1
 
-            ## PICK LOWEST SCORE
+            # PICK LOWEST SCORE
             if len(points) == 1:
-                crf = points[
+                _crf = points[
                     0
                 ].crf  # case where there is only one point that is bellow target vmaf
             else:
                 for p in points:
                     score = get_score(p)
                     if score < closest_score:
-                        crf = p.crf
+                        _crf = p.crf
                         closest_score = score
-            return crf
+            return _crf
 
         def optimisation_tenary(_get_score, max_probes) -> int:
-            def ternary_search(low, high, max_depth, epsilon=1e-9):
+            def ternary_search(_low, _high, _max_depth, epsilon=1e-9):
                 depth = 0
 
-                while high - low > epsilon and depth < max_depth:
-                    mid1 = low + (high - low) / 3
-                    mid2 = high - (high - low) / 3
+                while _high - _low > epsilon and depth < _max_depth:
+                    mid1 = _low + (_high - _low) / 3
+                    mid2 = _high - (_high - _low) / 3
 
                     mid1_score = _get_score(mid1)
                     mid2_score = _get_score(mid2)
 
                     if mid1_score < mid2_score:
-                        high = mid2
+                        _high = mid2
                     else:
-                        low = mid1
+                        _low = mid1
 
                     depth += 1
 
-                return (low + high) / 2
+                return (_low + _high) / 2
 
             # Set your initial range and maximum depth
             low, high = 0, 63
@@ -330,13 +315,22 @@ class TargetVmaf(AnalyzeStep):
         def optimisation_binary(max_probes) -> int:
             low_crf = 10
             high_crf = 55
-            epsilon_down = 0.1
+            epsilon = 0.1
+
+            max_probes -= 1  # since we count from 0
 
             mid_crf = 0
             depth = 0
 
+            trys = []
+
             while low_crf <= high_crf and depth < max_probes:
                 mid_crf = (low_crf + high_crf) // 2
+
+                # don't try the same crf twice
+                if mid_crf in [t[0] for t in trys]:
+                    break
+
                 enc.crf = mid_crf
                 enc.output_path = os.path.join(
                     probe_file_base,
@@ -357,23 +351,35 @@ class TargetVmaf(AnalyzeStep):
                 )
 
                 log_to_convex_log(
-                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf} ssim: {stats.ssim} bitrate: {stats.bitrate} 1%: {stats.vmaf_percentile_1} 5%: {stats.vmaf_percentile_5} avg: {stats.vmaf_avg} score: {stats.vmaf}"
+                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.harmonic_mean} "
+                    f"bitrate: {stats.bitrate} attempt {depth}/{max_probes}"
                 )
 
-                if mid_crf == high_crf or mid_crf == low_crf:
+                if abs(stats.vmaf_result.harmonic_mean - target_vmaf) <= epsilon:
                     break
-
-                if high_crf - 2 <= mid_crf:
-                    break
-
-                if abs(stats.vmaf - target_vmaf) <= epsilon_down:
-                    break
-                elif stats.vmaf > target_vmaf:
+                elif stats.vmaf_result.harmonic_mean > target_vmaf:
                     low_crf = mid_crf + 1
                 else:
                     high_crf = mid_crf - 1
-
+                trys.append((mid_crf, stats.vmaf_result.harmonic_mean))
                 depth += 1
+
+            # via linear interpolation, find the crf that is closest to target vmaf
+            if len(trys) > 1:
+                points = sorted(trys, key=lambda x: abs(x[1] - target_vmaf))
+                low_point = points[0]
+                high_point = points[1]
+                crf_low = low_point[0]  # 20
+                crf_high = high_point[0]  # 18
+                vmaf_low = low_point[1]  # 95.5
+                vmaf_high = high_point[1]  # 96.5
+                interpoled_crf = crf_low + (crf_high - crf_low) * (
+                    (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
+                )
+                if enc.supports_float_crfs():
+                    mid_crf = interpoled_crf
+                else:
+                    mid_crf = int(interpoled_crf)
 
             return mid_crf
 
@@ -403,7 +409,7 @@ class TargetVmaf(AnalyzeStep):
                 percentile_diff = abs(target_5percentile_vmaf - point.vmaf_percentile_5)
                 bitrate = point.bitrate / 1000
                 # divide by 1000 to 1000kb/s -> 1
-                # since optuna will prioritize lower bitrate if its in 1000s
+                # since optuna will prioritize lower bitrate if it's in the 1000s
                 return (
                     diff_vmaf,
                     percentile_diff,
@@ -436,8 +442,8 @@ class TargetVmaf(AnalyzeStep):
             passes=1,
             rate_distribution=EncoderRateDistribution.CQ,
             output_path=chunk.chunk_path,
-            crf=crf,
         )
+        enc.crf = crf
 
         enc.svt_tune = 0
         enc.svt_overlay = 0
@@ -449,14 +455,12 @@ class TargetVmaf(AnalyzeStep):
 
 
 class GrainSynth(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         from alabamaEncode.adaptive.sub.grain2 import calc_grainsynth_of_scene
 
         from alabamaEncode.adaptive.util import get_probe_file_base
 
-        probe_file_base = get_probe_file_base(chunk.chunk_path, ctx.temp_folder)
+        probe_file_base = get_probe_file_base(chunk.chunk_path)
         enc.grain_synth = calc_grainsynth_of_scene(
             chunk, probe_file_base, scale_vf=ctx.scale_string, crop_vf=ctx.crop_string
         )
@@ -467,9 +471,7 @@ class GrainSynth(AnalyzeStep):
 
 
 class BaseAnalyzer(AnalyzeStep):
-    def run(
-        self, ctx: AlabamaContext, chunk: ChunkObject, enc: AbstractEncoder
-    ) -> AbstractEncoder:
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         enc = ctx.get_encoder()
         enc.setup(chunk=chunk, config=ctx)
         enc.update(
@@ -518,7 +520,6 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
 
 
 def finalencode_factory(ctx: AlabamaContext) -> FinalEncodeStep:
-    final_step = None
     if ctx.flag1:
         final_step = WeridCapedCrfFinalEncode()
     else:
@@ -552,7 +553,7 @@ class AdaptiveCommand(BaseCommandObject):
 
         analyze_steps: List[AnalyzeStep] = analyzer_factory(self.ctx)
 
-        # using with statement with MessageWriter
+        # using it with a statement with MessageWriter
         timeing = Timer()
 
         timeing.start("analyze_step")
@@ -588,10 +589,10 @@ class AdaptiveCommand(BaseCommandObject):
 
         # round to two places
         total_fps = round(self.chunk.get_frame_count() / (time.time() - total_start), 2)
-        # target bitrate vs actual bitrate diffrence in %
-        taget_miss_proc = (final_stats.bitrate - enc.bitrate) / enc.bitrate * 100
+        # target bitrate vs actual bitrate difference in %
+        target_miss_proc = (final_stats.bitrate - enc.bitrate) / enc.bitrate * 100
         final_stats.total_fps = total_fps
-        final_stats.target_miss_proc = taget_miss_proc
+        final_stats.target_miss_proc = target_miss_proc
         final_stats.chunk_index = self.chunk.chunk_index
         final_stats.rate_search_time = rate_search_time
         self.ctx.log(
@@ -599,13 +600,10 @@ class AdaptiveCommand(BaseCommandObject):
             f" vmaf={final_stats.vmaf} "
             f" time={int(final_stats.time_encoding)}s "
             f" bitrate={final_stats.bitrate}k"
-            f" bitrate_target_miss={taget_miss_proc:.2f}%"
-            f" chunk_lenght={round(self.chunk.get_lenght(), 2)}s"
+            f" bitrate_target_miss={target_miss_proc:.2f}%"
+            f" chunk_length={round(self.chunk.get_lenght(), 2)}s"
             f" total_fps={total_fps}"
         )
         # save the stats to [temp_folder]/chunks.log
-        try:
-            with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
-                f.write(json.dumps(final_stats.get_dict()) + "\n")
-        except:
-            pass
+        with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
+            f.write(json.dumps(final_stats.get_dict()) + "\n")

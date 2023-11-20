@@ -1,6 +1,6 @@
 import os.path
 
-from alabamaEncode.alabama import AlabamaContext, scrape_hdr_metadata
+from alabamaEncode.core.alabama import AlabamaContext, scrape_hdr_metadata
 
 if __name__ == "__main__":
     ctx = AlabamaContext()

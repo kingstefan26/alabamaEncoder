@@ -17,7 +17,7 @@ def get_test_chunks_out_of_a_sequence(
     :return: List of Chunk objects
     """
     chunks_copy: List[ChunkObject] = copy.deepcopy(chunk_sequence.chunks)
-    chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2) : int(len(chunks_copy) * 0.8)]
+    chunks_copy = chunks_copy[int(len(chunks_copy) * 0.2): int(len(chunks_copy) * 0.8)]
 
     if len(chunks_copy) > 10:
         # bases on length, remove every x scene from the list so its shorter
@@ -33,7 +33,7 @@ def get_test_chunks_out_of_a_sequence(
     return copy.deepcopy(chunks)
 
 
-def get_probe_file_base(encoded_scene_path, temp_folder="") -> str:
+def get_probe_file_base(encoded_scene_path) -> str:
     """
     :argument encoded_scene_path: /home/test/out/temp/1.ivf
     return /home/test/out/temp/1_rate_probes

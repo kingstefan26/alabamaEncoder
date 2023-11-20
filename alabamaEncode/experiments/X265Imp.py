@@ -4,8 +4,8 @@ Testing the x265 implementation of the encoder interface.
 
 import os
 
-from alabamaEncode.encoders.encoder.impl.X265 import AbstractEncoderX265
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.encoder.impl.X265 import EncoderX265
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         if not os.path.exists(test_env):
             os.mkdir(test_env)
 
-        x265 = AbstractEncoderX265()
+        x265 = EncoderX265()
 
         x265.update(
             rate_distribution=EncoderRateDistribution.CQ,

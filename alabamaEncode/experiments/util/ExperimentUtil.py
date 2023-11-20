@@ -7,8 +7,9 @@ import pandas as pd
 from pandas import DataFrame
 from tqdm import tqdm
 
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.scene.chunk import ChunkObject
 
 only_one = False
@@ -48,7 +49,7 @@ def get_test_env() -> str:
 
 
 def run_test(
-    enc: AbstractEncoder, input_file: str, version: str, test_env: str = get_test_env()
+    enc: Encoder, input_file: str, version: str, test_env: str = get_test_env()
 ) -> EncodeStats:
     # get the basename of the file
     basename = os.path.basename(input_file).split(".")[0]
@@ -75,7 +76,7 @@ def run_test(
 
 
 def run_tests(
-    enc: AbstractEncoder,
+    enc: Encoder,
     version: str = "control",
     test_env: str = get_test_env(),
     test_files_count: int = -1,
@@ -210,7 +211,7 @@ def report(stat_reports: List[EncodeStats], experiment_name: str = "Experiment")
 
 
 def run_tests_across_range(
-    encs: List[AbstractEncoder],
+    encs: List[Encoder],
     title: str,
     test_env: str = get_test_env(),
     crfs: List[int] = [

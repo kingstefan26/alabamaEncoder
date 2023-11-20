@@ -1,12 +1,13 @@
 import os
 import shutil
 
-from alabamaEncode.encoders.encoder.impl.X264 import AbstractEncoderX264
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution, EncodeStats
+from alabamaEncode.core.timer import Timer
+from alabamaEncode.encoder.impl.X264 import EncoderX264
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.split import get_video_scene_list_skinny
-from alabamaEncode.timer import Timer
 
 counter = 0
 
@@ -22,7 +23,7 @@ if __name__ == "__main__":
     if not os.path.exists(env):
         os.makedirs(env)
 
-    enc = AbstractEncoderX264()
+    enc = EncoderX264()
     # enc.chunk = ChunkObject(
     #     path="/home/kokoniara/showsEncode/HALO (2022)/s1/e5/lossless.mkv"
     # )

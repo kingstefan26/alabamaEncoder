@@ -8,7 +8,7 @@ from typing import List
 from alabamaEncode.adaptive.sub.bitrate import get_ideal_bitrate
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence

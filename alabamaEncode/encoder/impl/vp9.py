@@ -1,13 +1,13 @@
 import re
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
-class EncoderVPX(AbstractEncoder):
+class EncoderVPX(Encoder):
     def __init__(self, codec):
         super().__init__()
         if codec != "vp9" and codec != "vp8":

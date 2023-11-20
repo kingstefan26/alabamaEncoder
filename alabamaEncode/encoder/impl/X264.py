@@ -1,12 +1,12 @@
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
-class AbstractEncoderX264(AbstractEncoder):
+class EncoderX264(Encoder):
     def get_version(self) -> str:
         # x264 core:164 r3095 baee400
         # Syntax: x264 [options] -o outfile infile
@@ -108,3 +108,6 @@ class AbstractEncoderX264(AbstractEncoder):
 
     def get_chunk_file_extension(self) -> str:
         return ".mkv"
+
+    def supports_float_crfs(self) -> bool:
+        return True

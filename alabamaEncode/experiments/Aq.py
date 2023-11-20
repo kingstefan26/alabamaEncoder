@@ -1,7 +1,7 @@
 import os
 from copy import deepcopy
 
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
 from alabamaEncode.experiments.util.ExperimentUtil import (
     run_tests_across_range,
     read_report,
@@ -17,7 +17,7 @@ report_path = test_env + experiment_name + " CRF.json"
 
 
 def test():
-    control = AbstractEncoderSvtenc()
+    control = EncoderSvtenc()
     control.speed = 4
     control.threads = 12
     control.svt_aq_mode = 2

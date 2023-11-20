@@ -5,8 +5,8 @@ import pickle
 import sys
 import time
 
-from alabamaEncode.alabama import AlabamaContext, setup_context
-from alabamaEncode.core import run
+from alabamaEncode.core.alabama import AlabamaContext, setup_context
+from alabamaEncode.core.execute_context import run
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.worker import worker
 
@@ -23,23 +23,18 @@ def at_exit():
         current_session_runtime = time.time() - runtime
 
         saved_runtime = 0
-        try:
-            if os.path.exists(runtime_file):
-                with open(runtime_file) as f:
-                    saved_runtime = float(f.read())
-        except:
-            pass
+        if os.path.exists(runtime_file):
+            with open(runtime_file) as f:
+                saved_runtime = float(f.read())
         print(
-            f"Current Session Runtime: {current_session_runtime}, Runtime From Previous Sessions: {saved_runtime}, Total Runtime: {current_session_runtime + saved_runtime}"
+            f"Current Session Runtime: {current_session_runtime}, Runtime From Previous Sessions: {saved_runtime},"
+            f" Total Runtime: {current_session_runtime + saved_runtime}"
         )
 
-        try:
-            with open(runtime_file, "w") as f:
-                f.write(str(current_session_runtime + saved_runtime))
-            if os.path.exists(lock_file_path):
-                os.remove(lock_file_path)
-        except:
-            pass
+        with open(runtime_file, "w") as f:
+            f.write(str(current_session_runtime + saved_runtime))
+        if os.path.exists(lock_file_path):
+            os.remove(lock_file_path)
 
 
 def main():
@@ -61,7 +56,7 @@ def main():
             case "worker":
                 worker()
             case "resume":
-                # unpickle ctx from the file "alabamaResume", if dosent exist in current dir quit
+                # unpickle ctx from the file "alabamaResume", if doesnt exist in current dir quit
                 if os.path.exists("alabamaResume"):
                     ctx = pickle.load(open("alabamaResume", "rb"))
                     print("Resuming from alabamaResume")
@@ -96,7 +91,8 @@ def main():
         output_file_from_lock = open(output_lock).read()
         if output_file_from_lock != ctx.raw_input_file:
             print(
-                f"Output file from lock file {output_file_from_lock} does not match output file from ctx {ctx.raw_input_file}"
+                f"Output file from lock file {output_file_from_lock} does not match output file "
+                f"from ctx {ctx.raw_input_file}"
             )
             quit()
 

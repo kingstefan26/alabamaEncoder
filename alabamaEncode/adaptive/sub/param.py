@@ -3,11 +3,11 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 
-from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.metrics.calc import calculate_metric
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.utils.ffmpegUtil import get_video_vmeth
 
 
 class AutoParam:
@@ -40,9 +40,10 @@ class AutoParam:
         svt.qm_min = qm_min
         svt.qm_max = qm_max
         svt.run()
-        db_rate = (os.path.getsize(chunk.chunk_path) / 1000) / get_video_vmeth(
-            chunk.chunk_path, chunk, video_filters=self.config.video_filters
-        )
+        db_rate = (os.path.getsize(chunk.chunk_path) / 1000) / calculate_metric(
+            chunk=chunk,
+            video_filters=self.config.video_filters,
+        ).mean
         print(f"{probe_name} -> {db_rate} DB rate")
         runs.append(
             (

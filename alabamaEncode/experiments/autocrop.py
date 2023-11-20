@@ -1,4 +1,4 @@
-from alabamaEncode.alabama import AlabamaContext, do_autocrop
+from alabamaEncode.core.alabama import AlabamaContext, do_autocrop
 
 if __name__ == "__main__":
     print("AUTOCROP IMPLEMENTATION TEST")

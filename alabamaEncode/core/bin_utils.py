@@ -1,3 +1,8 @@
+"""
+Provides a central place to get the path to the binaries, and checks if they exist.
+Also includes checks if the binaries are what we need (e.g., ffmpeg has been compiled with certain flags)
+"""
+
 import os
 from shutil import which
 

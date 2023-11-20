@@ -2,7 +2,7 @@ from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.vmaf import calc_vmaf
-from alabamaEncode.path import PathAlabama
+from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
 
 

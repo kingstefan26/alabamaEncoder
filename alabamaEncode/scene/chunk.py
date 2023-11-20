@@ -1,7 +1,7 @@
 from tqdm import tqdm
 
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.path import PathAlabama
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
 
 
 class WrongFrameCountError(Exception):

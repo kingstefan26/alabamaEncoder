@@ -2,14 +2,13 @@ import re
 from copy import copy
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
-class AbstractEncoderAomEnc(AbstractEncoder):
-
+class EncoderAomEnc(Encoder):
     def get_version(self) -> str:
         # Included encoders:
         #

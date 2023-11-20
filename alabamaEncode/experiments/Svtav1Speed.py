@@ -3,14 +3,13 @@ Testing svtav1 speed 2v3v4 and which one is the best tradeoff
 """
 import os
 
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject
 
 if __name__ == "__main__":
     paths = get_test_files()[:6]
-
 
     for path in paths:
         print(f"\n\nDoing: {path}")
@@ -18,7 +17,7 @@ if __name__ == "__main__":
 
         crope_stringe = ""
 
-        svtenc = AbstractEncoderSvtenc()
+        svtenc = EncoderSvtenc()
 
         svtenc.update()
         svtenc.svt_chroma_thing = 0
@@ -68,7 +67,9 @@ if __name__ == "__main__":
             svtenc.update(output_path=f"{test_env}speed{speed}.ivf", speed=speed)
             print(svtenc.get_encode_commands())
             quit()
-            stats = alabamaEncode.core.run(override_if_exists=False, calculate_vmaf=True)
+            stats = alabamaEncode.core.run(
+                override_if_exists=False, calculate_vmaf=True
+            )
 
             curr_db_rate = stats.size / stats.vmaf
             if speed == 4:

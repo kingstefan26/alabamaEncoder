@@ -2,11 +2,15 @@ import asyncio
 import os
 
 from alabamaEncode.adaptive.analyser import analyze_content
-from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.final_touches import print_stats, generate_previews, create_torrent_file
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.final_touches import (
+    print_stats,
+    generate_previews,
+    create_torrent_file,
+)
+from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.parallelEncoding.CeleryApp import app
-from alabamaEncode.path import PathAlabama
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
@@ -97,8 +101,6 @@ def run(ctx: AlabamaContext):
             # doesn't even have to be reachable
             s.connect(("10.255.255.255", 1))
             host_address = s.getsockname()[0]
-        except:
-            host_address = "127.0.0.1"
         finally:
             s.close()
         print(f"Got lan ip: {host_address}")
@@ -117,7 +119,6 @@ def run(ctx: AlabamaContext):
     print_stats(
         output_folder=ctx.output_folder,
         output=ctx.output_file,
-        config_bitrate=ctx.bitrate,
         input_file=ctx.raw_input_file,
         grain_synth=-1,
         title=ctx.title,
@@ -154,18 +155,12 @@ def run(ctx: AlabamaContext):
                 for root2, dirs2, files2 in os.walk(ctx.temp_folder + name):
                     for name2 in files2:
                         if name2.endswith(".ivf"):
-                            try:
-                                os.remove(ctx.temp_folder + name + "/" + name2)
-                            except:
-                                pass
+                            os.remove(ctx.temp_folder + name + "/" + name2)
         # remove all *.stat files in tempfolder
         for name in files:
             if name.endswith(".stat"):
                 # try to remove
-                try:
-                    os.remove(ctx.temp_folder + name)
-                except:
-                    pass
+                os.remove(ctx.temp_folder + name)
     # clean empty folders in the temp folder
     for root, dirs, files in os.walk(ctx.temp_folder):
         for name in dirs:

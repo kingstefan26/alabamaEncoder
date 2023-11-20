@@ -1,6 +1,6 @@
 import os
 
-from alabamaEncode.cli_executor import run_cli
+from alabamaEncode.core.cli_executor import run_cli
 
 
 def get_models() -> dict[str, str]:

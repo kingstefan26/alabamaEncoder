@@ -4,7 +4,7 @@ Testing enable-tf=0 In SvtAv1
 import os
 from copy import deepcopy
 
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
 from alabamaEncode.experiments.util.ExperimentUtil import (
     run_tests_across_range,
     read_report,
@@ -20,7 +20,7 @@ report_path = test_env + experiment_name + " CRF.json"
 
 
 def run_test():
-    control = AbstractEncoderSvtenc()
+    control = EncoderSvtenc()
     control.speed = 4
     control.threads = 12
     control.svt_tune = 1
@@ -115,11 +115,7 @@ def analyse():
         # ax.set_zlabel("size")
 
         plt.title(key)
-        plt.savefig(
-            test_env
-            + key
-            + ".png"
-        )
+        plt.savefig(test_env + key + ".png")
 
 
 if __name__ == "__main__":

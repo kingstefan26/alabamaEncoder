@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from alabamaEncode.adaptive.executor import AdaptiveCommand
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
-from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load
+from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load, parse_swap_usage
 
 
 async def execute_commands(
@@ -122,7 +122,7 @@ async def execute_commands(
             if multiprocess_workers == -1:
                 # Check CPU utilization and adjust concurent_jobs_limit if needed
                 cpu_utilization = load.get_load()
-                swap_usage = load.parse_swap_usage()
+                swap_usage = parse_swap_usage()
                 new_limit = concurent_jobs_limit
                 if (
                     cpu_utilization < target_cpu_utilization

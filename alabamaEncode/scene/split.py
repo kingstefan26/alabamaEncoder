@@ -3,8 +3,8 @@ import pickle
 
 from scenedetect import detect, AdaptiveDetector
 
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.path import PathAlabama
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 
@@ -46,10 +46,7 @@ def get_video_scene_list_skinny(
         untouched_scene_list = cache_file_path + ".untouched"
         scene_list = None
         if os.path.exists(untouched_scene_list):
-            try:
-                scene_list = pickle.load(open(untouched_scene_list, "rb"))
-            except:
-                pass
+            scene_list = pickle.load(open(untouched_scene_list, "rb"))
 
         if scene_list is None:
             scene_list = detect(
@@ -59,10 +56,7 @@ def get_video_scene_list_skinny(
                 ),
                 show_progress=True,
             )
-            try:
-                pickle.dump(scene_list, open(untouched_scene_list, "wb"))
-            except:
-                pass
+            pickle.dump(scene_list, open(untouched_scene_list, "wb"))
 
         seq = ChunkSequence([])
         seq.input_file = input_file
@@ -129,7 +123,7 @@ def get_video_scene_list_skinny(
         for i, chunk in enumerate(seq.chunks):
             chunk.chunk_index = i
 
-        # cut any scenes that are in the offsets, if a scene is at the border of the offset, cut it so it fits
+        # cut any scenes that are in the offsets if a scene is at the border of the offset, cut it, so it fits
         if start_offset != -1 or end_offset != -1:
             new_chunks = []
             current_position = 0
@@ -220,7 +214,8 @@ def get_video_scene_list_skinny(
         # for i in range(len(seq.chunks) - 1):
         #     if seq.chunks[i].last_frame_index >= seq.chunks[i + 1].first_frame_index:
         #         print(
-        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} overlap, this should not happen')
+        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} overlap,
+        #             this should not happen')
         #         # fix the overlap by cutting the first chunk
         #         seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
 
@@ -228,7 +223,8 @@ def get_video_scene_list_skinny(
         # for i in range(len(seq.chunks) - 1):
         #     if seq.chunks[i].last_frame_index + 1 != seq.chunks[i + 1].first_frame_index:
         #         print(
-        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} are missing frames, this should not happen')
+        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} are missing frames,
+        #             this should not happen')
         #         # fix the missing frames by adding them to the first chunk
         #         seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
 

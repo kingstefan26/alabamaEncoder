@@ -7,7 +7,7 @@ import time
 
 from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.adaptive.sub.grain import get_best_avg_grainsynth
-from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.scene.sequence import ChunkSequence
 
 

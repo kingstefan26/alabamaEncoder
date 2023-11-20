@@ -4,16 +4,15 @@ import random
 from torf import Torrent
 from tqdm import tqdm
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.path import PathAlabama
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
 
 
 def print_stats(
     output_folder: str,
     output: str,
-    config_bitrate: int,
     input_file: str,
     grain_synth: int,
     title: str,
@@ -81,16 +80,17 @@ def print_stats(
 
     print_and_save(f"- {string}")
 
-    if cut_intro and cut_credits == False:
+    if cut_intro and cut_credits is False:
         print_and_save(f"- intro cut")
-    elif cut_intro == False and cut_credits:
+    elif cut_intro is False and cut_credits:
         print_and_save(f"- credits cut")
     elif cut_intro and cut_credits:
         print_and_save(f"- intro & credits cut")
 
     print_and_save("\n")
     print_and_save(
-        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url &w={Ffmpeg.get_width(PathAlabama(output))}&h={Ffmpeg.get_height(PathAlabama(output))}"
+        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url "
+        f"&w={Ffmpeg.get_width(PathAlabama(output))}&h={Ffmpeg.get_height(PathAlabama(output))}"
     )
     print_and_save("\n")
     print_and_save("ALABAMAENCODES © 2024")

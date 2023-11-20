@@ -1,8 +1,8 @@
 import json
 import os
 
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.path import PathAlabama
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.path import PathAlabama
 
 
 class Ffmpeg:
@@ -29,7 +29,8 @@ class Ffmpeg:
         path.check_video()
         return (
             run_cli(
-                f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 {path.get_safe()}"
+                f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets "
+                f"-of csv=p=0 {path.get_safe()}"
             )
             .verify()
             .get_as_int()
@@ -121,6 +122,20 @@ class Ffmpeg:
         return float(result[0]) / float(result[1])
 
     @staticmethod
+    def get_fps_fraction(file: PathAlabama) -> str:
+        file.check_video()
+        return (
+            run_cli(
+                (
+                    f"ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1"
+                    f" -show_entries stream=r_frame_rate {file.get_safe()}"
+                )
+            )
+            .verify(bad_output_hints=[""])
+            .get_output()
+        )
+
+    @staticmethod
     def get_source_bitrates(path: PathAlabama, shutit=False) -> tuple[float, float]:
         """
         stolen from the one and only autocompressor.com's source code 🤑
@@ -167,8 +182,12 @@ class Ffmpeg:
 
     @staticmethod
     def get_tonemap_vf() -> str:
-        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
-        tonemap_string = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,
+        # zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
+        tonemap_string = (
+            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,"
+            "zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
+        )
         return tonemap_string
 
     @staticmethod

@@ -3,16 +3,13 @@ import tempfile
 import time
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.binary import doesBinaryExist
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
 
 
 class VideoConcatenator:
-    nessesary = ["ffmpeg"]
-
     def __init__(
         self,
         files: List[str] = None,
@@ -36,10 +33,6 @@ class VideoConcatenator:
         self.encoder_name = encoder_name
         self.mux_audio = mux_audio
         self.subs_file = subs_file
-        for n in self.nessesary:
-            if not doesBinaryExist(n):
-                print(f"Could not find {n} in PATH")
-                exit(1)
 
     def find_files_in_dir(self, folder_path, extension):
         files = []
@@ -49,15 +42,11 @@ class VideoConcatenator:
         f_2 = []
         for f in files:
             try:
-                a = int(os.path.splitext(os.path.basename(f))[0])
                 f_2.append(f)
             except ValueError:
                 pass
         files = f_2
 
-        # print(f"Found {len(files)} files")
-        # print("Sorting files")
-        # sort files by name by interpreting their name as an integer
         files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
 
         self.files = files
@@ -84,7 +73,10 @@ class VideoConcatenator:
                 f.write(f"file '{file}'\n")
 
         vid_output = self.output + ".videoonly.mkv"
-        concat_command = f'{get_binary("ffmpeg")} -y -stats -v error -f concat -safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
+        concat_command = (
+            f'{get_binary("ffmpeg")} -y -stats -v error -f concat '
+            f'-safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
+        )
 
         print("Concating Video")
         print(f"running: {concat_command}")
@@ -106,7 +98,11 @@ class VideoConcatenator:
 
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
-            encode_audio = f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} -map_metadata -1 "{audio_output}"'
+            encode_audio = (
+                f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} '
+                f'-i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} '
+                f'-map_metadata -1 "{audio_output}"'
+            )
             print(f"running: {encode_audio}")
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
@@ -123,7 +119,12 @@ class VideoConcatenator:
                 sub_hack = ""
                 if "mp4" in self.output:
                     sub_hack = " -c:s mov_text "
-                final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                final_command = (
+                    f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
+                    f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} '
+                    f'-map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart '
+                    f'-c:v copy -c:a copy "{self.output}"'
+                )
                 print(f"running: {final_command}")
                 out = run_cli(final_command).get_output()
                 if (
@@ -132,7 +133,12 @@ class VideoConcatenator:
                 ):
                     print("Subtitle encoding failed, trying again")
                     print(f"running: {final_command}")
-                    final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                    final_command = (
+                        f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
+                        f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
+                        f"{title_bit} -map 0:v -map 1:a -movflags +faststart "
+                        f'-c:v copy -c:a copy "{self.output}"'
+                    )
                     run_cli(final_command)
             else:
                 subs_i = ""
@@ -143,7 +149,10 @@ class VideoConcatenator:
                         print("Offseting subs")
                         for sub in self.subs_file:
                             temp_sub = f"{sub}.temp.vtt"
-                            encode_sub = f'{get_binary("ffmpeg")} -y -v error -itsoffset {self.start_offset} -ss {self.start_offset} -i "{sub}" "{temp_sub}"'
+                            encode_sub = (
+                                f'{get_binary("ffmpeg")} -y -v error -itsoffset {self.start_offset} '
+                                f'-ss {self.start_offset} -i "{sub}" "{temp_sub}"'
+                            )
                             print(f"running: {encode_sub}")
 
                     for i, sub in enumerate(self.subs_file):
@@ -153,7 +162,12 @@ class VideoConcatenator:
                             subs_i += f' -i "{sub}" '
                         subs_map += f"-map {i+2} "
 
-                final_command = f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" {subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -c:v copy -c:a copy "{self.output}"'
+                final_command = (
+                    f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
+                    f'{subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
+                    f"{title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart "
+                    f'-c:v copy -c:a copy "{self.output}"'
+                )
                 print(f"running: {final_command}")
                 run_cli(final_command)
 
@@ -183,30 +197,24 @@ class VideoConcatenator:
 
 
 def test():
+    def create_fake_ivf_and_test(_temp):
+        for i in range(20):
+            with open(os.path.join(_temp, f"{i}.ivf"), "w") as f:
+                f.write(" ")
+        # test the file discovery
+        vc = VideoConcatenator()
+        vc.find_files_in_dir(_temp, ".ivf")
+        assert len(vc.files) == 20
+        print("Test passed")
+
     # make temp dir and put 20 empty .ivf files
     temp_dir = tempfile.mkdtemp()
-    for i in range(20):
-        with open(os.path.join(temp_dir, f"{i}.ivf"), "w") as f:
-            f.write(" ")
-
-    # test the file discovery
-    vc = VideoConcatenator()
-    vc.find_files_in_dir(temp_dir, ".ivf")
-    assert len(vc.files) == 20
-    print("Test passed")
+    create_fake_ivf_and_test(temp_dir)
 
     # make a sub dir and put 20 empty .ivf files
     sub_dir = os.path.join(temp_dir, "sub")
     os.mkdir(sub_dir)
-    for i in range(20):
-        with open(os.path.join(sub_dir, f"{i}.ivf"), "w") as f:
-            f.write(" ")
-
-    # there still should be 20 files
-    vc = VideoConcatenator()
-    vc.find_files_in_dir(temp_dir, ".ivf")
-    assert len(vc.files) == 20
-    print("Test passed")
+    create_fake_ivf_and_test(temp_dir)
 
     # remove temp dir
     os.system(f"rm -rf {temp_dir}")

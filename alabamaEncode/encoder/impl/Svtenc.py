@@ -1,10 +1,10 @@
 import os.path
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class AvifEncoderSvtenc:
@@ -47,7 +47,8 @@ class AvifEncoderSvtenc:
         )
 
         return (
-            f'{get_binary("ffmpeg")} -hide_banner -y -i "{self.params["in_path"]}" {self.params["vf"]} -c:v libsvtav1 {ratebit} '
+            f'{get_binary("ffmpeg")} -hide_banner -y -i "{self.params["in_path"]}" {self.params["vf"]} '
+            f"-c:v libsvtav1 {ratebit} "
             f'-svtav1-params tune=0:lp={self.params["threads"]}:film-grain={self.params["grain_synth"]}'
             f' -preset {self.params["speed"]} -pix_fmt {pix_fmt} "{self.params["output_path"]}"'
         )
@@ -64,7 +65,7 @@ class AvifEncoderSvtenc:
             )
 
 
-class AbstractEncoderSvtenc(AbstractEncoder):
+class EncoderSvtenc(Encoder):
     def get_encode_commands(self) -> List[str]:
         if (
             self.keyint == -1 or self.keyint == -2
@@ -91,8 +92,6 @@ class AbstractEncoderSvtenc(AbstractEncoder):
                 if self.crf > 63:
                     raise Exception("FATAL: crf must be less than 63")
 
-            # --enable-hdr 1 --color-primaries 9 --transfer-characteristics 16  --matrix-coefficients 9 --chroma-sample-position 2 --content-light 1246,410
-
             kommand += f" --color-primaries {self.color_primaries}"
             kommand += f" --transfer-characteristics {self.transfer_characteristics}"
             kommand += f" --matrix-coefficients {self.matrix_coefficients}"
@@ -100,7 +99,10 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             if self.hdr:
                 kommand += f" --enable-hdr 1"
                 kommand += f" --chroma-sample-position {self.chroma_sample_position}"
-                kommand += f" --content-light {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
+                kommand += (
+                    f" --content-light "
+                    f"{self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
+                )
                 if self.svt_master_display != "":
                     kommand += f' --mastering-display "{self.svt_master_display}"'
 
@@ -135,36 +137,29 @@ class AbstractEncoderSvtenc(AbstractEncoder):
             kommand += f" --aq-mode {self.svt_aq_mode}"
 
             if self.svt_supperres_mode != 0:
-                kommand += (
-                    f" --superres-mode {self.svt_supperres_mode}"  # superres mode
-                )
-                kommand += (
-                    f" --superres-denom {self.svt_superres_denom}"  # superres denom
-                )
-                kommand += f" --superres-kf-denom {self.svt_superres_kf_denom}"  # superres kf denom
-                kommand += f" --superres-qthres {self.svt_superres_qthresh}"  # superres qthresh
-                kommand += f" --superres-kf-qthres {self.svt_superres_kf_qthresh}"  # superres kf qthresh
+                kommand += f" --superres-mode {self.svt_supperres_mode}"
+                kommand += f" --superres-denom {self.svt_superres_denom}"
+                kommand += f" --superres-kf-denom {self.svt_superres_kf_denom}"
+                kommand += f" --superres-qthres {self.svt_superres_qthresh}"
+                kommand += f" --superres-kf-qthres {self.svt_superres_kf_qthresh}"
 
             if self.svt_sframe_interval > 0:
                 kommand += f" --sframe-dist {self.svt_sframe_interval}"
                 kommand += f" --sframe-mode {self.svt_sframe_mode}"
 
             if 0 <= self.grain_synth <= 50:
-                kommand += f" --film-grain {self.grain_synth}"  # grain synth
+                kommand += f" --film-grain {self.grain_synth}"
 
-            kommand += f" --preset {self.speed}"  # speed
+            kommand += f" --preset {self.speed}"
             kommand += f" --film-grain-denoise 0"
             if self.qm_enabled:
-                kommand += f" --qm-min {self.qm_min}"  # min quantization matrix
-                kommand += f" --qm-max {self.qm_max}"  # max quantization matrix
+                kommand += f" --qm-min {self.qm_min}"
+                kommand += f" --qm-max {self.qm_max}"
                 kommand += " --enable-qm 1"
             else:
                 kommand += " --enable-qm 0"
 
             kommand += f" --enable-tf {self.svt_tf}"
-
-            if self.svt_sdc != 0:
-                kommand += f" --scd {self.svt_sdc}"  # scene detection
 
             if self.svt_open_gop and self.passes == 1:
                 kommand += " --irefresh-type 1"

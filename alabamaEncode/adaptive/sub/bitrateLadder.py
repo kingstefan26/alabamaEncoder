@@ -14,13 +14,16 @@ from typing import List, Tuple
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.alabama import AlabamaContext
-from alabamaEncode.encoders.encoderMisc import EncodeStats, EncoderRateDistribution
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.ssim.calc import get_video_ssim
+from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.utils.ffmpegUtil import get_video_vmeth, get_video_ssim
 
 
 class AutoBitrateCacheObject:
@@ -496,13 +499,15 @@ class AutoBitrateLadder:
             mid = (left + right) // 2
             encoder.update(bitrate=mid)
             encoder.run(timeout_value=300)
-            mid_vmaf = get_video_vmeth(
-                chunk.chunk_path,
-                chunk,
+            mid_vmaf = calculate_metric(
+                chunk=chunk,
                 video_filters=self.config.video_filters,
-                disable_enchancment_gain=True,
-                uhd_model=True,
-            )
+                vmaf_options=VmafOptions(
+                    uhd=True,
+                    neg=True,
+                ),
+            ).mean
+
             tqdm.write(f"{chunk.log_prefix()}{mid} kbps -> {mid_vmaf} vmaf")
 
             runs.append((mid, mid_vmaf))
@@ -560,13 +565,16 @@ class AutoBitrateLadder:
             mid = (left + right) // 2
             encoder.update(crf=mid)
             encoder.run(timeout_value=300)
-            mid_vmaf = get_video_vmeth(
-                chunk.chunk_path,
-                chunk,
+
+            mid_vmaf = calculate_metric(
+                chunk=chunk,
                 video_filters=self.config.video_filters,
-                disable_enchancment_gain=True,
-                uhd_model=True,
-            )
+                vmaf_options=VmafOptions(
+                    uhd=True,
+                    neg=True,
+                ),
+            ).mean
+
             tqdm.write(f"{chunk.log_prefix()}{mid} crf -> {mid_vmaf} vmaf")
 
             runs.append((mid, mid_vmaf))

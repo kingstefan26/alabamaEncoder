@@ -4,39 +4,27 @@ import time
 from abc import abstractmethod, ABC
 from typing import List
 
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoderMisc import (
-    EncoderRateDistribution,
-    EncodeStats,
-    EncodeStatus,
-)
-from alabamaEncode.ffmpeg import Ffmpeg
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.ssim.calc import get_video_ssim
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.result import VmafResult
-from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.ffmpegUtil import (
-    get_video_ssim,
-)
 
 
-class AbstractEncoder(ABC):
-    """
-    owo
-    """
-
+class Encoder(ABC):
     chunk = None
-    temp_folder: str
     bitrate: int = None
     crf: int = None
     passes: int = 2
     video_filters: str = ""
-    output_path: str
+    output_path: str = None
     speed = 4
     threads = 1
-    rate_distribution = (
-        EncoderRateDistribution.CQ
-    )  # :param mode: 0:VBR 1:CQ 2:CQ VBV 3:VBR VBV
+    rate_distribution = EncoderRateDistribution.CQ
     qm_enabled = False
     grain_synth = 10
     qm_min = 8
@@ -63,33 +51,22 @@ class AbstractEncoder(ABC):
     svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
     film_grain_denoise: (0 | 1) = 1
 
-    # --color-primaries 9 = bt2020
     color_primaries = 1
-
-    # --transfer-characteristics 16 = smpte2084
     transfer_characteristics = 1
-
-    # --matrix-coefficients 9 = bt2020-ncl
     matrix_coefficients = 1
-
-    # --content-light 1014,436
     maximum_content_light_level = ""
     maximum_frame_average_light_level = ""
-
-    # --chroma-sample-position 2 colocated/topleft
     chroma_sample_position = 0
-
-    # --enable-hdr 1
-    hdr = False
-
-    # --mastering-display "G(0.17,0.797)B(0.131,0.046)R(0.708,0.292)WP(0.3127,0.329)L(1,000,0.0001)" G(x,y)B(x,y)R(x,y)WP(x,y)L(max,mi
     svt_master_display = ""
+    hdr = False
 
     running_on_celery = False
 
+    def supports_float_crfs(self) -> bool:
+        return False
+
     def setup(self, chunk, config):
         self.chunk = chunk
-        self.temp_folder = config.temp_folder
         self.bitrate = config.bitrate
         self.crf = config.crf
         self.passes = config.passes
@@ -123,7 +100,6 @@ class AbstractEncoder(ABC):
         # Define a dictionary mapping attribute names to their types
         valid_attr_types = {
             "chunk": ChunkObject,
-            "temp_folder": str,
             "bitrate": int,
             "crf": int,
             "passes": int,
@@ -151,12 +127,6 @@ class AbstractEncoder(ABC):
                 if not isinstance(value, attr_type):
                     raise Exception(f"FATAL: {attr} must be a {attr_type.__name__}")
 
-        # If temp_folder is in kwargs, and is not a valid directory, raise an Exception
-        if "temp_folder" in kwargs and not os.path.isdir(kwargs["temp_folder"]):
-            raise Exception(
-                f"FATAL: temp_folder ({kwargs['temp_folder']}) must be a valid directory"
-            )
-
         # After all checks, update the attributes
         for attr, value in kwargs.items():
             setattr(self, attr, value)
@@ -179,9 +149,7 @@ class AbstractEncoder(ABC):
         """
         stats = EncodeStats()
 
-        if os.path.exists(self.output_path) and not override_if_exists:
-            stats.status = EncodeStatus.DONE
-        else:
+        if not os.path.exists(self.output_path) or override_if_exists:
             if self.chunk.path is None or self.chunk.path == "":
                 raise Exception("FATAL: output_path is None or empty")
 
@@ -219,7 +187,6 @@ class AbstractEncoder(ABC):
                 not os.path.exists(self.output_path)
                 or os.path.getsize(self.output_path) < 100
             ):
-                stats.status = EncodeStatus.FAILED
                 print("Encode command failed, output:")
                 for o in out:
                     if isinstance(o, str):
@@ -233,8 +200,6 @@ class AbstractEncoder(ABC):
 
             if stats.time_encoding < 1:
                 stats.time_encoding = 1
-
-            stats.status = EncodeStatus.DONE
 
         if calculate_vmaf:
             if vmaf_params is None:
@@ -256,7 +221,8 @@ class AbstractEncoder(ABC):
                     neg=vmaf_params.get("disable_enchancment_gain", False),
                 ),
             )
-
+            
+            stats.vmaf_result = vmaf_result
             stats.vmaf = vmaf_result.mean
             stats.vmaf_percentile_1 = vmaf_result.percentile_1
             stats.vmaf_percentile_5 = vmaf_result.percentile_5

@@ -4,8 +4,8 @@ import time
 
 import alabamaEncode.core
 from alabamaEncode.adaptive.util import get_probe_file_base
-from alabamaEncode.encoders.encoderMisc import EncoderRateDistribution
-from alabamaEncode.utils.ffmpegUtil import get_video_ssim
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.metrics.ssim.calc import get_video_ssim
 
 
 def get_ideal_bitrate(
@@ -21,7 +21,7 @@ def get_ideal_bitrate(
 
     rate_search_start = time.time()
 
-    probe_file_base = get_probe_file_base(chunk.chunk_path, config.temp_folder)
+    probe_file_base = get_probe_file_base(chunk.chunk_path)
     cache_filename = f"{probe_file_base}.complexity.speed{convex_speed}.pt"
 
     ideal_rate = None
@@ -54,7 +54,7 @@ def get_ideal_bitrate(
             rate_distribution=EncoderRateDistribution.VBR,
         )
 
-        alabamaEncode.core.run(override_if_exists=False)
+        alabamaEncode.execute_context.run(override_if_exists=False)
 
         try:
             (ssim, ssim_db) = get_video_ssim(

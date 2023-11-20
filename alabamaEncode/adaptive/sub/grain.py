@@ -7,12 +7,12 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.impl.Svtenc import AvifEncoderSvtenc
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.encoder.impl.Svtenc import AvifEncoderSvtenc
+from alabamaEncode.metrics.image_metrics import ImageMetrics
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.utils.ffmpegUtil import get_image_butteraugli_score
 
 
 class RdPoint:
@@ -77,7 +77,10 @@ class AutoGrain:
         # Create a reference png
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
-            cvmand = f'{get_binary("ffmpeg")} -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} {self.vf} -frames:v 1 "{ref_png}"'
+            cvmand = (
+                f'{get_binary("ffmpeg")} -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} '
+                f'{self.vf} -frames:v 1 "{ref_png}"'
+            )
 
             out = run_cli(cvmand)
             if not os.path.exists(ref_png):
@@ -111,7 +114,7 @@ class AutoGrain:
 
             rd = RdPoint()
             rd.grain = grain
-            rd.butter = get_image_butteraugli_score(ref_png, decoded_test_png_path)
+            rd.butter = ImageMetrics.butteraugli_score(ref_png, decoded_test_png_path)
 
             if self.remove_files_after_use:
                 os.remove(decoded_test_png_path)

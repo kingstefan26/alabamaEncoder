@@ -1,5 +1,5 @@
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
-from alabamaEncode.alabama import AlabamaContext
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.scene.sequence import ChunkSequence
 
 

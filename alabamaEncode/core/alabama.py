@@ -6,15 +6,14 @@ from typing import List
 
 from tqdm import tqdm
 
-import alabamaEncode.final_touches
-from alabamaEncode.bin_utils import get_binary
-from alabamaEncode.cli_executor import run_cli
-from alabamaEncode.encoders.encoder.encoder import AbstractEncoder
-from alabamaEncode.encoders.encoderMisc import EncodersEnum, EncoderRateDistribution
-from alabamaEncode.ffmpeg import Ffmpeg
-from alabamaEncode.path import PathAlabama
-from alabamaEncode.utils.binary import doesBinaryExist
-from alabamaEncode.utils.ffmpegUtil import do_cropdetect
+from alabamaEncode.adaptive.sub.crop_detect import do_cropdetect
+from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class AlabamaContext:
@@ -61,7 +60,7 @@ class AlabamaContext:
     bitrate_string = ""
     crf_model_weights = "7,2,10,2,7"
     target_vmaf_model = "binary"
-    vmaf_probe_count = 6
+    vmaf_probe_count = 4
 
     resolution_preset = ""
 
@@ -105,7 +104,7 @@ class AlabamaContext:
         if self.log_level > 0 and level <= self.log_level:
             tqdm.write(msg)
 
-    def get_encoder(self) -> AbstractEncoder:
+    def get_encoder(self) -> Encoder:
         return self.encoder.get_encoder()
 
 
@@ -130,7 +129,7 @@ def setup_video_filters(ctx: AlabamaContext) -> AlabamaContext:
                 final += ","
             final += f"scale={ctx.scale_string}:flags=lanczos"
 
-        if ctx.hdr == False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
+        if ctx.hdr is False and Ffmpeg.is_hdr(PathAlabama(ctx.input_file)):
             if final != "" and final[-1] != ",":
                 final += ","
             final += Ffmpeg.get_tonemap_vf()
@@ -147,7 +146,7 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
     if not os.path.exists(ctx.temp_folder):
         os.makedirs(ctx.temp_folder)
 
-    ctx.temp_folder = ctx.temp_folder + "/"
+    ctx.temp_folder += "/"
 
     ctx.input_file = os.path.join(ctx.temp_folder, "temp.mkv")
 
@@ -231,20 +230,22 @@ def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
                     min_luminance = split_and_divide(side_data["min_luminance"])
                     max_luminance = split_and_divide(side_data["max_luminance"])
                     # G(x,y)B(x,y)R(x,y)WP(x,y)L(max,min)
-                    ctx.svt_master_display = f"G({green_x},{green_y})B({blue_x},{blue_y})R({red_x},{red_y})WP({white_point_x},{white_point_y})L({max_luminance},{min_luminance})"
+                    ctx.svt_master_display = (
+                        f"G({green_x},{green_y})B({blue_x},{blue_y})R({red_x},{red_y})"
+                        f"WP({white_point_x},{white_point_y})L({max_luminance},{min_luminance})"
+                    )
 
                     print(f"Setting svt master display to {ctx.svt_master_display}")
 
-            cache_obj = {}
-            cache_obj["matrix_coefficients"] = ctx.matrix_coefficients
-            cache_obj["color_primaries"] = ctx.color_primaries
-            cache_obj["transfer_characteristics"] = ctx.transfer_characteristics
-            cache_obj["chroma_sample_position"] = ctx.chroma_sample_position
-            cache_obj["maximum_content_light_level"] = ctx.maximum_content_light_level
-            cache_obj[
-                "maximum_frame_average_light_level"
-            ] = ctx.maximum_frame_average_light_level
-            cache_obj["svt_master_display"] = ctx.svt_master_display
+            cache_obj = {
+                "matrix_coefficients": ctx.matrix_coefficients,
+                "color_primaries": ctx.color_primaries,
+                "transfer_characteristics": ctx.transfer_characteristics,
+                "chroma_sample_position": ctx.chroma_sample_position,
+                "maximum_content_light_level": ctx.maximum_content_light_level,
+                "maximum_frame_average_light_level": ctx.maximum_frame_average_light_level,
+                "svt_master_display": ctx.svt_master_display,
+            }
 
             # save as json
             with open(cache_path, "w") as f:
@@ -333,22 +334,24 @@ def do_autocrop(ctx: AlabamaContext) -> AlabamaContext:
             out_path = PathAlabama(ctx.output_file)
 
             def gen_prew(ss, i) -> List[str]:
-                p = f'"{out_path.get()}.{i}.cropped.jpg"'
+                _p = f'"{out_path.get()}.{i}.cropped.jpg"'
                 run_cli(
-                    f"{get_binary('ffmpeg')} -v error -y -ss {ss} -i {path.get_safe()} -vf crop={output} -vframes 1 {p}"
+                    f"{get_binary('ffmpeg')} -v error -y -ss {ss} -i {path.get_safe()} "
+                    f"-vf crop={output} -vframes 1 {_p}"
                 ).verify()
                 p2 = f'"{out_path.get()}.{i}.uncropped.jpg"'
                 run_cli(
                     f"{get_binary('ffmpeg')} -v error -y -ss {ss} -i {path.get_safe()} -vframes 1 {p2}"
                 )
-                return [p.replace('"', ""), p2.replace('"', "")]
+                return [_p.replace('"', ""), p2.replace('"', "")]
 
             if not ctx.auto_accept_autocrop:
                 print("Creating previews")
                 generated_paths = gen_prew(60, 0)
                 generated_paths += gen_prew(120, 1)
                 print(
-                    "Created crop previews in output folder, if you want to use this crop, click enter, type anything to abort"
+                    "Created crop previews in output folder, if you want to use this crop,"
+                    " click enter, type anything to abort"
                 )
 
                 if input() != "":
@@ -417,7 +420,7 @@ def setup_context() -> AlabamaContext:
     ctx.title = args.title
     ctx.chunk_order = args.chunk_order
     ctx.audio_params = args.audio_params
-    ctx.generate_previews = alabamaEncode.final_touches.generate_previews
+    ctx.generate_previews = ctx.generate_previews
     ctx.encode_audio = args.encode_audio
     ctx.sub_file = args.sub_file
     ctx.color_primaries = args.color_primaries
@@ -440,9 +443,6 @@ def setup_context() -> AlabamaContext:
     ctx.probe_speed_override = args.probe_speed_override
 
     ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
-    if ctx.find_best_grainsynth and not doesBinaryExist("butteraugli"):
-        print("Autograin requires butteraugli in path, please install it")
-        quit()
 
     ctx = run_pipeline(
         ctx,

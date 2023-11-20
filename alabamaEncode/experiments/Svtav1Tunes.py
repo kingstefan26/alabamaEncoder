@@ -4,7 +4,7 @@ Testing svtav1 tunes
 import os
 from copy import deepcopy
 
-from alabamaEncode.encoders.encoder.impl.Svtenc import AbstractEncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
 from alabamaEncode.experiments.util.ExperimentUtil import (
     run_tests_across_range,
     read_report,
@@ -139,7 +139,7 @@ def analyze():
 
 
 def test():
-    control = AbstractEncoderSvtenc()
+    control = EncoderSvtenc()
     control.speed = 4
     control.threads = 12
     control.svt_tune = 1
