@@ -314,8 +314,12 @@ def compute_resolution_presets(ctx: AlabamaContext) -> AlabamaContext:
                 ctx.scale_string = "960:-2"
             case "480p":
                 ctx.scale_string = "854:-2"
+            case "432p":
+                ctx.scale_string = "768:-2"
             case "360p":
                 ctx.scale_string = "640:-2"
+            case "240p":
+                ctx.scale_string = "480:-2"
             case _:
                 raise ValueError(
                     f'Cannot interpret resolution preset "{ctx.resolution_preset}", refer to the help command'
@@ -471,7 +475,7 @@ def parse_args(ctx: AlabamaContext):
     parser.add_argument(
         "--encode_audio",
         help="Mux audio",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=ctx.encode_audio,
     )
 
@@ -592,14 +596,14 @@ def parse_args(ctx: AlabamaContext):
     parser.add_argument(
         "--crf_based_vmaf_targeting",
         help="per chunk, find a crf that hits target quality and encode using that",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=ctx.crf_based_vmaf_targeting,
     )
 
     parser.add_argument(
         "--auto_crf",
         help="Find a crf that hits target vmaf, calculate a peak bitrate cap, and encode using that",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=ctx.crf_bitrate_mode,
     )
 
@@ -652,7 +656,7 @@ def parse_args(ctx: AlabamaContext):
     parser.add_argument(
         "--generate_previews",
         help="Generate previews for encoded file",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=ctx.generate_previews,
     )
 

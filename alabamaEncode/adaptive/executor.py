@@ -316,6 +316,8 @@ class TargetVmaf(AnalyzeStep):
         def optimisation_binary(max_probes) -> int:
             low_crf = 10
             high_crf = 55
+            if target_vmaf < 90:
+                high_crf = 63
             epsilon = 0.1
 
             max_probes -= 1  # since we count from 0
