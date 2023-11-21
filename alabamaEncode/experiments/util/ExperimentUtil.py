@@ -10,6 +10,7 @@ from tqdm import tqdm
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 only_one = False
@@ -68,7 +69,7 @@ def run_test(
         override_if_exists=False,
         calculate_vmaf=True,
         calcualte_ssim=True,
-        vmaf_params={"disable_enchancment_gain": True, "threads": threads},
+        new_vmaf_params=VmafOptions(neg=True, threads=threads),
     )
     stats.version = version
     stats.basename = basename

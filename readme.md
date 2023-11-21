@@ -8,13 +8,9 @@ this is my attempt at encoding in a multi pc setup, currently supports svtav1
 
 # Installation
 
-* pull this repo
-* `pip install -r requirements.txt`
-* `python setup.py bdist_wheel`
-* `pip install --force-reinstall dist/video_encoder-0.1-py3-none-any.whl`
+* `pip install alabamaEncoder`
 * For basic usage make sure `SvtAv1EncApp`/`ffmpeg`/`ffprobe` are available on your path (you can use them in cli),
   otherwise the program will crash if something is missing
-* enjoy
 
 # CLI
 

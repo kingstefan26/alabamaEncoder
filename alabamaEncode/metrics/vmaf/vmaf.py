@@ -1,8 +1,8 @@
 import json
 import os
 
-from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.result import VmafResult
@@ -18,6 +18,12 @@ def calc_vmaf(
     log_path="",
 ):
     assert vmaf_options is not None
+
+    comparison_display_resolution = (
+        vmaf_options.ref
+        if comparison_display_resolution is None
+        else comparison_display_resolution
+    )
 
     random_bit = os.urandom(16).hex()
     pipe_ref_path = f"/tmp/{os.path.basename(chunk.path)}_{random_bit}.pipe"

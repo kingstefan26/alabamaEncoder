@@ -12,6 +12,8 @@ from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
 
@@ -44,11 +46,13 @@ class PlainFinalEncode(FinalEncodeStep):
     def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
         return enc.run(
             calculate_vmaf=True,
-            vmaf_params={
-                "disable_enchancment_gain": False,
-                "uhd_model": ctx.vmaf_4k_model,
-                "phone_model": ctx.vmaf_phone_model,
-            },
+            vmaf_params=VmafOptions(
+                uhd=ctx.vmaf_4k_model,
+                phone=ctx.vmaf_phone_model,
+                ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
+                if ctx.vmaf_reference_display
+                else None,
+            ),
         )
 
     def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
@@ -234,12 +238,9 @@ class TargetVmaf(AnalyzeStep):
 
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params={
-                    "log_path": probe_vmaf_log,
-                    "disable_enchancment_gain": False,
-                    "uhd_model": ctx.vmaf_4k_model,
-                    "phone_model": ctx.vmaf_phone_model,
-                },
+                vmaf_params=VmafOptions(
+                    uhd=ctx.vmaf_4k_model, phone=ctx.vmaf_phone_model
+                ),
             )
 
             point = POINT(crf_point, stats.vmaf, stats.ssim, stats.bitrate)
@@ -343,25 +344,29 @@ class TargetVmaf(AnalyzeStep):
                 enc.override_flags = None
                 stats: EncodeStats = enc.run(
                     calculate_vmaf=True,
-                    vmaf_params={
-                        "disable_enchancment_gain": False,
-                        "uhd_model": ctx.vmaf_4k_model,
-                        "phone_model": ctx.vmaf_phone_model,
-                    },
+                    vmaf_params=VmafOptions(
+                        uhd=ctx.vmaf_4k_model,
+                        phone=ctx.vmaf_phone_model,
+                        ref=ComparisonDisplayResolution.from_string(
+                            ctx.vmaf_reference_display
+                        )
+                        if ctx.vmaf_reference_display
+                        else None,
+                    ),
                 )
 
                 log_to_convex_log(
-                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.harmonic_mean} "
+                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.mean} "
                     f"bitrate: {stats.bitrate} attempt {depth}/{max_probes}"
                 )
 
-                if abs(stats.vmaf_result.harmonic_mean - target_vmaf) <= epsilon:
+                if abs(stats.vmaf_result.mean - target_vmaf) <= epsilon:
                     break
-                elif stats.vmaf_result.harmonic_mean > target_vmaf:
+                elif stats.vmaf_result.mean > target_vmaf:
                     low_crf = mid_crf + 1
                 else:
                     high_crf = mid_crf - 1
-                trys.append((mid_crf, stats.vmaf_result.harmonic_mean))
+                trys.append((mid_crf, stats.vmaf_result.mean))
                 depth += 1
 
             # via linear interpolation, find the crf that is closest to target vmaf
@@ -369,17 +374,30 @@ class TargetVmaf(AnalyzeStep):
                 points = sorted(trys, key=lambda x: abs(x[1] - target_vmaf))
                 low_point = points[0]
                 high_point = points[1]
-                crf_low = low_point[0]  # 20
-                crf_high = high_point[0]  # 18
-                vmaf_low = low_point[1]  # 95.5
-                vmaf_high = high_point[1]  # 96.5
-                interpoled_crf = crf_low + (crf_high - crf_low) * (
+                crf_low = low_point[0]
+                crf_high = high_point[0]
+                vmaf_low = low_point[1]
+                vmaf_high = high_point[1]
+                interpolated_crf = crf_low + (crf_high - crf_low) * (
                     (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
                 )
+
+                clamp_low = min(crf_low, crf_high) - 2
+                clamp_high = max(crf_low, crf_high) + 2
+
+                # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
+                interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
+
                 if enc.supports_float_crfs():
-                    mid_crf = interpoled_crf
+                    mid_crf = interpolated_crf
                 else:
-                    mid_crf = int(interpoled_crf)
+                    mid_crf = int(interpolated_crf)
+
+            if mid_crf < low_crf or mid_crf > high_crf:
+                # use the most fitting point instead of interpolated
+                mid_crf = min(trys, key=lambda x: abs(x[1] - target_vmaf))[0]
+
+            mid_crf = max(min(mid_crf, high_crf), low_crf)  # check
 
             return mid_crf
 
@@ -461,9 +479,12 @@ class GrainSynth(AnalyzeStep):
         from alabamaEncode.adaptive.util import get_probe_file_base
 
         probe_file_base = get_probe_file_base(chunk.chunk_path)
-        enc.grain_synth = calc_grainsynth_of_scene(
+        grain_synth_result = calc_grainsynth_of_scene(
             chunk, probe_file_base, scale_vf=ctx.scale_string, crop_vf=ctx.crop_string
         )
+        grain_synth_result = min(grain_synth_result, 18)
+        enc.grain_synth = grain_synth_result
+
         grain_log = f"{ctx.temp_folder}grain.log"
         with open(grain_log, "a") as f:
             f.write(f"{chunk.log_prefix()}computed gs {enc.grain_synth}\n")
@@ -495,7 +516,7 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
     elif ctx.crf_based_vmaf_targeting is True:
         steps.append(
             TargetVmaf(
-                alg_type=ctx.target_vmaf_model,
+                alg_type=ctx.vmaf_targeting_model,
                 probes=ctx.vmaf_probe_count,
                 probe_speed=ctx.probe_speed_override,
             )

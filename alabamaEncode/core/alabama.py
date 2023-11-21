@@ -59,8 +59,9 @@ class AlabamaContext:
     override_flags: str = ""
     bitrate_string = ""
     crf_model_weights = "7,2,10,2,7"
-    target_vmaf_model = "binary"
-    vmaf_probe_count = 4
+    vmaf_targeting_model = "binary"
+    vmaf_probe_count = 5
+    vmaf_reference_display = ""
 
     resolution_preset = ""
 
@@ -438,8 +439,9 @@ def setup_context() -> AlabamaContext:
     ctx.vmaf_4k_model = args.vmaf_4k_model
     ctx.auto_accept_autocrop = args.auto_accept_autocrop
     ctx.resolution_preset = args.resolution_preset
-    ctx.target_vmaf_model = args.target_vmaf_model
+    ctx.vmaf_targeting_model = args.vmaf_targeting_model
     ctx.vmaf_probe_count = args.vmaf_probe_count
+    ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
 
     ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
@@ -810,9 +812,9 @@ def parse_args(ctx: AlabamaContext):
     )
 
     parser.add_argument(
-        "--target_vmaf_model",
+        "--vmaf_targeting_model",
         type=str,
-        default=ctx.target_vmaf_model,
+        default=ctx.vmaf_targeting_model,
         help="optuna modelless primitive ternary binary",
     )
 
@@ -828,6 +830,13 @@ def parse_args(ctx: AlabamaContext):
         type=int,
         default=ctx.speed,
         help="Override the speed for target vmaf probes",
+    )
+
+    parser.add_argument(
+        "--vmaf_reference_display",
+        type=str,
+        default=ctx.vmaf_reference_display,
+        help="HD FHD UHD ",
     )
 
     return parser.parse_args()

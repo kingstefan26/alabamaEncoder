@@ -31,8 +31,11 @@ def at_exit():
             f" Total Runtime: {current_session_runtime + saved_runtime}"
         )
 
-        with open(runtime_file, "w") as f:
-            f.write(str(current_session_runtime + saved_runtime))
+        try:
+            with open(runtime_file, "w") as f:
+                f.write(str(current_session_runtime + saved_runtime))
+        except FileNotFoundError:
+            pass
         if os.path.exists(lock_file_path):
             os.remove(lock_file_path)
 

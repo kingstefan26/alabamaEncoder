@@ -10,6 +10,17 @@ class ComparisonDisplayResolution(Enum):
     FHD = 2  # 1080p
     UHD = 3  # 4k
 
+    @staticmethod
+    def from_string(resolution: str):
+        if resolution == "HD":
+            return ComparisonDisplayResolution.HD
+        elif resolution == "FHD":
+            return ComparisonDisplayResolution.FHD
+        elif resolution == "UHD":
+            return ComparisonDisplayResolution.UHD
+        else:
+            raise ValueError("Unknown display resolution")
+
     def __str__(self):
         if self == ComparisonDisplayResolution.HD:
             return "1280:-2"

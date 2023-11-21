@@ -137,7 +137,7 @@ class Encoder(ABC):
         timeout_value=-1,
         calculate_vmaf=False,
         calcualte_ssim=False,
-        vmaf_params=None,
+        vmaf_params: VmafOptions = None,
     ) -> EncodeStats:
         """
         :param calcualte_ssim: self-explanatory
@@ -214,14 +214,9 @@ class Encoder(ABC):
             vmaf_result: VmafResult = calculate_metric(
                 chunk=local_chunk,
                 video_filters=self.video_filters,
-                threads=vmaf_params.get("threads", 1),
-                vmaf_options=VmafOptions(
-                    uhd=vmaf_params.get("uhd_model", False),
-                    phone=vmaf_params.get("phone_model", False),
-                    neg=vmaf_params.get("disable_enchancment_gain", False),
-                ),
+                vmaf_options=vmaf_params,
             )
-            
+
             stats.vmaf_result = vmaf_result
             stats.vmaf = vmaf_result.mean
             stats.vmaf_percentile_1 = vmaf_result.percentile_1
