@@ -44,6 +44,10 @@ def main():
     """
     Main entry point
     """
+    if os.name == "nt":
+        print("Windows is not supported")
+        quit()
+
     global runtime
     runtime = time.time()
 
