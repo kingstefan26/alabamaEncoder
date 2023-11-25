@@ -32,7 +32,8 @@ def do_cropdetect(path: str = None):
             return re.search(
                 r"-?\d+:-?\d+:-?\d+:-?\d+",
                 run_cli(
-                    f"{get_binary('ffmpeg')} {chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf cropdetect -f null -"
+                    f"{get_binary('ffmpeg')} -hwaccel auto {chunk.get_ss_ffmpeg_command_pair()} -vframes 10 -vf "
+                    f"cropdetect -f null -"
                 ).get_output(),
             ).group(0)
         except AttributeError:

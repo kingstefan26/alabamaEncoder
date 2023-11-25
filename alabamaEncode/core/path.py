@@ -20,7 +20,11 @@ class PathAlabama:
     def __str__(self):
         return self.get_safe()
 
-    def check_video(self):
+    def check_video(self) -> bool:
+        """
+        Checks if the file exists and is a valid media file
+        :return: True if the file exists and is a valid media file
+        """
         if not self.exists():
             raise FileNotFoundError(f"File {self.path} does not exist")
         if self.size_bytes() < 10:

@@ -18,7 +18,6 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
-from alabamaEncode.metrics.ssim.calc import get_video_ssim
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
@@ -640,29 +639,28 @@ class AutoBitrateLadder:
         :param chunk: chunk to calculate ssim dB for
         :param dbs: The list to append the ssim dB to
         """
-        encoder = self.config.get_encoder()
-        encoder.setup(chunk=chunk, config=self.config)
-        encoder.update(
-            speed=6,
-            passes=3,
-            grain_synth=self.config.grain_synth,
-            rate_distribution=EncoderRateDistribution.VBR,
-            threads=1,
+        enc = self.config.get_encoder()
+        enc.setup(chunk=chunk, config=self.config)
+        enc.speed = 6
+        enc.passes = 3
+        enc.grain_synth = 0
+        enc.rate_distribution = EncoderRateDistribution.VBR
+        enc.threads = 1
+        enc.bitrate = bitrate
+        enc.output_path = (
+            f"{self.config.temp_folder}adapt/bitrate/ssim_translate/{chunk.chunk_index}"
+            f"{enc.get_chunk_file_extension()}"
         )
-        encoder.update(
-            output_path=f"{self.config.temp_folder}/adapt/bitrate/ssim_translate/{chunk.chunk_index}{encoder.get_chunk_file_extension()}"
+        enc.svt_bias_pct = 90
+        try:
+            stats: EncodeStats = enc.run(calcualte_ssim=True)
+        except Exception as e:
+            print(f"Failed to calculate ssim dB for {chunk.chunk_index}: {e}")
+            return
+        self.config.log(
+            f"[{chunk.chunk_index}] {bitrate} kbps -> {stats.ssim_db} ssimdb"
         )
-        encoder.svt_bias_pct = 90
-        encoder.update(bitrate=bitrate)
-        encoder.run(timeout_value=300)
-        (ssim, ssim_db) = get_video_ssim(
-            encoder.output_path,
-            chunk,
-            get_db=True,
-            crop_string=self.config.video_filters,
-        )
-        self.config.log(f"[{chunk.chunk_index}] {bitrate} kbps -> {ssim_db} ssimdb")
-        dbs.append(ssim_db)
+        dbs.append(stats.ssim_db)
 
     def crf_to_bitrate(self, crf: int, chunks: List[ChunkObject]) -> int:
         bitrates = []

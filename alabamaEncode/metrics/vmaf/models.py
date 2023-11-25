@@ -21,6 +21,10 @@ def get_models() -> dict[str, str]:
             "https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1neg.json",
             "vmaf_v0.6.1neg.json",
         ],
+        [
+            "https://github.com/kingstefan26/python-video-split-/raw/master/vmaf_v0.6.1neg-nomotion.json",
+            "vmaf_v0.6.1neg-nomotion.json",
+        ],
     ]
 
     models_dir = os.path.expanduser("~/vmaf_models")
@@ -50,6 +54,7 @@ def get_models() -> dict[str, str]:
         "normal": links[1][1],
         "uhd_neg": links[2][1],
         "normal_neg": links[3][1],
+        "normal_neg_nomotion": links[4][1],
     }
 
     return model_dict

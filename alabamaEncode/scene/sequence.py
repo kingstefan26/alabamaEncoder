@@ -1,11 +1,9 @@
 import os
-import random
 from multiprocessing.pool import ThreadPool
 from typing import List
 
 from tqdm import tqdm
 
-from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -50,7 +48,7 @@ class ChunkSequence:
             # /home/user/encode/show/temp/1.ivf
             # or
             # /home/user/encode/show/temp/1.mkv
-            c.chunk_path = f"{temp_folder}{c.chunk_index}{extension}"
+            c.chunk_path = os.path.join(temp_folder, f"{c.chunk_index}{extension}")
 
     def sequence_integrity_check(self, check_workers: int = 5) -> bool:
         """
@@ -96,37 +94,3 @@ class ChunkSequence:
 
         print("All chunks passed integrity checks 🤓")
         return False
-
-    async def process_chunks(
-        self,
-        ctx,
-    ):
-        command_objects = []
-        from alabamaEncode.adaptive.executor import AdaptiveCommand
-
-        for chunk in self.chunks:
-            if not chunk.is_done():
-                command_objects.append(AdaptiveCommand(ctx, chunk))
-
-        # order chunks based on order
-        if ctx.chunk_order == "random":
-            random.shuffle(command_objects)
-        elif ctx.chunk_order == "length_asc":
-            command_objects.sort(key=lambda x: x.job.chunk.length)
-        elif ctx.chunk_order == "length_desc":
-            command_objects.sort(key=lambda x: x.job.chunk.length, reverse=True)
-        elif ctx.chunk_order == "sequential":
-            pass
-        elif ctx.chunk_order == "sequential_reverse":
-            command_objects.reverse()
-        else:
-            raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
-
-        if len(command_objects) < 10:
-            ctx.threads = os.cpu_count()
-
-        print(f"Starting encoding of {len(command_objects)} scenes")
-
-        await execute_commands(
-            ctx.use_celery, command_objects, ctx.multiprocess_workers
-        )

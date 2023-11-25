@@ -1,3 +1,5 @@
+import os.path
+
 from tqdm import tqdm
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
@@ -111,7 +113,7 @@ class ChunkObject:
         :param bit_depth: bit depth of the output stream 8 or 10
         :return: a 'ffmpeg ... |' command string that pipes a y4m stream into stdout
         """
-        end_command = f"ffmpeg -v error -nostdin {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
+        end_command = f"ffmpeg -v error -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
 
         if bit_depth == 8:
             end_command = end_command.replace("10le", "")
@@ -126,12 +128,15 @@ class ChunkObject:
     def log_prefix(self):
         return f"[{self.chunk_index}] "
 
-    def verify_integrity(self, length_of_sequence=-1) -> bool:
+    def verify_integrity(self, length_of_sequence=-1, quiet=False) -> bool:
         """
         checks the integrity of a chunk
         :return: True if invalid
         """
         self.chunk_done = False
+
+        if not os.path.exists(self.chunk_path):
+            return True
 
         try:
             path = PathAlabama(self.chunk_path)
@@ -146,9 +151,10 @@ class ChunkObject:
                     length_of_sequence != -1
                     and length_of_sequence == self.chunk_index + 1
                 ):
-                    print(
-                        f"{self.log_prefix()}Frame count mismatch, but it's the last chunk, so it's ok"
-                    )
+                    if not quiet:
+                        print(
+                            f"{self.log_prefix()}Frame count mismatch, but it's the last chunk, so it's ok"
+                        )
                 else:
                     raise WrongFrameCountError(
                         actual_frame_count=actual_frame_count,
@@ -158,18 +164,19 @@ class ChunkObject:
             if isinstance(e, WrongFrameCountError) or isinstance(
                 e, FfmpegDecodeFailException
             ):
-                tqdm.write(f"{self.log_prefix()} failed the integrity because: {e} 🤕")
+                if not quiet:
+                    tqdm.write(f"{self.log_prefix()} failed the integrity because: {e} 🤕")
             return True
 
         self.chunk_done = True
         return False
 
-    def is_done(self) -> bool:
+    def is_done(self, quiet=False) -> bool:
         """
         checks if the chunk is done
         :return: True if done
         """
-        self.verify_integrity()
+        self.verify_integrity(quiet=quiet)
         return self.chunk_done
 
 

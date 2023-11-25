@@ -30,9 +30,10 @@ class Ffmpeg:
         return (
             run_cli(
                 f"ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets "
-                f"-of csv=p=0 {path.get_safe()}"
+                f"-of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
             )
             .verify()
+            .strip_mp4_warning()
             .get_as_int()
         )
 
@@ -52,6 +53,7 @@ class Ffmpeg:
                 f":nokey=1 {path.get_safe()}"
             )
             .verify(bad_output_hints=["N/A", "Invalid data found"])
+            .strip_mp4_warning()
             .get_output()
         )
 
@@ -67,10 +69,11 @@ class Ffmpeg:
         path.check_video()
         return (
             run_cli(
-                f"ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 {path.get_safe()}"
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=height "
+                f"-of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
             )
             .verify()
-            .filter_output(",")
+            .strip_mp4_warning()
             .get_as_int()
         )
 
@@ -79,10 +82,11 @@ class Ffmpeg:
         path.check_video()
         return (
             run_cli(
-                f"ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 {path.get_safe()}"
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=width "
+                f"-of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
             )
             .verify()
-            .filter_output(",")
+            .strip_mp4_warning()
             .get_as_int()
         )
 
@@ -116,6 +120,7 @@ class Ffmpeg:
                 )
             )
             .verify(bad_output_hints=[""])
+            .strip_mp4_warning()
             .get_output()
             .split("/")
         )
@@ -132,6 +137,7 @@ class Ffmpeg:
                 )
             )
             .verify(bad_output_hints=[""])
+            .strip_mp4_warning()
             .get_output()
         )
 
@@ -201,3 +207,16 @@ class Ffmpeg:
             .verify()
             .get_output()
         )["frames"][0]
+
+    @staticmethod
+    def get_codec(path: PathAlabama):
+        path.check_video()
+        return (
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=codec_name "
+                f"-of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
+            )
+            .verify()
+            .strip_mp4_warning()
+            .get_output()
+        )

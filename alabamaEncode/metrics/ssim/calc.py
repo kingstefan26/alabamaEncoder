@@ -1,3 +1,4 @@
+import os
 import re
 
 from alabamaEncode.core.bin_utils import get_binary
@@ -24,17 +25,16 @@ def get_video_ssim(
     if print_output:
         print(result_string)
     try:
+        # Regex to get avrage score out of:
+        # [Parsed_ssim_0 @ 0x55f6705fa200] SSIM Y:0.999999 (0.000000 dB) U:0.999999 (0.000000 dB)
+        # V:0.999999 (0.000000 dB) All:0.999999 (0.000000)
+        match = re.search(r"All:([\d.]+) \(([\d.]+)", result_string)
+        ssim_score = float(match.group(1))
+        ssim_db = float(match.group(2))
+
         if get_db is True:
-            # Regex to get avrage score out of:
-            # [Parsed_ssim_0 @ 0x55f6705fa200] SSIM Y:0.999999 (0.000000 dB) U:0.999999 (0.000000 dB)
-            # V:0.999999 (0.000000 dB) All:0.999999 (0.000000)
-            match = re.search(r"All:([\d.]+) \(([\d.]+)", result_string)
-            ssim_score = float(match.group(1))
-            ssim_db = float(match.group(2))
             return ssim_score, ssim_db
         else:
-            match = re.search(r"All:\s*([\d.]+)", result_string)
-            ssim_score = float(match.group(1))
             return ssim_score
     except AttributeError:
         print(f"Failed getting ssim comparing {distorted_path} agains {in_chunk.path}")

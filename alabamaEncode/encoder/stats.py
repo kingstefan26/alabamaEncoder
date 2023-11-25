@@ -14,6 +14,7 @@ class EncodeStats:
         bitrate: int = -1,
         vmaf: float = -1,
         ssim: float = -1,
+        ssim_db: float = -1,
         size: int = -1,
         total_fps: int = -1,
         target_miss_proc: int = -1,
@@ -33,6 +34,7 @@ class EncodeStats:
         self.bitrate = bitrate
         self.vmaf = vmaf
         self.ssim = ssim
+        self.ssim_db = ssim_db
         self.size = size
         self.total_fps = total_fps
         self.target_miss_proc = target_miss_proc
@@ -54,6 +56,7 @@ class EncodeStats:
             "bitrate": self.bitrate,
             "vmaf": self.vmaf,
             "ssim": self.ssim,
+            "ssim_db": self.ssim_db,
             "size": self.size,
             "total_fps": self.total_fps,
             "target_miss_proc": self.target_miss_proc,

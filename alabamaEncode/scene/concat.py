@@ -35,21 +35,21 @@ class VideoConcatenator:
         self.subs_file = subs_file
 
     def find_files_in_dir(self, folder_path, extension):
+        """
+        Finds all numbered files in a folder with a given extension
+        :param folder_path:  The folder to search
+        :param extension: The extension to search for
+        :return: self for chaining
+        """
         files = []
         for file in os.listdir(folder_path):
-            if file.endswith(extension):
+            if file.endswith(extension) and "temp.mkv" not in file:
                 files.append(os.path.join(folder_path, file))
-        f_2 = []
-        for f in files:
-            try:
-                f_2.append(f)
-            except ValueError:
-                pass
-        files = f_2
 
         files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
 
         self.files = files
+        return self
 
     def concat_videos(self):
         start = time.time()
@@ -126,7 +126,7 @@ class VideoConcatenator:
                     f'-c:v copy -c:a copy "{self.output}"'
                 )
                 print(f"running: {final_command}")
-                out = run_cli(final_command).get_output()
+                out = run_cli(final_command).verify().get_output()
                 if (
                     "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
                     in str(out)
@@ -139,7 +139,7 @@ class VideoConcatenator:
                         f"{title_bit} -map 0:v -map 1:a -movflags +faststart "
                         f'-c:v copy -c:a copy "{self.output}"'
                     )
-                    run_cli(final_command)
+                    run_cli(final_command).verify()
             else:
                 subs_i = ""
                 subs_map = ""
@@ -171,7 +171,7 @@ class VideoConcatenator:
                 print(f"running: {final_command}")
                 run_cli(final_command)
 
-            if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
+            if not os.path.exists(self.output) or os.path.getsize(self.output) < 1000:
                 if os.path.exists(self.output):
                     os.remove(self.output)
                 raise Exception("VIDEO CONCAT FAILED")

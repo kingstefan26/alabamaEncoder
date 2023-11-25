@@ -6,7 +6,9 @@ Also includes checks if the binaries are what we need (e.g., ffmpeg has been com
 import os
 from shutil import which
 
-__all__ = ["get_binary"]
+__all__ = ["get_binary", "register_bin"]
+
+bins = []
 
 
 def _check_bin(path) -> bool:
@@ -30,8 +32,16 @@ class BinaryNotFound(Exception):
         return f"Binary {self.name} not found"
 
 
+def register_bin(name, cli):
+    bins.append((name, cli))
+
+
 def get_binary(name):
     _bin = os.getenv(f"{name.upper()}_CLI_PATH", name)
+    if _bin == name:
+        for _name, _cli in bins:
+            if _name == name:
+                _bin = _cli
     if _check_bin(_bin):
         return _bin
     else:

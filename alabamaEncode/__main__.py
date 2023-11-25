@@ -6,7 +6,7 @@ import sys
 import time
 
 from alabamaEncode.core.alabama import AlabamaContext, setup_context
-from alabamaEncode.core.execute_context import run
+from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.worker import worker
 
@@ -78,8 +78,8 @@ def main():
 
     global runtime_file
     global lock_file_path
-    runtime_file = ctx.temp_folder + "runtime.txt"
-    lock_file_path = ctx.output_folder + "lock"
+    runtime_file = os.path.join(ctx.temp_folder, "runtime.txt")
+    lock_file_path = os.path.join(ctx.output_folder, "alabama.lock")
 
     if os.path.exists(lock_file_path):
         print(
@@ -90,7 +90,7 @@ def main():
     else:
         open(lock_file_path, "w").close()
 
-    output_lock = ctx.temp_folder + "output.lock"
+    output_lock = os.path.join(ctx.temp_folder, "output.lock")
     if not os.path.exists(output_lock):
         with open(output_lock, "w") as f:
             f.write(ctx.raw_input_file)
@@ -103,7 +103,7 @@ def main():
             )
             quit()
 
-    run(ctx)
+    AlabamaEncodingJob(ctx).run_pipeline()
 
     quit()
 

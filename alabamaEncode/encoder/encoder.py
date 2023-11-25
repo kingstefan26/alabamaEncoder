@@ -67,11 +67,16 @@ class Encoder(ABC):
 
     def setup(self, chunk, config):
         self.chunk = chunk
-        self.bitrate = config.bitrate
-        self.crf = config.crf
-        self.passes = config.passes
-        self.video_filters = config.video_filters
         self.output_path = chunk.chunk_path
+
+        self.video_filters = config.video_filters
+
+        self.override_flags = config.override_flags
+
+        # encoder options
+        self.crf = config.crf
+        self.bitrate = config.bitrate
+        self.passes = config.passes
         self.speed = config.speed
         self.grain_synth = config.grain_synth
         self.rate_distribution = config.rate_distribution
@@ -79,7 +84,8 @@ class Encoder(ABC):
         self.qm_enabled = config.qm_enabled
         self.qm_min = config.qm_min
         self.qm_max = config.qm_max
-        self.override_flags = config.override_flags
+
+        # hdr
         self.color_primaries = config.color_primaries
         self.transfer_characteristics = config.transfer_characteristics
         self.matrix_coefficients = config.matrix_coefficients
@@ -138,6 +144,7 @@ class Encoder(ABC):
         calculate_vmaf=False,
         calcualte_ssim=False,
         vmaf_params: VmafOptions = None,
+        on_frame_encoded: callable = None,
     ) -> EncodeStats:
         """
         :param calcualte_ssim: self-explanatory
@@ -145,11 +152,17 @@ class Encoder(ABC):
         :param vmaf_params: dict of vmaf params
         :param override_if_exists: if false and file already exist don't do anything
         :param timeout_value: how much (in seconds) before giving up
+        :param on_frame_encoded: callback function that gets called when a frame is encoded,
+        with the following parameters: frame: the frame number bitrate: bitrate so far fps: encoding fps
         :return: EncodeStats object with scores bitrate & stuff
         """
         stats = EncodeStats()
 
-        if not os.path.exists(self.output_path) or override_if_exists:
+        is_done = self.chunk.is_done(quiet=True)
+        should_encode = (
+            not os.path.exists(self.output_path) or override_if_exists or not is_done
+        )
+        if should_encode:
             if self.chunk.path is None or self.chunk.path == "":
                 raise Exception("FATAL: output_path is None or empty")
 
@@ -172,14 +185,52 @@ class Encoder(ABC):
             commands = self.get_encode_commands()
 
             if self.running_on_celery:
-                commands.append(f"cp {self.output_path} {original_path}")
+                commands.append(f'cp {self.output_path} "{original_path}"')
                 commands.append(f"rm {self.output_path} {self.output_path}.stat")
 
             self.output_path = original_path
 
             for command in commands:
-                output = run_cli(command, timeout_value=timeout_value).get_output()
-                out.append(output)
+                parse_func = None
+
+                times_called = 0
+
+                has_frame_callback = (
+                    self.parse_output_for_output(None) is not None
+                    and self.passes == 1
+                    and on_frame_encoded is not None
+                )
+
+                if has_frame_callback:
+                    # We can report progress to a callback
+                    output_buffer = ""
+
+                    def parse(string):
+                        nonlocal output_buffer
+                        nonlocal times_called
+                        output_buffer += string
+                        prog = self.parse_output_for_output(output_buffer)
+
+                        if len(prog) > 0:
+                            times_called += 1
+                            on_frame_encoded(prog[0], prog[1], prog[2])
+
+                            output_buffer = ""
+
+                    parse_func = parse
+
+                out.append(
+                    run_cli(
+                        command, timeout_value=timeout_value, on_output=parse_func
+                    ).get_output()
+                )
+
+                if has_frame_callback and times_called < self.chunk.get_frame_count():
+                    for i in range(self.chunk.frame_count - times_called):
+                        on_frame_encoded(
+                            0, 0, 0
+                        )  # if the encode didnt report any farmes to the callback,
+                        # call it manually for the rest of the frames
 
             stats.time_encoding = time.time() - start
 
@@ -202,9 +253,6 @@ class Encoder(ABC):
                 stats.time_encoding = 1
 
         if calculate_vmaf:
-            if vmaf_params is None:
-                vmaf_params = {}
-
             local_chunk = copy.deepcopy(
                 self.chunk
             )  # we need seeking variables from the chunk but the path from the
@@ -214,7 +262,8 @@ class Encoder(ABC):
             vmaf_result: VmafResult = calculate_metric(
                 chunk=local_chunk,
                 video_filters=self.video_filters,
-                vmaf_options=vmaf_params,
+                vmaf_options=vmaf_params if vmaf_params is not None else VmafOptions(),
+                threads=self.threads,
             )
 
             stats.vmaf_result = vmaf_result
@@ -227,9 +276,14 @@ class Encoder(ABC):
             stats.vmaf_avg = vmaf_result.mean
 
         if calcualte_ssim:
-            stats.ssim = get_video_ssim(
-                self.output_path, self.chunk, video_filters=self.video_filters
+            ssim, ssim_db = get_video_ssim(
+                self.output_path,
+                self.chunk,
+                video_filters=self.video_filters,
+                get_db=True,
             )
+            stats.ssim = ssim
+            stats.ssim_db = ssim_db
 
         stats.size = os.path.getsize(self.output_path) / 1000
         stats.bitrate = int(
@@ -265,3 +319,11 @@ class Encoder(ABC):
         return the version of the encoder
         """
         pass
+
+    def parse_output_for_output(self, buffer) -> [List[str] | None]:
+        """
+        Parse the output of the encoder and return the frame number, bitrate, and fps.
+        :param buffer: The output of the encoder so far
+        :return: a list of [frame, bitrate, fps], [] if no output is found, None if not implemented
+        """
+        return None

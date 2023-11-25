@@ -1,3 +1,4 @@
+import re
 from typing import List
 
 from alabamaEncode.core.bin_utils import get_binary
@@ -104,10 +105,31 @@ class EncoderX264(Encoder):
             # ]
 
         elif self.passes == 1:
-            return [f"{kommand} -o {self.output_path}"]
+            avc_file = self.output_path.replace(".mkv", ".h264")
+            remux_command = (
+                f'{get_binary("mkvmerge")} -o "{self.output_path}" "{avc_file}"'
+            )
+            del_commnad = f'rm "{avc_file}"'
+
+            return [f"{kommand} -o {avc_file}", remux_command, del_commnad]
+            # return [f"{kommand} -o {self.output_path}"]
 
     def get_chunk_file_extension(self) -> str:
         return ".mkv"
 
     def supports_float_crfs(self) -> bool:
         return True
+
+    def parse_output_for_output(self, buffer) -> List[str]:
+        # 42 frames: 3.60 fps, 2481.60 kb/s
+        if buffer is None:
+            return []
+        match = re.search(r"\d+ frames: .+ kb/s", buffer)
+        if match:  # check if we are past the header, also extract the string
+            _match = re.search(
+                r"(\d+) frames: ([0-9.]+) fps, ([0-9.]+) kb/s",
+                match.group(0),
+            )  # parse out the frame number, time, and bitrate
+            return [_match.group(1), _match.group(2), _match.group(3)]
+        else:
+            return []

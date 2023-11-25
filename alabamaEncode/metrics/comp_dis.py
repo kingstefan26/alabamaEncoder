@@ -23,10 +23,10 @@ class ComparisonDisplayResolution(Enum):
 
     def __str__(self):
         if self == ComparisonDisplayResolution.HD:
-            return "1280:-2"
+            return "1280:720"
         elif self == ComparisonDisplayResolution.FHD:
-            return "1920:-2"
+            return "1920:1080"
         elif self == ComparisonDisplayResolution.UHD:
-            return "3840:-2"
+            return "3840:2160"
         else:
             raise ValueError("Unknown display resolution")

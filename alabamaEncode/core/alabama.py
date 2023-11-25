@@ -22,16 +22,35 @@ class AlabamaContext:
     def __str__(self):
         return self.__dict__.__str__()
 
-    video_filters: str = ""
-    bitrate: int = 2000
+    use_celery: bool = False
+    multiprocess_workers: int = -1
+    log_level: int = 0
+    dry_run: bool = False
+
     temp_folder: str = ""
     output_folder: str = ""
     output_file: str = ""
     input_file: str = ""
     raw_input_file: str = ""
-    vbr_perchunk_optimisation: bool = True
-    vmaf: int = 96
-    ssim_db_target: float = 20
+
+    encoder: EncodersEnum = None
+    override_flags: str = ""
+    bitrate_string = ""
+    video_filters: str = ""
+    resolution_preset = ""
+    crop_string = ""
+    scale_string = ""
+
+    hdr = False
+    color_primaries = "bt709"
+    transfer_characteristics = "bt709"
+    matrix_coefficients = "bt709"
+    maximum_content_light_level: int = 0
+    maximum_frame_average_light_level: int = 0
+    chroma_sample_position = 0
+    svt_master_display = ""
+
+    bitrate: int = 2000
     grain_synth: int = 0
     passes: (1 or 2 or 3) = 3
     crf: float = -1
@@ -42,38 +61,32 @@ class AlabamaContext:
     qm_min: int = 8
     qm_max: int = 15
     film_grain_denoise: (0 | 1) = 1
+
+    find_best_bitrate = False
+    vbr_perchunk_optimisation: bool = True
+    ssim_db_target: float = 20
     crf_bitrate_mode: bool = False
-    max_bitrate: int = 0
-    encoder: EncodersEnum = None
     bitrate_undershoot: float = 0.90
     bitrate_overshoot: float = 2
     bitrate_adjust_mode: str = "chunk"
-    use_celery: bool = False
-    multiprocess_workers: int = -1
-    log_level: int = 0
-    dry_run: bool = False
-    flag1: bool = False
-    flag2: bool = False
-    flag3: bool = False
     cutoff_bitrate: int = -1
-    override_flags: str = ""
-    bitrate_string = ""
+    max_bitrate: int = 0
+
+    vmaf: int = 96
     crf_model_weights = "7,2,10,2,7"
     vmaf_targeting_model = "binary"
     vmaf_probe_count = 5
     vmaf_reference_display = ""
-
-    resolution_preset = ""
-
-    chunk_stats_path: str = ""
-    find_best_bitrate = False
-    find_best_grainsynth = False
-    crop_string = ""
-    scale_string = ""
-
     crf_based_vmaf_targeting = True
     vmaf_4k_model = False
     vmaf_phone_model = False
+    vmaf_no_motion = False
+    probe_speed_override = speed
+
+    flag1: bool = False
+    flag2: bool = False
+    flag3: bool = False
+    crf_map = ""
 
     max_scene_length: int = 10
     start_offset: int = -1
@@ -90,16 +103,6 @@ class AlabamaContext:
     encode_audio = True
     auto_crop = False
     auto_accept_autocrop = False
-    probe_speed_override = speed
-
-    hdr = False
-    color_primaries = "bt709"
-    transfer_characteristics = "bt709"
-    matrix_coefficients = "bt709"
-    maximum_content_light_level: int = 0
-    maximum_frame_average_light_level: int = 0
-    chroma_sample_position = 0
-    svt_master_display = ""
 
     def log(self, msg, level=0):
         if self.log_level > 0 and level <= self.log_level:
@@ -140,8 +143,11 @@ def setup_video_filters(ctx: AlabamaContext) -> AlabamaContext:
 
 
 def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
+    ctx.output_file = os.path.abspath(ctx.output_file)
+    ctx.raw_input_file = os.path.abspath(ctx.raw_input_file)
+
     # turn tempfolder into a full path
-    ctx.output_folder = os.path.normpath(ctx.output_folder)
+    ctx.output_folder = os.path.normpath(os.path.dirname(ctx.output_file) + "/")
 
     ctx.temp_folder = os.path.join(ctx.output_folder, "temp")
     if not os.path.exists(ctx.temp_folder):
@@ -158,11 +164,6 @@ def setup_paths(ctx: AlabamaContext) -> AlabamaContext:
     # symlink input file to temp folder
     if not os.path.exists(ctx.input_file):
         os.symlink(ctx.raw_input_file, ctx.input_file)
-        # if os.name == 'nt':
-        #     os
-        #     run_cli(f'New-Item -ItemType SymbolicLink -Path "{ctx.raw_input_file}" -Target "{ctx.input_file}"')
-        # else:
-        #     os.system(f'ln -s "{ctx.raw_input_file}" "{ctx.input_file}"')
         if not os.path.exists(ctx.input_file):
             print(f"Failed to symlink input file to {ctx.input_file}")
             quit()
@@ -387,72 +388,11 @@ def run_pipeline(ctx, transformers):
 
 
 def setup_context() -> AlabamaContext:
-    ctx = AlabamaContext()
-    args = parse_args(ctx)
-
-    ctx.output_file = os.path.abspath(args.output)
-    ctx.output_folder = os.path.dirname(ctx.output_file) + "/"
-    ctx.raw_input_file = os.path.abspath(args.input)
-    ctx.encoder = EncodersEnum.from_str(args.encoder)
-    ctx.chunk_stats_path = f"{ctx.temp_folder}chunks.log"
-
-    ctx.grain_synth = args.grain
-    ctx.log_level = args.log_level
-    ctx.dry_run = args.dry_run
-    ctx.ssim_db_target = args.ssim_db_target
-    ctx.vmaf = args.vmaf_target
-    ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
-    ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
-    ctx.use_celery = args.celery
-    ctx.flag1 = args.flag1
-    ctx.flag2 = args.flag2
-    ctx.flag3 = args.flag3
-    ctx.override_flags = args.encoder_flag_override
-    ctx.speed = args.encoder_speed_override
-    ctx.multiprocess_workers = args.multiprocess_workers
-    ctx.bitrate_adjust_mode = args.bitrate_adjust_mode
-    ctx.bitrate_undershoot = args.undershoot
-    ctx.bitrate_overshoot = args.overshoot
-    ctx.crf_bitrate_mode = args.auto_crf
-    ctx.crf = args.crf
-    ctx.hdr = args.hdr
-    ctx.max_scene_length = args.max_scene_length
-    ctx.start_offset = args.start_offset
-    ctx.end_offset = args.end_offset
-    ctx.override_scenecache_path_check = args.override_bad_wrong_cache_path
-    ctx.crop_string = args.crop_string
-    ctx.scale_string = args.scale_string
-    ctx.title = args.title
-    ctx.chunk_order = args.chunk_order
-    ctx.audio_params = args.audio_params
-    ctx.generate_previews = ctx.generate_previews
-    ctx.encode_audio = args.encode_audio
-    ctx.sub_file = args.sub_file
-    ctx.color_primaries = args.color_primaries
-    ctx.transfer_characteristics = args.transfer_characteristics
-    ctx.matrix_coefficients = args.matrix_coefficients
-    ctx.maximum_content_light_level = args.maximum_content_light_level
-    ctx.maximum_frame_average_light_level = args.frame_average_light
-    ctx.chroma_sample_position = args.chroma_sample_position
-    ctx.video_filters = args.video_filters
-    ctx.crf = args.crf
-    ctx.auto_crop = args.autocrop
-    ctx.bitrate_string = args.bitrate
-    ctx.crf_model_weights = args.crf_model_weights
-    ctx.vmaf_phone_model = args.vmaf_phone_model
-    ctx.vmaf_4k_model = args.vmaf_4k_model
-    ctx.auto_accept_autocrop = args.auto_accept_autocrop
-    ctx.resolution_preset = args.resolution_preset
-    ctx.vmaf_targeting_model = args.vmaf_targeting_model
-    ctx.vmaf_probe_count = args.vmaf_probe_count
-    ctx.vmaf_reference_display = args.vmaf_reference_display
-    ctx.probe_speed_override = args.probe_speed_override
-
-    ctx.find_best_grainsynth = True if ctx.grain_synth == -1 else False
-
-    ctx = run_pipeline(
-        ctx,
+    # run the pipeline on a brand-new context
+    return run_pipeline(
+        AlabamaContext(),
         [
+            parse_args,
             setup_paths,
             setup_rd,
             scrape_hdr_metadata,
@@ -462,12 +402,13 @@ def setup_context() -> AlabamaContext:
         ],
     )
 
-    return ctx
 
-
-def parse_args(ctx: AlabamaContext):
+def parse_args(ctx: AlabamaContext) -> AlabamaContext:
+    """
+    Parse the arguments for the program
+    """
     parser = argparse.ArgumentParser(
-        description="Encode a video using SVT-AV1, and mux it with ffmpeg"
+        description="AlabamaEncoder, one and only encoder framework for all your needs*"
     )
     parser.add_argument("input", type=str, help="Input video file")
     parser.add_argument("output", type=str, help="Output video file")
@@ -736,6 +677,13 @@ def parse_args(ctx: AlabamaContext):
     )
 
     parser.add_argument(
+        "--flag4",
+        type=str,
+        help="Map of crf <-> chunk index, for debugging purposes only",
+        default=ctx.crf_map,
+    )
+
+    parser.add_argument(
         "--color-primaries",
         type=str,
         default=ctx.color_primaries,
@@ -802,6 +750,13 @@ def parse_args(ctx: AlabamaContext):
     )
 
     parser.add_argument(
+        "--vmaf_no_motion",
+        action="store_true",
+        default=ctx.vmaf_no_motion,
+        help="use vmaf no motion model for auto crf tuning",
+    )
+
+    parser.add_argument(
         "--auto_accept_autocrop",
         action="store_true",
         default=ctx.auto_accept_autocrop,
@@ -840,7 +795,66 @@ def parse_args(ctx: AlabamaContext):
         "--vmaf_reference_display",
         type=str,
         default=ctx.vmaf_reference_display,
-        help="HD FHD UHD ",
+        help="HD FHD UHD",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    ctx.output_file = args.output
+    ctx.output_folder = ctx.output_file
+    ctx.raw_input_file = args.input
+    ctx.encoder = EncodersEnum.from_str(args.encoder)
+    ctx.grain_synth = args.grain
+    ctx.log_level = args.log_level
+    ctx.dry_run = args.dry_run
+    ctx.ssim_db_target = args.ssim_db_target
+    ctx.vmaf = args.vmaf_target
+    ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
+    ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
+    ctx.use_celery = args.celery
+    ctx.flag1 = args.flag1
+    ctx.flag2 = args.flag2
+    ctx.flag3 = args.flag3
+    ctx.override_flags = args.encoder_flag_override
+    ctx.speed = args.encoder_speed_override
+    ctx.multiprocess_workers = args.multiprocess_workers
+    ctx.bitrate_adjust_mode = args.bitrate_adjust_mode
+    ctx.bitrate_undershoot = args.undershoot
+    ctx.bitrate_overshoot = args.overshoot
+    ctx.crf_bitrate_mode = args.auto_crf
+    ctx.crf = args.crf
+    ctx.hdr = args.hdr
+    ctx.max_scene_length = args.max_scene_length
+    ctx.start_offset = args.start_offset
+    ctx.end_offset = args.end_offset
+    ctx.override_scenecache_path_check = args.override_bad_wrong_cache_path
+    ctx.crop_string = args.crop_string
+    ctx.scale_string = args.scale_string
+    ctx.title = args.title
+    ctx.chunk_order = args.chunk_order
+    ctx.audio_params = args.audio_params
+    ctx.generate_previews = ctx.generate_previews
+    ctx.encode_audio = args.encode_audio
+    ctx.sub_file = args.sub_file
+    ctx.color_primaries = args.color_primaries
+    ctx.transfer_characteristics = args.transfer_characteristics
+    ctx.matrix_coefficients = args.matrix_coefficients
+    ctx.maximum_content_light_level = args.maximum_content_light_level
+    ctx.maximum_frame_average_light_level = args.frame_average_light
+    ctx.chroma_sample_position = args.chroma_sample_position
+    ctx.video_filters = args.video_filters
+    ctx.crf = args.crf
+    ctx.auto_crop = args.autocrop
+    ctx.bitrate_string = args.bitrate
+    ctx.crf_model_weights = args.crf_model_weights
+    ctx.vmaf_phone_model = args.vmaf_phone_model
+    ctx.vmaf_4k_model = args.vmaf_4k_model
+    ctx.vmaf_no_motion = args.vmaf_no_motion
+    ctx.auto_accept_autocrop = args.auto_accept_autocrop
+    ctx.resolution_preset = args.resolution_preset
+    ctx.vmaf_targeting_model = args.vmaf_targeting_model
+    ctx.vmaf_probe_count = args.vmaf_probe_count
+    ctx.vmaf_reference_display = args.vmaf_reference_display
+    ctx.probe_speed_override = args.probe_speed_override
+    ctx.crf_map = args.flag4
+    return ctx

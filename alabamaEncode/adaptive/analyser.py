@@ -37,7 +37,7 @@ def analyze_content(
             if ctx.vbr_perchunk_optimisation:
                 ctx.ssim_db_target = ab.get_target_ssimdb(ctx.bitrate)
 
-    if ctx.find_best_grainsynth and ctx.encoder.supports_grain_synth():
+    if ctx.grain_synth == -1 and ctx.encoder.supports_grain_synth():
         param = {
             "input_file": chunk_sequence.input_file,
             "scenes": chunk_sequence,
@@ -55,7 +55,7 @@ def analyze_content(
 
     ctx.qm_enabled = True
     ctx.qm_min = 0
-    ctx.qm_max = 7
+    ctx.qm_max = 8
 
     if ctx.grain_synth == 0 and ctx.bitrate < 2000:
         print("Film grain less then 0 and bitrate is low, overriding to 2 film grain")
@@ -64,5 +64,6 @@ def analyze_content(
     if os.path.exists(f"{ctx.temp_folder}/adapt/"):
         if not os.listdir(f"{ctx.temp_folder}/adapt/"):
             os.rmdir(f"{ctx.temp_folder}/adapt/")
-
-    print(f"content analasys took: {int(time.time() - start)}s")
+    analyze_duartion = int(time.time() - start)
+    if analyze_duartion > 0:
+        print(f"content analasys took: {analyze_duartion}s")

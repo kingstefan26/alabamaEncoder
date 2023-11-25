@@ -1,4 +1,5 @@
 import os.path
+import re
 from typing import List
 
 from alabamaEncode.core.bin_utils import get_binary
@@ -78,6 +79,7 @@ class EncoderSvtenc(Encoder):
             f"{get_binary('SvtAv1EncApp')}"
             f" -i stdin"
             f" --input-depth {self.bit_override}"
+            f" --progress 2 "
         )
 
         if self.override_flags == "" or self.override_flags is None:
@@ -206,3 +208,16 @@ class EncoderSvtenc(Encoder):
         # Svt[info]: SVT [version]:	SVT-AV1 Encoder Lib v1.7.0-2-g09df835
         o = run_cli(get_binary("SvtAv1EncApp")).get_output()
         return o.split("\n")[1].split(" ")[-1]
+
+    def parse_output_for_output(self, buffer) -> List[str]:
+        if buffer is None:
+            return []
+        match = re.search(r"Encoding frame .+\d f", buffer)
+        if match:  # check if we are past the header, also extract the string
+            _match = re.search(
+                r"Encoding\sframe\s+([0-9]+)\s([0-9.]+)\s.+\s([0-9.]+)\sf",
+                match.group(0),
+            )  # parse out the frame number, time, and bitrate
+            return [_match.group(1), _match.group(2), _match.group(3)]
+        else:
+            return []

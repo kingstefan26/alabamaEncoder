@@ -33,10 +33,11 @@ class EncoderX265(Encoder):
             if chromeloc == "topleft":
                 chromeloc = "0"
             kommand += (
-                f" --colorprim {self.color_primaries} --transfer {self.transfer_characteristics} "
-                f"--colormatrix {colormatrix} --chromaloc {chromeloc} "
-                f"--cll {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
+                f" --colorprim={self.color_primaries} --transfer={self.transfer_characteristics} "
+                f"--colormatrix={colormatrix} --chromaloc={chromeloc} "
+                f"--max-cll {self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
             )
+            kommand += f" --hdr10 "
             # if self.svt_master_display:
             #     kommand += f' --mastering-display "{self.svt_master_display}" '
 
@@ -53,7 +54,7 @@ class EncoderX265(Encoder):
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:
-                kommand += f" --crf {self.crf}"
+                kommand += f" --crf={self.crf}"
             case _:
                 raise Exception(
                     f"FATAL: rate distribution {self.rate_distribution} not supported"
@@ -61,27 +62,27 @@ class EncoderX265(Encoder):
 
         match self.speed:
             case 9:
-                kommand += " --preset ultrafast"
+                kommand += " --preset=ultrafast"
             case 8:
-                kommand += " --preset superfast"
+                kommand += " --preset=superfast"
             case 7:
-                kommand += " --preset veryfast"
+                kommand += " --preset=veryfast"
             case 6:
-                kommand += " --preset faster"
+                kommand += " --preset=faster"
             case 5:
-                kommand += " --preset fast"
+                kommand += " --preset=fast"
             case 4:
-                kommand += " --preset medium"
+                kommand += " --preset=medium"
             case 3:
-                kommand += " --preset slow"
+                kommand += " --preset=slow"
             case 2:
-                kommand += " --preset slower"
+                kommand += " --preset=slower"
             case 1:
-                kommand += " --preset veryslow"
+                kommand += " --preset=veryslow"
             case 0:
-                kommand += " --preset placebo"
+                kommand += " --preset=placebo"
 
-        kommand += f" --keyint {self.keyint} "
+        kommand += f" --keyint={self.keyint} "
 
         if self.passes == 2:
             raise Exception("FATAL: 2 pass encoding not supported")

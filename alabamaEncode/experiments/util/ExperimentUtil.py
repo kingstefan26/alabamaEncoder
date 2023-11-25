@@ -43,8 +43,8 @@ def get_test_env() -> str:
     pwd = os.getcwd()
     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     test_env = pwd + f"/run_{date}/"
-    if not os.path.exists(test_env):
-        os.mkdir(test_env)
+    # if not os.path.exists(test_env):
+    #     os.mkdir(test_env)
 
     return test_env
 

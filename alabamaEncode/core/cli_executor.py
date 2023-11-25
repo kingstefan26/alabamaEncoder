@@ -1,9 +1,9 @@
 import os
+import re
 import subprocess
-import sys
 from queue import Queue
 from threading import Thread
-from typing import List
+from typing import List, Callable, Optional
 
 __all__ = ["run_cli", "run_cli_parallel", "CliResult"]
 
@@ -24,6 +24,16 @@ class CliResult:
 
     def get_output(self) -> str:
         return self.output
+
+    def strip_mp4_warning(self):
+        """
+        sometimes when using ffprobe on mp4 files,
+        [movmp4m4a3gp3g2mj2 @ 0x5579bcaa2fc0] Referenced QT chapter track not found\n
+        appears in the output, this function removes it
+        :return: self
+        """
+        self.output = re.sub(r"\[mov.+not found", "", self.output).strip()
+        return self
 
     def verify(
         self,
@@ -63,7 +73,11 @@ class CliResult:
         return float(self.output.strip())
 
 
-def run_cli(cmd, timeout_value=-1) -> CliResult:
+def run_cli(
+    cmd,
+    timeout_value=-1,
+    on_output: Optional[Callable[[str], None]] = None,
+) -> CliResult:
     p = subprocess.Popen(
         cmd,
         shell=True,
@@ -71,14 +85,25 @@ def run_cli(cmd, timeout_value=-1) -> CliResult:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
+
+    output = ""
+    while p.poll() is None:  # While the process is still running...
+        chunk = p.stdout.read(1).decode(
+            "utf-8", errors="ignore"
+        )  # Read output chunk by chunk
+        output += chunk  # Add chunk to total output
+        if on_output is not None:  # If on_output is provided...
+            on_output(chunk)  # ...apply it to each chunk
+
     if timeout_value > 0:
-        p.wait(timeout=timeout_value)
-    else:
-        p.wait()
+        try:
+            p.wait(timeout=timeout_value)
+        except subprocess.TimeoutExpired:
+            p.kill()
 
-    output = p.stdout.read()
+    output += p.stdout.read().decode("utf-8", errors="ignore")
 
-    return CliResult(p.returncode, output.decode("utf8"))
+    return CliResult(p.returncode, output)
 
 
 def _run_command(
@@ -93,8 +118,9 @@ def _run_command(
     )
     output = ""
     for line in iter(lambda: process.stdout.read(1), b""):
-        if stream_to_stdout:
-            sys.stdout.buffer.write(line)
+        # if stream_to_stdout:
+        # sys.stdout.write(line.decode("utf-8", errors="ignore"))
+        # print(line.decode("utf-8", errors="ignore"), end="")
         output += str(line)
 
     process.wait()

@@ -10,6 +10,8 @@ from tqdm import tqdm
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
@@ -34,7 +36,13 @@ class FinalEncodeStep(ABC):
     """
 
     @abstractmethod
-    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
+    def run(
+        self,
+        enc: Encoder,
+        chunk: ChunkObject,
+        ctx: AlabamaContext,
+        encoded_a_frame,
+    ) -> EncodeStats:
         pass
 
     @abstractmethod
@@ -43,7 +51,9 @@ class FinalEncodeStep(ABC):
 
 
 class PlainFinalEncode(FinalEncodeStep):
-    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
+    def run(
+        self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
+    ) -> EncodeStats:
         return enc.run(
             calculate_vmaf=True,
             vmaf_params=VmafOptions(
@@ -52,7 +62,9 @@ class PlainFinalEncode(FinalEncodeStep):
                 ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
                 if ctx.vmaf_reference_display
                 else None,
+                no_motion=ctx.vmaf_no_motion,
             ),
+            on_frame_encoded=encoded_a_frame,
         )
 
     def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
@@ -61,7 +73,9 @@ class PlainFinalEncode(FinalEncodeStep):
 
 
 class WeridCapedCrfFinalEncode(FinalEncodeStep):
-    def run(self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext) -> EncodeStats:
+    def run(
+        self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
+    ) -> EncodeStats:
         stats: EncodeStats = enc.run()
 
         if stats.bitrate > ctx.cutoff_bitrate:
@@ -85,7 +99,7 @@ class WeridCapedCrfFinalEncode(FinalEncodeStep):
         )
         enc.svt_bias_pct = 20
         os.remove(enc.output_path)
-        stats: EncodeStats = enc.run()
+        stats: EncodeStats = enc.run(on_frame_encoded=encoded_a_frame)
         return stats
 
     def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
@@ -170,7 +184,7 @@ class TargetVmaf(AnalyzeStep):
         def log_to_convex_log(_str):
             if ctx.log_level >= 2:
                 tqdm.write(_str)
-            with open(f"{ctx.temp_folder}/convex.log", "a") as f:
+            with open(os.path.join(ctx.temp_folder, "convex.log"), "a") as f:
                 f.write(_str + "\n")
 
         # score func, the lowest score gets selected
@@ -239,7 +253,9 @@ class TargetVmaf(AnalyzeStep):
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
                 vmaf_params=VmafOptions(
-                    uhd=ctx.vmaf_4k_model, phone=ctx.vmaf_phone_model
+                    uhd=ctx.vmaf_4k_model,
+                    phone=ctx.vmaf_phone_model,
+                    no_motion=ctx.vmaf_no_motion,
                 ),
             )
 
@@ -313,8 +329,8 @@ class TargetVmaf(AnalyzeStep):
             max_depth = max_probes / 2
             return int(ternary_search(low, high, max_depth))
 
-        def optimisation_binary(max_probes) -> int:
-            low_crf = 10
+        def optimisation_binary(max_probes) -> [int | float]:
+            low_crf = 20 if isinstance(enc, EncoderSvtenc) else 10
             high_crf = 55
             if target_vmaf < 90:
                 high_crf = 63
@@ -354,7 +370,9 @@ class TargetVmaf(AnalyzeStep):
                         )
                         if ctx.vmaf_reference_display
                         else None,
+                        no_motion=ctx.vmaf_no_motion,
                     ),
+                    override_if_exists=False,
                 )
 
                 log_to_convex_log(
@@ -371,6 +389,8 @@ class TargetVmaf(AnalyzeStep):
                 trys.append((mid_crf, stats.vmaf_result.mean))
                 depth += 1
 
+            interpolated = -1
+
             # via linear interpolation, find the crf that is closest to target vmaf
             if len(trys) > 1:
                 points = sorted(trys, key=lambda x: abs(x[1] - target_vmaf))
@@ -380,28 +400,29 @@ class TargetVmaf(AnalyzeStep):
                 crf_high = high_point[0]
                 vmaf_low = low_point[1]
                 vmaf_high = high_point[1]
-                interpolated_crf = crf_low + (crf_high - crf_low) * (
-                    (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
-                )
+                if (
+                    not vmaf_high - vmaf_low == 0
+                ):  # means multiple probes got the same score, aka all back screen etc
+                    interpolated_crf = crf_low + (crf_high - crf_low) * (
+                        (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
+                    )
 
-                clamp_low = min(crf_low, crf_high) - 2
-                clamp_high = max(crf_low, crf_high) + 2
+                    clamp_low = min(crf_low, crf_high) - 2
+                    clamp_high = max(crf_low, crf_high) + 2
 
-                # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
-                interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
+                    # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
+                    interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
 
-                if enc.supports_float_crfs():
-                    mid_crf = interpolated_crf
+                    if enc.supports_float_crfs():
+                        interpolated = interpolated_crf
+                    else:
+                        interpolated = int(interpolated_crf)
                 else:
-                    mid_crf = int(interpolated_crf)
+                    interpolated = mid_crf
+            else:
+                interpolated = mid_crf
 
-            if mid_crf < low_crf or mid_crf > high_crf:
-                # use the most fitting point instead of interpolated
-                mid_crf = min(trys, key=lambda x: abs(x[1] - target_vmaf))[0]
-
-            mid_crf = max(min(mid_crf, high_crf), low_crf)  # check
-
-            return mid_crf
+            return interpolated
 
         def opt_optuna(_get_score, max_probes) -> int:
             import optuna
@@ -474,6 +495,30 @@ class TargetVmaf(AnalyzeStep):
         return enc
 
 
+class CrfIndexesMap(AnalyzeStep):
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
+        crf_map = self.crf_map.split(",")
+
+        if len(crf_map) < chunk.chunk_index:
+            raise Exception(
+                f"crf_map is too short, {len(crf_map)} < {chunk.chunk_index}"
+            )
+
+        enc.rate_distribution = EncoderRateDistribution.CQ
+        enc.passes = 1
+        try:
+            enc.crf = int(crf_map[chunk.chunk_index])
+        except ValueError:
+            raise Exception(f"crf_map is not a list of ints: {self.crf_map}")
+        enc.svt_tune = 0
+        enc.svt_overlay = 0
+
+        return enc
+
+    def __init__(self, crf_map: str):
+        self.crf_map = crf_map
+
+
 class GrainSynth(AnalyzeStep):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         from alabamaEncode.adaptive.sub.grain2 import calc_grainsynth_of_scene
@@ -513,7 +558,9 @@ class BaseAnalyzer(AnalyzeStep):
 def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
     steps = [BaseAnalyzer()]
 
-    if ctx.flag1 is True:
+    if ctx.crf_map != "":
+        steps.append(CrfIndexesMap(ctx.crf_map))
+    elif ctx.flag1 is True:
         steps.append(PlainCrf())
     elif ctx.crf_based_vmaf_targeting is True:
         steps.append(
@@ -564,12 +611,16 @@ class AdaptiveCommand(BaseCommandObject):
         super().__init__()
         self.ctx = ctx
         self.chunk = chunk
+        self.encoded_a_frame_callback: callable = None
 
     # how long (seconds) before we time out the final encoding
     # currently set to 30 minutes
     final_encode_timeout = 1800
 
     run_on_celery = False
+
+    def supports_encoded_a_frame_callback(self):
+        return self.ctx.encoder == EncodersEnum.SVT_AV1
 
     def run(self):
         total_start = time.time()
@@ -601,11 +652,12 @@ class AdaptiveCommand(BaseCommandObject):
 
         timeing.start("final_step")
 
-        final_stats = None
-        try:
-            final_stats = final_step.run(enc, chunk=self.chunk, ctx=self.ctx)
-        except Exception as e:
-            print(f"[{self.chunk.chunk_index}] error while encoding: {e}")
+        final_stats = final_step.run(
+            enc,
+            chunk=self.chunk,
+            ctx=self.ctx,
+            encoded_a_frame=self.encoded_a_frame_callback,
+        )
 
         timeing.stop("final_step")
         timeing.finish()
