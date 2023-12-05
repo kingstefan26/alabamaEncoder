@@ -29,6 +29,8 @@ class Encoder(ABC):
     grain_synth = 10
     qm_min = 8
     qm_max = 15
+    tile_cols = -1
+    tile_rows = -1
     override_flags: str = ""
 
     bit_override = 10
@@ -69,33 +71,36 @@ class Encoder(ABC):
         self.chunk = chunk
         self.output_path = chunk.chunk_path
 
-        self.video_filters = config.video_filters
+        if config is not None:
+            self.video_filters = config.video_filters
 
-        self.override_flags = config.override_flags
+            self.override_flags = config.override_flags
 
-        # encoder options
-        self.crf = config.crf
-        self.bitrate = config.bitrate
-        self.passes = config.passes
-        self.speed = config.speed
-        self.grain_synth = config.grain_synth
-        self.rate_distribution = config.rate_distribution
-        self.threads = config.threads
-        self.qm_enabled = config.qm_enabled
-        self.qm_min = config.qm_min
-        self.qm_max = config.qm_max
+            # encoder options
+            self.crf = config.crf
+            self.bitrate = config.bitrate
+            self.passes = config.passes
+            self.speed = config.speed
+            self.grain_synth = config.grain_synth
+            self.rate_distribution = config.rate_distribution
+            self.threads = config.threads
+            self.qm_enabled = config.qm_enabled
+            self.qm_min = config.qm_min
+            self.qm_max = config.qm_max
+            self.tile_cols = config.tile_cols  # in log2 form
+            self.tile_rows = config.tile_rows  # in log2 form
 
-        # hdr
-        self.color_primaries = config.color_primaries
-        self.transfer_characteristics = config.transfer_characteristics
-        self.matrix_coefficients = config.matrix_coefficients
-        self.maximum_content_light_level = config.maximum_content_light_level
-        self.maximum_frame_average_light_level = (
-            config.maximum_frame_average_light_level
-        )
-        self.chroma_sample_position = config.chroma_sample_position
-        self.svt_master_display = config.svt_master_display
-        self.hdr = config.hdr
+            # hdr
+            self.color_primaries = config.color_primaries
+            self.transfer_characteristics = config.transfer_characteristics
+            self.matrix_coefficients = config.matrix_coefficients
+            self.maximum_content_light_level = config.maximum_content_light_level
+            self.maximum_frame_average_light_level = (
+                config.maximum_frame_average_light_level
+            )
+            self.chroma_sample_position = config.chroma_sample_position
+            self.svt_master_display = config.svt_master_display
+            self.hdr = config.hdr
 
     def update(self, **kwargs):
         """
@@ -158,10 +163,18 @@ class Encoder(ABC):
         """
         stats = EncodeStats()
 
-        is_done = self.chunk.is_done(quiet=True)
-        should_encode = (
-            not os.path.exists(self.output_path) or override_if_exists or not is_done
-        )
+        should_encode = False
+
+        if not os.path.exists(self.output_path):
+            should_encode = True
+        elif override_if_exists:
+            should_encode = True
+        elif not self.chunk.is_done(quiet=True):
+            should_encode = True
+
+        if not should_encode:
+            print("Skipping encode, file already exists")
+
         if should_encode:
             if self.chunk.path is None or self.chunk.path == "":
                 raise Exception("FATAL: output_path is None or empty")
@@ -180,7 +193,7 @@ class Encoder(ABC):
                 os.makedirs(temp_celery_path, exist_ok=True)
                 self.output_path = f"{temp_celery_path}{self.chunk.chunk_index}{self.get_chunk_file_extension()}"
 
-            out = []
+            cli_output = []
             start = time.time()
             commands = self.get_encode_commands()
 
@@ -219,14 +232,15 @@ class Encoder(ABC):
 
                     parse_func = parse
 
-                out.append(
+                cli_output.append(
                     run_cli(
                         command, timeout_value=timeout_value, on_output=parse_func
                     ).get_output()
                 )
 
-                if has_frame_callback and times_called < self.chunk.get_frame_count():
-                    for i in range(self.chunk.frame_count - times_called):
+                num_frames = self.chunk.get_frame_count()
+                if has_frame_callback and times_called < num_frames:
+                    for i in range(num_frames - times_called):
                         on_frame_encoded(
                             0, 0, 0
                         )  # if the encode didnt report any farmes to the callback,
@@ -239,7 +253,7 @@ class Encoder(ABC):
                 or os.path.getsize(self.output_path) < 100
             ):
                 print("Encode command failed, output:")
-                for o in out:
+                for o in cli_output:
                     if isinstance(o, str):
                         o = o.replace("\x08", "")
                         print(o)

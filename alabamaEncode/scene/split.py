@@ -12,7 +12,7 @@ from alabamaEncode.scene.sequence import ChunkSequence
 def get_video_scene_list_skinny(
     input_file: str,
     cache_file_path: str,
-    max_scene_length: int,
+    max_scene_length: int = 10,
     start_offset=-1,
     end_offset=-1,
     override_bad_wrong_cache_path=False,

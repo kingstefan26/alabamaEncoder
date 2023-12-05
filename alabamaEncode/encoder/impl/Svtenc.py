@@ -138,6 +138,11 @@ class EncoderSvtenc(Encoder):
 
             kommand += f" --aq-mode {self.svt_aq_mode}"
 
+            if self.tile_cols != -1:
+                kommand += f" --tile-columns {self.tile_cols}"
+            if self.tile_rows != -1:
+                kommand += f" --tile-rows {self.tile_rows}"
+
             if self.svt_supperres_mode != 0:
                 kommand += f" --superres-mode {self.svt_supperres_mode}"
                 kommand += f" --superres-denom {self.svt_superres_denom}"

@@ -113,6 +113,8 @@ class ChunkObject:
         :param bit_depth: bit depth of the output stream 8 or 10
         :return: a 'ffmpeg ... |' command string that pipes a y4m stream into stdout
         """
+        if video_filters is None:
+            video_filters = ""
         end_command = f"ffmpeg -v error -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
 
         if bit_depth == 8:
@@ -165,7 +167,9 @@ class ChunkObject:
                 e, FfmpegDecodeFailException
             ):
                 if not quiet:
-                    tqdm.write(f"{self.log_prefix()} failed the integrity because: {e} 🤕")
+                    tqdm.write(
+                        f"{self.log_prefix()} failed the integrity because: {e} 🤕"
+                    )
             return True
 
         self.chunk_done = True

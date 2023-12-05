@@ -1,6 +1,9 @@
 import json
 import os
+import re
+from typing import Any
 
+from alabamaEncode.core.bin_utils import get_binary, verify_ffmpeg_library
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.path import PathAlabama
 
@@ -197,7 +200,7 @@ class Ffmpeg:
         return tonemap_string
 
     @staticmethod
-    def get_first_frame_data(path: PathAlabama):
+    def get_first_frame_data(path: PathAlabama) -> dict:
         # ffprobe -v error -select_streams v:0 -show_frames 'path' -of json -read_intervals "%+0.3"
         path.check_video()
         return json.loads(
@@ -209,7 +212,7 @@ class Ffmpeg:
         )["frames"][0]
 
     @staticmethod
-    def get_codec(path: PathAlabama):
+    def get_codec(path: PathAlabama) -> str:
         path.check_video()
         return (
             run_cli(
@@ -220,3 +223,139 @@ class Ffmpeg:
             .strip_mp4_warning()
             .get_output()
         )
+
+    @staticmethod
+    def get_vmaf_motion(chunk) -> float:
+        verify_ffmpeg_library("libvmaf")
+        # [Parsed_vmafmotion_0 @ 0x558626bfa300] VMAF Motion avg: 8.732
+        out = (
+            run_cli(
+                f"{get_binary('ffmpeg')} {chunk.get_ss_ffmpeg_command_pair()} -lavfi vmafmotion -f null /dev/null "
+            )
+            .verify()
+            .strip_mp4_warning()
+            .get_output()
+        )
+        return float(re.findall(r"VMAF Motion avg: ([0-9.]+)", out)[0])
+
+    @staticmethod
+    def get_ffprobe_content_features(chunk, vf) -> dict[Any, Any]:
+        # ffmpeg -v error -nostdin -hwaccel auto -i
+        # '/home/kokoniara/howlscastle_test.mkv'  -pix_fmt yuv420p10le -an -sn -strict -1 -f yuv4mpegpipe - | ffprobe
+        # -v error -select_streams v:0 -f lavfi -i 'movie=/dev/stdin,entropy,scdet,signalstats' -show_frames -of json
+
+        out = (
+            run_cli(
+                f"{chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf)} | {get_binary('ffprobe')} -v error -select_streams v:0 "
+                f"-f lavfi -i 'movie=/dev/stdin,entropy,scdet,signalstats' -show_frames -of json"
+            )
+            .verify()
+            .get_output()
+        )
+
+        parsed_json = json.loads(out)
+        filtered = {}
+
+        for frame in parsed_json["frames"]:
+            tags = frame["tags"]
+
+            tags = {
+                "entropy.entropy.normal.Y": tags["lavfi.entropy.entropy.normal.Y"],
+                "entropy.normalized_entropy.normal.Y": tags[
+                    "lavfi.entropy.normalized_entropy.normal.Y"
+                ],
+                "entropy.entropy.normal.U": tags["lavfi.entropy.entropy.normal.U"],
+                "entropy.normalized_entropy.normal.U": tags[
+                    "lavfi.entropy.normalized_entropy.normal.U"
+                ],
+                "entropy.entropy.normal.V": tags["lavfi.entropy.entropy.normal.V"],
+                "entropy.normalized_entropy.normal.V": tags[
+                    "lavfi.entropy.normalized_entropy.normal.V"
+                ],
+                "scd.mafd": tags["lavfi.scd.mafd"],
+                "scd.score": tags["lavfi.scd.score"],
+                "signalstats.YMIN": tags["lavfi.signalstats.YMIN"],
+                "signalstats.YLOW": tags["lavfi.signalstats.YLOW"],
+                "signalstats.YAVG": tags["lavfi.signalstats.YAVG"],
+                "signalstats.YHIGH": tags["lavfi.signalstats.YHIGH"],
+                "signalstats.YMAX": tags["lavfi.signalstats.YMAX"],
+                "signalstats.UMIN": tags["lavfi.signalstats.UMIN"],
+                "signalstats.ULOW": tags["lavfi.signalstats.ULOW"],
+                "signalstats.UAVG": tags["lavfi.signalstats.UAVG"],
+                "signalstats.UHIGH": tags["lavfi.signalstats.UHIGH"],
+                "signalstats.UMAX": tags["lavfi.signalstats.UMAX"],
+                "signalstats.VMIN": tags["lavfi.signalstats.VMIN"],
+                "signalstats.VLOW": tags["lavfi.signalstats.VLOW"],
+                "signalstats.VAVG": tags["lavfi.signalstats.VAVG"],
+                "signalstats.VHIGH": tags["lavfi.signalstats.VHIGH"],
+                "signalstats.VMAX": tags["lavfi.signalstats.VMAX"],
+                "signalstats.SATMIN": tags["lavfi.signalstats.SATMIN"],
+                "signalstats.SATLOW": tags["lavfi.signalstats.SATLOW"],
+                "signalstats.SATAVG": tags["lavfi.signalstats.SATAVG"],
+            }
+
+            filtered[frame["pts"]] = tags
+        return filtered
+
+    @staticmethod
+    def get_siti_tools_data(chunk, vf) -> dict[Any, Any]:
+        out = (
+            run_cli(
+                f"{chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf)} |"
+                f" {get_binary('siti-tools')} -f json -b 10 -r full -q /dev/stdin"
+            )
+            .verify()
+            .get_output()
+        )
+
+        parsed_json = json.loads(out)
+        # remove "settings" and "input_file" keys
+        parsed_json.pop("settings", None)
+        parsed_json.pop("input_file", None)
+
+        # {
+        #     "si": [
+        #       1,
+        #       1,
+        #       for every frame...
+        #     ]
+        #      "ti": [
+        #       1,
+        #       1,
+        #       for every frame except the first...
+        # }
+        # convert to:
+        # {
+        #     "frame #": [
+        #         si score
+        #         ti score # 0 if first frame
+        #     ]
+        #   ... for every frame
+        # }
+        new = []
+        for i in range(len(parsed_json["si"])):
+            si_ti_pair = [parsed_json["si"][i], 0]
+            if i != 0:
+                si_ti_pair[1] = parsed_json["ti"][i - 1]
+            new.append(si_ti_pair)
+
+        return_dict = {}
+        for i, frame in enumerate(new):
+            return_dict[i] = frame
+
+        return return_dict
+
+    @staticmethod
+    def get_content_features(chunk, vf=""):
+        siti = Ffmpeg.get_siti_tools_data(chunk, vf)
+        ffprobe = Ffmpeg.get_ffprobe_content_features(chunk, vf)
+        # since ffprobe and siti are both dicts that use frame # as the key, we can just merge them
+        # and return the result
+        new = {}
+        for key in ffprobe.keys():
+            new[key] = {
+                **ffprobe[key],
+                "siti.si": siti[key][0],
+                "siti.ti": siti[key][1],
+            }
+        return new

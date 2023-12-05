@@ -8,6 +8,10 @@ from shutil import which
 
 __all__ = ["get_binary", "register_bin"]
 
+from typing import List
+
+from alabamaEncode.core.cli_executor import run_cli
+
 bins = []
 
 
@@ -22,6 +26,38 @@ def _check_bin(path) -> bool:
             return True
         else:
             return False
+
+
+class FFmpegNotCompiledWithLibrary(Exception):
+    def __init__(self, lib_name):
+        self.lib_name = lib_name
+
+    def __str__(self):
+        return f"ffmpeg is not compiled with {self.lib_name}"
+
+
+def check_ffmpeg_libraries(lib_name: str) -> bool:
+    """
+    Checks if the ffmpeg libraries are compiled with the given library
+    :param lib_name: name of the library
+    :return: True if the library is compiled, False otherwise
+    """
+    return (
+        run_cli(f"ffmpeg -v error -buildconf").verify().get_output().find(lib_name)
+        != -1
+    )
+
+
+def verify_ffmpeg_library(lib_name: [str | List[str]]) -> None:
+    """
+    Checks if the ffmpeg libraries are compiled with the given library, and raises an exception if it is not
+    :param lib_name: name of the library
+    """
+    if isinstance(lib_name, str):
+        lib_name = [lib_name]
+    for lib in lib_name:
+        if not check_ffmpeg_libraries(lib):
+            raise FFmpegNotCompiledWithLibrary(lib_name)
 
 
 class BinaryNotFound(Exception):

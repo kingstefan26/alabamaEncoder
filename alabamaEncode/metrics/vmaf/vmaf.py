@@ -79,8 +79,6 @@ def calc_vmaf(
         f"--distorted {pipe_dist_path} --threads {threads}"
     )
 
-    print(first_pipe_command, second_pipe_command, vmaf_command)
-
     map(
         lambda x: x.verify(),
         run_cli_parallel(

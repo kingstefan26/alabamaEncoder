@@ -7,6 +7,7 @@ from typing import List
 
 from tqdm import tqdm
 
+from alabamaEncode.ai_vmaf.perdict import predict_crf
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
@@ -70,6 +71,179 @@ class PlainFinalEncode(FinalEncodeStep):
     def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
         joined = " && ".join(enc.get_encode_commands())
         return joined
+
+
+class AiTargetedVmafFinalEncode(FinalEncodeStep):
+    def run(
+        self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
+    ) -> EncodeStats:
+        vmaf_error_epsilon = 0.3
+
+        def get_complexity(enc, c: ChunkObject):
+            _enc = copy.deepcopy(enc)
+            _enc.setup(chunk=c, config=AlabamaContext())
+            _enc.speed = 12
+            _enc.passes = 1
+            _enc.rate_distribution = EncoderRateDistribution.CQ
+            _enc.crf = 16
+            _enc.threads = 1
+            _enc.grain_synth = 0
+            _enc.output_path = (
+                f"/tmp/{c.chunk_index}_complexity{_enc.get_chunk_file_extension()}"
+            )
+            stats = _enc.run()
+            from math import log
+
+            formula = log(stats.bitrate)
+            # self.config.log(
+            #     f"[{c.chunk_index}] complexity: {formula:.2f} in {stats.time_encoding}s"
+            # )
+            os.remove(_enc.output_path)
+            return c.chunk_index, formula
+
+        # vmafmotion = Ffmpeg.get_vmaf_motion(chunk)
+        # compexity = get_complexity(copy.deepcopy(enc), chunk)[1]
+        # crf = get_crf_for_vmaf(
+        #     model_path="/home/kokoniara/dev/VideoSplit/alabamaEncode/experiments/crf_vmaf_relation/latest.keras",
+        #     vmaf_motion=vmafmotion,
+        #     complexity=compexity,
+        #     vmaf_target=ctx.vmaf,
+        # )
+
+        crf = predict_crf(chunk, ctx.video_filters)
+
+        enc.crf = crf
+        tqdm.write(chunk.log_prefix() + f"trying Ai perdicted crf {crf}")
+
+        vmaf_options = VmafOptions(
+            uhd=ctx.vmaf_4k_model,
+            phone=ctx.vmaf_phone_model,
+            ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
+            if ctx.vmaf_reference_display
+            else None,
+            no_motion=ctx.vmaf_no_motion,
+        )
+        trys_for_interpolation = []
+        first_try_stat = enc.run(
+            calculate_vmaf=True,
+            vmaf_params=vmaf_options,
+        )
+
+        if abs(first_try_stat.vmaf - ctx.vmaf) > vmaf_error_epsilon:
+            tqdm.write(
+                chunk.log_prefix()
+                + f"Ai perdicted vmaf {first_try_stat.vmaf} is too far from target {ctx.vmaf},"
+                f" trying binary search"
+            )
+            trys_for_interpolation.append((crf, first_try_stat.vmaf_result.mean))
+        else:
+            for i in range(chunk.get_frame_count()):
+                encoded_a_frame(-1, -1, -1)
+            return first_try_stat
+
+        # binary search
+
+        from alabamaEncode.adaptive.util import get_probe_file_base
+
+        def log_to_convex_log(_str):
+            if ctx.log_level >= 2:
+                tqdm.write(_str)
+            with open(os.path.join(ctx.temp_folder, "convex.log"), "a") as f:
+                f.write(_str + "\n")
+
+        probe_file_base = get_probe_file_base(chunk.chunk_path)
+        low_crf = 20 if isinstance(enc, EncoderSvtenc) else 10
+        high_crf = 55
+        if ctx.vmaf < 90:
+            high_crf = 63
+
+        max_probes = 2
+
+        mid_crf = 0
+        depth = 0
+
+        original_path = enc.output_path
+
+        while low_crf <= high_crf and depth < max_probes:
+            mid_crf = (low_crf + high_crf) // 2
+
+            # don't try the same crf twice
+            if mid_crf in [t[0] for t in trys_for_interpolation]:
+                break
+
+            enc.crf = mid_crf
+            enc.output_path = os.path.join(
+                probe_file_base,
+                f"convexhull.{mid_crf}{enc.get_chunk_file_extension()}",
+            )
+            enc.speed = ctx.probe_speed_override
+            enc.passes = 1
+            enc.threads = 1
+            enc.grain_synth = 0
+            enc.override_flags = None
+            stats: EncodeStats = enc.run(
+                calculate_vmaf=True,
+                vmaf_params=vmaf_options,
+            )
+
+            log_to_convex_log(
+                f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.mean} "
+                f"bitrate: {stats.bitrate} attempt {depth}/{max_probes}"
+            )
+
+            if abs(stats.vmaf_result.mean - ctx.vmaf) <= vmaf_error_epsilon:
+                # move the probe to original_path and return stats
+                os.rename(enc.output_path, original_path)
+                return stats
+            elif stats.vmaf_result.mean > ctx.vmaf:
+                low_crf = mid_crf + 1
+            else:
+                high_crf = mid_crf - 1
+            trys_for_interpolation.append((mid_crf, stats.vmaf_result.mean))
+            depth += 1
+
+        # via linear interpolation, find the crf that is closest to target vmaf
+        if len(trys_for_interpolation) > 1:
+            points = sorted(trys_for_interpolation, key=lambda x: abs(x[1] - ctx.vmaf))
+            low_point = points[0]
+            high_point = points[1]
+            crf_low = low_point[0]
+            crf_high = high_point[0]
+            vmaf_low = low_point[1]
+            vmaf_high = high_point[1]
+            if (
+                not vmaf_high - vmaf_low == 0
+            ):  # means multiple probes got the same score, aka all back screen etc
+                interpolated_crf = crf_low + (crf_high - crf_low) * (
+                    (ctx.vmaf - vmaf_low) / (vmaf_high - vmaf_low)
+                )
+
+                clamp_low = min(crf_low, crf_high) - 2
+                clamp_high = max(crf_low, crf_high) + 2
+
+                # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
+                interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
+
+                if enc.supports_float_crfs():
+                    interpolated = interpolated_crf
+                else:
+                    interpolated = int(interpolated_crf)
+            else:
+                interpolated = mid_crf
+        else:
+            interpolated = mid_crf
+
+        log_to_convex_log(f"{chunk.log_prefix()} interpolated crf: {interpolated}")
+
+        enc.crf = interpolated
+        return enc.run(
+            calculate_vmaf=True,
+            vmaf_params=vmaf_options,
+            on_frame_encoded=encoded_a_frame,
+        )
+
+    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
+        raise Exception("dry_run not implemented for AiTargetedVmafFinalEncode")
 
 
 class WeridCapedCrfFinalEncode(FinalEncodeStep):
@@ -136,6 +310,112 @@ class PlainVbr(AnalyzeStep):
         )
         enc.svt_bias_pct = 20
         return enc
+
+
+def optimisation_binary(
+    max_probes,
+    enc,
+    target_vmaf,
+    probe_file_base,
+    probe_speed,
+    chunk,
+    vmaf_4k_model,
+    vmaf_phone_model,
+    vmaf_no_motion,
+    log_to_convex_log,
+    vmaf_reference_display,
+) -> [int | float]:
+    low_crf = 20 if isinstance(enc, EncoderSvtenc) else 10
+    high_crf = 55
+    if target_vmaf < 90:
+        high_crf = 63
+    epsilon = 0.1
+
+    max_probes -= 1  # since we count from 0
+
+    mid_crf = 0
+    depth = 0
+
+    trys = []
+
+    while low_crf <= high_crf and depth < max_probes:
+        mid_crf = (low_crf + high_crf) // 2
+
+        # don't try the same crf twice
+        if mid_crf in [t[0] for t in trys]:
+            break
+
+        enc.crf = mid_crf
+        enc.output_path = os.path.join(
+            probe_file_base,
+            f"convexhull.{mid_crf}{enc.get_chunk_file_extension()}",
+        )
+        enc.speed = probe_speed
+        enc.passes = 1
+        enc.threads = 1
+        enc.grain_synth = 0
+        enc.override_flags = None
+        stats: EncodeStats = enc.run(
+            calculate_vmaf=True,
+            vmaf_params=VmafOptions(
+                uhd=vmaf_4k_model,
+                phone=vmaf_phone_model,
+                ref=ComparisonDisplayResolution.from_string(vmaf_reference_display)
+                if vmaf_reference_display
+                else None,
+                no_motion=vmaf_no_motion,
+            ),
+            override_if_exists=False,
+        )
+
+        log_to_convex_log(
+            f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.mean} "
+            f"bitrate: {stats.bitrate} attempt {depth}/{max_probes}"
+        )
+
+        if abs(stats.vmaf_result.mean - target_vmaf) <= epsilon:
+            break
+        elif stats.vmaf_result.mean > target_vmaf:
+            low_crf = mid_crf + 1
+        else:
+            high_crf = mid_crf - 1
+        trys.append((mid_crf, stats.vmaf_result.mean))
+        depth += 1
+
+    interpolated = -1
+
+    # via linear interpolation, find the crf that is closest to target vmaf
+    if len(trys) > 1:
+        points = sorted(trys, key=lambda x: abs(x[1] - target_vmaf))
+        low_point = points[0]
+        high_point = points[1]
+        crf_low = low_point[0]
+        crf_high = high_point[0]
+        vmaf_low = low_point[1]
+        vmaf_high = high_point[1]
+        if (
+            not vmaf_high - vmaf_low == 0
+        ):  # means multiple probes got the same score, aka all back screen etc
+            interpolated_crf = crf_low + (crf_high - crf_low) * (
+                (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
+            )
+
+            clamp_low = min(crf_low, crf_high) - 2
+            clamp_high = max(crf_low, crf_high) + 2
+
+            # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
+            interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
+
+            if enc.supports_float_crfs():
+                interpolated = interpolated_crf
+            else:
+                interpolated = int(interpolated_crf)
+        else:
+            interpolated = mid_crf
+    else:
+        interpolated = mid_crf
+
+    return interpolated
 
 
 class VbrPerChunkOptimised(AnalyzeStep):
@@ -329,101 +609,6 @@ class TargetVmaf(AnalyzeStep):
             max_depth = max_probes / 2
             return int(ternary_search(low, high, max_depth))
 
-        def optimisation_binary(max_probes) -> [int | float]:
-            low_crf = 20 if isinstance(enc, EncoderSvtenc) else 10
-            high_crf = 55
-            if target_vmaf < 90:
-                high_crf = 63
-            epsilon = 0.1
-
-            max_probes -= 1  # since we count from 0
-
-            mid_crf = 0
-            depth = 0
-
-            trys = []
-
-            while low_crf <= high_crf and depth < max_probes:
-                mid_crf = (low_crf + high_crf) // 2
-
-                # don't try the same crf twice
-                if mid_crf in [t[0] for t in trys]:
-                    break
-
-                enc.crf = mid_crf
-                enc.output_path = os.path.join(
-                    probe_file_base,
-                    f"convexhull.{mid_crf}{enc.get_chunk_file_extension()}",
-                )
-                enc.speed = self.probe_speed
-                enc.passes = 1
-                enc.threads = 1
-                enc.grain_synth = 0
-                enc.override_flags = None
-                stats: EncodeStats = enc.run(
-                    calculate_vmaf=True,
-                    vmaf_params=VmafOptions(
-                        uhd=ctx.vmaf_4k_model,
-                        phone=ctx.vmaf_phone_model,
-                        ref=ComparisonDisplayResolution.from_string(
-                            ctx.vmaf_reference_display
-                        )
-                        if ctx.vmaf_reference_display
-                        else None,
-                        no_motion=ctx.vmaf_no_motion,
-                    ),
-                    override_if_exists=False,
-                )
-
-                log_to_convex_log(
-                    f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {stats.vmaf_result.mean} "
-                    f"bitrate: {stats.bitrate} attempt {depth}/{max_probes}"
-                )
-
-                if abs(stats.vmaf_result.mean - target_vmaf) <= epsilon:
-                    break
-                elif stats.vmaf_result.mean > target_vmaf:
-                    low_crf = mid_crf + 1
-                else:
-                    high_crf = mid_crf - 1
-                trys.append((mid_crf, stats.vmaf_result.mean))
-                depth += 1
-
-            interpolated = -1
-
-            # via linear interpolation, find the crf that is closest to target vmaf
-            if len(trys) > 1:
-                points = sorted(trys, key=lambda x: abs(x[1] - target_vmaf))
-                low_point = points[0]
-                high_point = points[1]
-                crf_low = low_point[0]
-                crf_high = high_point[0]
-                vmaf_low = low_point[1]
-                vmaf_high = high_point[1]
-                if (
-                    not vmaf_high - vmaf_low == 0
-                ):  # means multiple probes got the same score, aka all back screen etc
-                    interpolated_crf = crf_low + (crf_high - crf_low) * (
-                        (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
-                    )
-
-                    clamp_low = min(crf_low, crf_high) - 2
-                    clamp_high = max(crf_low, crf_high) + 2
-
-                    # eg. 25-30 are crf points closes to target, so we clamp the interpolated crf to 23-32
-                    interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
-
-                    if enc.supports_float_crfs():
-                        interpolated = interpolated_crf
-                    else:
-                        interpolated = int(interpolated_crf)
-                else:
-                    interpolated = mid_crf
-            else:
-                interpolated = mid_crf
-
-            return interpolated
-
         def opt_optuna(_get_score, max_probes) -> int:
             import optuna
 
@@ -474,7 +659,19 @@ class TargetVmaf(AnalyzeStep):
             case "ternary":
                 crf = optimisation_tenary(get_score, self.probes)
             case "binary":
-                crf = optimisation_binary(self.probes)
+                crf = optimisation_binary(
+                    self.probes,
+                    enc,
+                    target_vmaf,
+                    probe_file_base,
+                    self.probe_speed,
+                    chunk,
+                    ctx.vmaf_4k_model,
+                    ctx.vmaf_phone_model,
+                    ctx.vmaf_no_motion,
+                    log_to_convex_log,
+                    ctx.vmaf_reference_display,
+                )
             case _:
                 raise Exception(f"Unknown alg_type {self.alg_type}")
 
@@ -562,7 +759,7 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
         steps.append(CrfIndexesMap(ctx.crf_map))
     elif ctx.flag1 is True:
         steps.append(PlainCrf())
-    elif ctx.crf_based_vmaf_targeting is True:
+    elif ctx.crf_based_vmaf_targeting is True and ctx.ai_vmaf_targeting is False:
         steps.append(
             TargetVmaf(
                 alg_type=ctx.vmaf_targeting_model,
@@ -571,7 +768,7 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
             )
         )
     else:
-        if ctx.crf_bitrate_mode:
+        if ctx.crf_bitrate_mode or ctx.ai_vmaf_targeting:
             steps.append(CapedCrf())
         elif ctx.crf != -1:
             steps.append(PlainCrf())
@@ -592,6 +789,8 @@ def analyzer_factory(ctx: AlabamaContext) -> List[AnalyzeStep]:
 def finalencode_factory(ctx: AlabamaContext) -> FinalEncodeStep:
     if ctx.flag1:
         final_step = WeridCapedCrfFinalEncode()
+    elif ctx.ai_vmaf_targeting:
+        final_step = AiTargetedVmafFinalEncode()
     else:
         final_step = PlainFinalEncode()
     if final_step is None:
@@ -665,9 +864,10 @@ class AdaptiveCommand(BaseCommandObject):
         # round to two places
         total_fps = round(self.chunk.get_frame_count() / (time.time() - total_start), 2)
         # target bitrate vs actual bitrate difference in %
-        target_miss_proc = (final_stats.bitrate - enc.bitrate) / enc.bitrate * 100
         final_stats.total_fps = total_fps
-        final_stats.target_miss_proc = target_miss_proc
+        # final_stats.target_miss_proc = (
+        #     (final_stats.bitrate - enc.bitrate) / enc.bitrate * 100
+        # )
         final_stats.chunk_index = self.chunk.chunk_index
         final_stats.rate_search_time = rate_search_time
         self.ctx.log(
@@ -675,10 +875,10 @@ class AdaptiveCommand(BaseCommandObject):
             f" vmaf={final_stats.vmaf} "
             f" time={int(final_stats.time_encoding)}s "
             f" bitrate={final_stats.bitrate}k"
-            f" bitrate_target_miss={target_miss_proc:.2f}%"
+            # f" bitrate_target_miss={target_miss_proc:.2f}%"
             f" chunk_length={round(self.chunk.get_lenght(), 2)}s"
             f" total_fps={total_fps}"
         )
         # save the stats to [temp_folder]/chunks.log
         with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
-            f.write(json.dumps(final_stats.get_dict()) + "\n")
+            f.write(json.dumps(final_stats.__dict__()) + "\n")

@@ -9,12 +9,14 @@ import random
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
+from math import log
 from typing import List, Tuple
 
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
@@ -33,20 +35,6 @@ class AutoBitrateCacheObject:
     def __init__(self, bitrate: int, ssim_db: float):
         self.bitrate = bitrate
         self.ssim_db = ssim_db
-
-
-def crabby_paddy_formula(bitrate: int, speed_used: int, crf_used: int) -> float:
-    """
-    A formula that tries to estimate the complexity of a chunk based on the crf bitrate
-    :param bitrate:  in kb/s e.g., 2420
-    :param speed_used: svtav1 speed used to encode the chunk
-    :param crf_used: crf used to encode the chunk
-    :return: complexity score
-    """
-    bitrate_ = bitrate / 1000
-    # remove 5% for every speed above 4
-    bitrate_ -= min(0, speed_used - 4) * (bitrate_ * 0.05)
-    return bitrate_
 
 
 class AutoBitrateLadder:
@@ -83,24 +71,25 @@ class AutoBitrateLadder:
         if os.path.exists(path):
             os.remove(path)
 
-    def get_complexity(self, c: ChunkObject) -> Tuple[int, float]:
-        enc = self.config.get_encoder()
-        enc.setup(chunk=c, config=self.config)
-        enc.update(
-            speed=12,
-            passes=1,
-            rate_distribution=EncoderRateDistribution.CQ,
-            crf=16,
-            threads=1,
-            grain_synth=0,
+    @staticmethod
+    def get_complexity(enc: Encoder, c: ChunkObject) -> Tuple[int, float]:
+        _enc = copy.deepcopy(enc)
+        _enc.setup(chunk=c, config=AlabamaContext())
+        _enc.speed = 12
+        _enc.passes = 1
+        _enc.rate_distribution = EncoderRateDistribution.CQ
+        _enc.crf = 16
+        _enc.threads = 1
+        _enc.grain_synth = 0
+        _enc.output_path = (
+            f"/tmp/{c.chunk_index}_complexity{_enc.get_chunk_file_extension()}"
         )
-        timetook = time.time()
-        stats: EncodeStats = enc.run()
-        formula = crabby_paddy_formula(stats.bitrate, enc.speed, enc.crf)
-        tqdm.write(
-            f"[{c.chunk_index}] complexity: {formula:.2f} in {time.time() - timetook:.2f}s"
-        )
-        os.remove(c.chunk_path)
+        stats: EncodeStats = _enc.run()
+        formula = log(stats.bitrate)
+        # self.config.log(
+        #     f"[{c.chunk_index}] complexity: {formula:.2f} in {stats.time_encoding}s"
+        # )
+        os.remove(_enc.output_path)
         return c.chunk_index, formula
 
     def calculate_chunk_complexity(self) -> List[Tuple[int, float]]:

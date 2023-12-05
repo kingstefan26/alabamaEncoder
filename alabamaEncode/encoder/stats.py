@@ -50,8 +50,8 @@ class EncodeStats:
         self.version = version
         self.vmaf_result = vmaf_result
 
-    def get_dict(self):
-        stats = {
+    def __dict__(self):
+        return {
             "time_encoding": self.time_encoding,
             "bitrate": self.bitrate,
             "vmaf": self.vmaf,
@@ -71,7 +71,6 @@ class EncodeStats:
             "basename": self.basename,
             "version": self.version,
         }
-        return stats
 
     def save(self, path):
         """
@@ -80,7 +79,7 @@ class EncodeStats:
         :return: nun
         """
         with open(path, "w") as f:
-            json.dump(self.get_dict(), f)
+            json.dump(self.__dict__(), f)
 
     def __str__(self):
         return str(self.__dict__)

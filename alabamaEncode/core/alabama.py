@@ -14,6 +14,7 @@ from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.scene.chunk import ChunkObject
 
 
 class AlabamaContext:
@@ -61,6 +62,8 @@ class AlabamaContext:
     qm_min: int = 8
     qm_max: int = 15
     film_grain_denoise: (0 | 1) = 1
+    tile_rows = -1
+    tile_cols = -1
 
     find_best_bitrate = False
     vbr_perchunk_optimisation: bool = True
@@ -82,6 +85,7 @@ class AlabamaContext:
     vmaf_phone_model = False
     vmaf_no_motion = False
     probe_speed_override = speed
+    ai_vmaf_targeting = False
 
     flag1: bool = False
     flag2: bool = False
@@ -110,6 +114,33 @@ class AlabamaContext:
 
     def get_encoder(self) -> Encoder:
         return self.encoder.get_encoder()
+
+    def get_output_res(self) -> List[int]:
+        """
+        Returns the output resolution
+        """
+        enc = self.encoder.get_encoder()
+        enc.setup(
+            config=self,
+            chunk=(
+                ChunkObject(
+                    path=self.raw_input_file, first_frame_index=0, last_frame_index=2
+                )
+            ),
+        )
+        enc.speed = 12
+        enc.passes = 1
+        enc.rate_distribution = EncoderRateDistribution.CQ
+        enc.crf = 60
+        temp_output = PathAlabama(
+            f"/tmp/{time.time()}_resprobe{enc.get_chunk_file_extension()}"
+        )
+        enc.output_path = temp_output.get()
+        enc.run()
+        width = Ffmpeg.get_width(temp_output)
+        height = Ffmpeg.get_height(temp_output)
+        os.remove(enc.output_path)
+        return [width, height]
 
 
 def setup_video_filters(ctx: AlabamaContext) -> AlabamaContext:
@@ -269,6 +300,49 @@ def scrape_hdr_metadata(ctx: AlabamaContext) -> AlabamaContext:
     return ctx
 
 
+def setup_tiles(ctx: AlabamaContext) -> AlabamaContext:
+    if ctx.encoder == EncodersEnum.SVT_AV1 or ctx.encoder == EncodersEnum.AOMENC:
+        if ctx.tile_cols == -1 and ctx.tile_rows == -1:
+            width, height = ctx.get_output_res()
+
+            def calculate_tiles(video_width, video_height, target_pixels_per_tile):
+                # when target_pixels_per_tile is 2,000,000 -> 1 tile at 1080p
+                # when target_pixels_per_tile is 1,000,000 -> 2 tiles at 1080p
+                rowsl = 0
+                colsl = 0
+                ctpx = video_width * video_height
+                # current tile pixels, starts at the full size of the video
+                # we subdivide until <4/3 of targetPixelsPerTile
+                ctar = video_width / video_height
+                # current tile aspect ratio, we subdivide into cols if >1 and rows if ≤1
+                while ctpx >= target_pixels_per_tile * 4 / 3:
+                    if ctar > 1:
+                        # Subdivide into columns, add 1 to colsl and halve ctar, then halve ctpx
+                        colsl += 1
+                        ctar /= 2
+                        ctpx /= 2
+                    else:
+                        # Subdivide into rows, add 1 to rowsl and double ctar, then halve ctpx
+                        rowsl += 1
+                        ctar *= 2
+                        ctpx /= 2
+                return {
+                    "tileRowsLog2": rowsl,
+                    "tileColsLog2": colsl,
+                    "tileRows": 2**rowsl,
+                    "tileCols": 2**colsl,
+                }
+
+            tile_info = calculate_tiles(width, height, 1_666_666)
+            print(
+                f"Calculated tile cols: {tile_info['tileCols']} tile rows: {tile_info['tileRows']}"
+            )
+            ctx.tile_rows = tile_info["tileRowsLog2"]
+            ctx.tile_cols = tile_info["tileColsLog2"]
+
+    return ctx
+
+
 def setup_rd(ctx: AlabamaContext) -> AlabamaContext:
     if ctx.crf != -1:
         print("Using crf mode")
@@ -399,6 +473,7 @@ def setup_context() -> AlabamaContext:
             do_autocrop,
             compute_resolution_presets,
             setup_video_filters,
+            setup_tiles,
         ],
     )
 
@@ -798,6 +873,13 @@ def parse_args(ctx: AlabamaContext) -> AlabamaContext:
         help="HD FHD UHD",
     )
 
+    parser.add_argument(
+        "--vmaf_ai_assisted_targeting",
+        action="store_true",
+        default=ctx.ai_vmaf_targeting,
+        help="use vmaf ai assisted targeting",
+    )
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -857,4 +939,5 @@ def parse_args(ctx: AlabamaContext) -> AlabamaContext:
     ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
     ctx.crf_map = args.flag4
+    ctx.ai_vmaf_targeting = args.vmaf_ai_assisted_targeting
     return ctx
