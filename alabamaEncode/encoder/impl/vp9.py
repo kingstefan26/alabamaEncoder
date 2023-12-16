@@ -1,13 +1,20 @@
 import re
 from typing import List
 
-from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderVPX(Encoder):
+    def get_enum(self) -> EncodersEnum:
+        if self.codec == "vp9":
+            return EncodersEnum.VP9
+        elif self.codec == "vp8":
+            return EncodersEnum.VP8
+
     def __init__(self, codec):
         super().__init__()
         if codec != "vp9" and codec != "vp8":

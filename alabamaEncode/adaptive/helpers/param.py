@@ -26,23 +26,21 @@ class AutoParam:
         probe_folder,
     ):
         svt = self.config.get_encoder()
-        svt.setup(chunk=chunk, config=self.config)
-        svt.update(
-            passes=1,
-            crf=16,
-            rate_distribution=EncoderRateDistribution.CQ,
-            threads=3,
-            speed=5,
-        )
+        svt.chunk = chunk
+        svt.passes = 1
+        svt.crf = 16
+        svt.rate_distribution = EncoderRateDistribution.CQ
+        svt.threads = 3
+        svt.speed = 5
         chunk.chunk_path = probe_folder + probe_name
-        svt.update(output_path=chunk.chunk_path)
+        svt.output_path = chunk.chunk_path
         svt.qm_enabled = qm_enabled
         svt.qm_min = qm_min
         svt.qm_max = qm_max
         svt.run()
         db_rate = (os.path.getsize(chunk.chunk_path) / 1000) / calculate_metric(
             chunk=chunk,
-            video_filters=self.config.video_filters,
+            video_filters=self.config.prototype_encoder.video_filters,
         ).mean
         print(f"{probe_name} -> {db_rate} DB rate")
         runs.append(

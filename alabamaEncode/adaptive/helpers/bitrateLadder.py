@@ -14,7 +14,9 @@ from typing import List, Tuple
 
 from tqdm import tqdm
 
-from alabamaEncode.adaptive.util import get_test_chunks_out_of_a_sequence
+from alabamaEncode.adaptive.helpers.probe_chunks import (
+    get_test_chunks_out_of_a_sequence,
+)
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
@@ -74,7 +76,7 @@ class AutoBitrateLadder:
     @staticmethod
     def get_complexity(enc: Encoder, c: ChunkObject) -> Tuple[int, float]:
         _enc = copy.deepcopy(enc)
-        _enc.setup(chunk=c, config=AlabamaContext())
+        _enc.chunk = c
         _enc.speed = 12
         _enc.passes = 1
         _enc.rate_distribution = EncoderRateDistribution.CQ
@@ -152,21 +154,23 @@ class AutoBitrateLadder:
 
         return complexity_scores
 
-    def get_best_crf_guided(self) -> int:
+    def get_best_crf_guided(self):
         """
         :return: The best average crf found based on probing a random selection of chunks in the chunk sequence.
         """
         print("Finding best bitrate")
         probe_folder = f"{self.config.temp_folder}/adapt/crf/"
 
-        if os.path.exists(probe_folder + "cache.pt"):
-            try:
-                print("Found cache file, reading")
-                avg_best = pickle.load(open(probe_folder + "cache.pt", "rb"))
-                print(f"Best avg crf: {avg_best} crf")
-                return avg_best
-            except:
-                pass
+        cache_file = probe_folder + "cache.pt"
+        if os.path.exists(cache_file):
+            print("Found cache file, reading")
+            cutoff_bitrate, avg_best_crf = pickle.load(open(cache_file, "rb"))
+            print(
+                f"Best avg crf: {avg_best_crf} crf; Cuttoff bitrate: {self.config.cutoff_bitrate} kbps"
+            )
+            self.config.cutoff_bitrate = cutoff_bitrate
+            self.config.prototype_encoder.crf = avg_best_crf
+            return
 
         shutil.rmtree(probe_folder, ignore_errors=True)
         os.makedirs(probe_folder)
@@ -223,15 +227,11 @@ class AutoBitrateLadder:
 
         chunk_runs_crfs = [command.best_crf for command in commands]
 
-        avg_best = int(sum(chunk_runs_crfs) / len(chunk_runs_crfs))
+        avg_best_crf = int(sum(chunk_runs_crfs) / len(chunk_runs_crfs))
 
-        print(f"Crf for 80%tile chunks matching {self.config.vmaf}VMAF: {avg_best} crf")
-
-        try:
-            print("Saving bitrate ladder detection cache file")
-            pickle.dump(avg_best, open(probe_folder + "cache.pt", "wb"))
-        except:
-            print("Failed to save cache file for best average bitrate")
+        print(
+            f"Crf for 80%tile chunks matching {self.config.vmaf}VMAF: {avg_best_crf} crf"
+        )
 
         print("Probing top 5%tile complex chunks for cutoff bitrate")
 
@@ -241,7 +241,6 @@ class AutoBitrateLadder:
         ]
 
         # get a random 30% of the top 5% most complex chunks
-
         random_complex_chunks = random.sample(
             top_complex_chunks, int(len(top_complex_chunks) * 0.30)
         )
@@ -252,12 +251,13 @@ class AutoBitrateLadder:
                 if c.chunk_index == chunk[0]:
                     chunks_for_max_probe.append(copy.deepcopy(c))
 
-        cutoff_bitreate = self.crf_to_bitrate(avg_best, chunks_for_max_probe)
+        cutoff_bitrate = self.crf_to_bitrate(avg_best_crf, chunks_for_max_probe)
 
-        self.config.cutoff_bitrate = cutoff_bitreate
-        self.config.crf = avg_best
+        print("Saving crf ladder detection cache file")
+        pickle.dump((cutoff_bitrate, avg_best_crf), open(cache_file, "wb"))
 
-        return avg_best
+        self.config.cutoff_bitrate = cutoff_bitrate
+        self.config.prototype_encoder.crf = avg_best_crf
 
     def get_cutoff_bitrate_from_crf(self, crf):
         probe_folder = f"{self.config.temp_folder}/adapt/crf_to_bitrate/"
@@ -373,7 +373,7 @@ class AutoBitrateLadder:
             print(f"Using capped crf mode, finding crf that matches the target bitrate")
             target_crf = self.get_target_crf(avg_best)
             print(f"Avg crf for {avg_best}Kpbs: {target_crf}")
-            self.config.crf = target_crf
+            self.config.prototype_encoder.crf = target_crf
             self.config.max_bitrate = int(avg_best * 1.6)
 
         try:
@@ -418,13 +418,6 @@ class AutoBitrateLadder:
             chunk.chunk_index = i
             chunk.chunk_path = f"{probe_folder}{i}{encoder_extension}"
 
-        # chunk_runs_bitrates = []
-        # pool = ThreadPool(processes=self.simultaneous_probes)
-        # for result in pool.imap_unordered(self.best_bitrate_single, chunks):
-        #     chunk_runs_bitrates.append(result)
-        # pool.close()
-        # pool.join()
-
         commands = [GetBestBitrate(self, chunk) for chunk in chunks]
 
         loop = asyncio.get_event_loop()
@@ -449,7 +442,7 @@ class AutoBitrateLadder:
             )
             target_crf = self.get_target_crf(avg_best)
             print(f"Avg crf for {avg_best}Kpbs: {target_crf}")
-            self.config.crf = target_crf
+            self.config.prototype_encoder.crf = target_crf
             self.config.max_bitrate = int(avg_best * 1.6)
 
         try:
@@ -465,16 +458,14 @@ class AutoBitrateLadder:
         :param chunk: chunk that we will be testing
         :return: ideal bitrate for that chunk based on self.config's vmaf
         """
-        encoder = self.config.get_encoder()
-        encoder.setup(chunk=chunk, config=self.config)
-        encoder.update(
-            speed=6,
-            passes=3,
-            grain_synth=self.config.grain_synth,
-            rate_distribution=EncoderRateDistribution.VBR,
-            threads=1,
-        )
-        encoder.svt_bias_pct = 90
+        enc = self.config.get_encoder()
+        enc.chunk = chunk
+        enc.speed = 6
+        enc.passes = 3
+        enc.grain_synth = self.config.prototype_encoder.grain_synth
+        enc.rate_distribution = EncoderRateDistribution.VBR
+        enc.threads = 1
+        enc.svt_bias_pct = 90
 
         runs = []
 
@@ -484,41 +475,22 @@ class AutoBitrateLadder:
 
         while left <= right and num_probes < self.num_probes:
             num_probes += 1
-            mid = (left + right) // 2
-            encoder.update(bitrate=mid)
-            encoder.run(timeout_value=300)
-            mid_vmaf = calculate_metric(
-                chunk=chunk,
-                video_filters=self.config.video_filters,
-                vmaf_options=VmafOptions(
-                    uhd=True,
-                    neg=True,
-                ),
-            ).mean
+            mid_bitrate = (left + right) // 2
+            enc.bitrate = mid_bitrate
+            mid_vmaf = enc.run(
+                timeout_value=300,
+                calculate_vmaf=True,
+                vmaf_params=VmafOptions(uhd=True, neg=True),
+            ).vmaf_result.mean
 
-            tqdm.write(f"{chunk.log_prefix()}{mid} kbps -> {mid_vmaf} vmaf")
+            tqdm.write(f"{chunk.log_prefix()}{mid_bitrate} kbps -> {mid_vmaf} vmaf")
 
-            runs.append((mid, mid_vmaf))
+            runs.append((mid_bitrate, mid_vmaf))
 
             if mid_vmaf < self.config.vmaf:
-                left = mid + 1
+                left = mid_bitrate + 1
             else:
-                right = mid - 1
-
-        # find two points that are closest to the target vmaf
-        # point1 = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))
-        # runs.remove(point1)
-        # point2 = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))
-
-        # linear interpolation to find the bitrate that gives us the target vmaf
-        # best_inter = point1[0] + (point2[0] - point1[0]) * (self.config.vmaf - point1[1]) / (point2[1] - point1[1])
-        # if best_inter > self.max_bitrate:
-        #     best_inter = self.max_bitrate
-        #
-        # if best_inter < 0:
-        #     print(f'{chunk.log_prefix()}vmaf linar interpolation failed, using most fitting point {point1[0]}')
-        #     best_inter = point1[0]
-        # best_inter = point1[0]
+                right = mid_bitrate - 1
 
         best_inter = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))[0]
 
@@ -533,14 +505,11 @@ class AutoBitrateLadder:
         :return: ideal crf for that chunk based on self.config's vmaf
         """
         encoder = self.config.get_encoder()
-        encoder.setup(chunk=chunk, config=self.config)
-        encoder.update(
-            speed=6,
-            passes=3,
-            grain_synth=self.config.grain_synth,
-            rate_distribution=EncoderRateDistribution.CQ,
-            threads=1,
-        )
+        encoder.chunk = chunk
+        encoder.speed = 6
+        encoder.passes = 1
+        encoder.rate_distribution = EncoderRateDistribution.CQ
+        encoder.threads = 1
 
         runs = []
 
@@ -550,27 +519,27 @@ class AutoBitrateLadder:
 
         while left <= right and num_probes < self.num_probes:
             num_probes += 1
-            mid = (left + right) // 2
-            encoder.update(crf=mid)
+            mid_crf = (left + right) // 2
+            encoder.crf = mid_crf
             encoder.run(timeout_value=300)
 
             mid_vmaf = calculate_metric(
                 chunk=chunk,
-                video_filters=self.config.video_filters,
+                video_filters=self.config.prototype_encoder.video_filters,
                 vmaf_options=VmafOptions(
                     uhd=True,
                     neg=True,
                 ),
             ).mean
 
-            tqdm.write(f"{chunk.log_prefix()}{mid} crf -> {mid_vmaf} vmaf")
+            tqdm.write(f"{chunk.log_prefix()}{mid_crf} crf -> {mid_vmaf} vmaf")
 
-            runs.append((mid, mid_vmaf))
+            runs.append((mid_crf, mid_vmaf))
 
             if mid_vmaf < self.config.vmaf:
-                right = mid - 1
+                right = mid_crf - 1
             else:
-                left = mid + 1
+                left = mid_crf + 1
 
         best_inter = min(runs, key=lambda x: abs(x[1] - self.config.vmaf))[0]
 
@@ -585,7 +554,7 @@ class AutoBitrateLadder:
         """
         shutil.rmtree(f"{self.config.temp_folder}/adapt/bitrate/ssim_translate")
 
-    def get_target_ssimdb(self, bitrate: int):
+    def get_target_ssimdb(self, bitrate: int) -> float:
         """
         Since in the AutoBitrate we are targeting ssim dB values, we need to somehow translate vmaf to ssim dB
         :param bitrate: bitrate in kbps
@@ -615,10 +584,7 @@ class AutoBitrateLadder:
         target_ssimdb = sum(dbs) / len(dbs)
 
         print(f"Avg ssim dB for {bitrate}Kbps: {target_ssimdb}dB")
-        try:
-            pickle.dump(target_ssimdb, open(cache_path, "wb"))
-        except:
-            pass
+        pickle.dump(target_ssimdb, open(cache_path, "wb"))
         return target_ssimdb
 
     def calulcate_ssimdb(self, bitrate: int, chunk: ChunkObject, dbs: List[float]):
@@ -629,7 +595,7 @@ class AutoBitrateLadder:
         :param dbs: The list to append the ssim dB to
         """
         enc = self.config.get_encoder()
-        enc.setup(chunk=chunk, config=self.config)
+        enc.chunk = chunk
         enc.speed = 6
         enc.passes = 3
         enc.grain_synth = 0
@@ -656,22 +622,20 @@ class AutoBitrateLadder:
 
         def sub(c: ChunkObject):
             encoder = self.config.get_encoder()
-            encoder.setup(chunk=c, config=self.config)
+            encoder.chunk = c
             probe_folder = f"{self.config.temp_folder}/adapt/crf_to_bitrate/"
             os.makedirs(probe_folder, exist_ok=True)
-            encoder.update(
-                speed=5,
-                passes=1,
-                grain_synth=self.config.grain_synth,
-                rate_distribution=EncoderRateDistribution.CQ,
-                threads=1,
-                crf=crf,
-                output_path=f"{probe_folder}{c.chunk_index}_{crf}{encoder.get_chunk_file_extension()}",
-            )
+            encoder.speed = 5
+            encoder.passes = 1
+            encoder.grain_synth = self.config.prototype_encoder.grain_synth
+            encoder.rate_distribution = EncoderRateDistribution.CQ
+            encoder.threads = 1
+            encoder.crf = crf
+            encoder.output_path = f"{probe_folder}{c.chunk_index}_{crf}{encoder.get_chunk_file_extension()}"
 
             stats = encoder.run(timeout_value=500)
 
-            print(f"[{c.chunk_index}] {crf} crf ~> {stats.bitrate} bitrate")
+            print(f"[{c.chunk_index}] {crf} crf -> {stats.bitrate} kb/s")
             bitrates.append(stats.bitrate)
 
         with ThreadPoolExecutor(max_workers=self.simultaneous_probes) as executor:
@@ -694,14 +658,12 @@ class AutoBitrateLadder:
 
         def sub(c: ChunkObject):
             encoder = self.config.get_encoder()
-            encoder.setup(chunk=c, config=self.config)
-            encoder.update(
-                speed=5,
-                passes=1,
-                grain_synth=self.config.grain_synth,
-                rate_distribution=EncoderRateDistribution.CQ,
-                threads=1,
-            )
+            encoder.chunk = c
+            encoder.speed = 5
+            encoder.passes = 1
+            encoder.grain_synth = self.config.prototype_encoder.grain_synth
+            encoder.rate_distribution = EncoderRateDistribution.CQ
+            encoder.threads = 1
 
             probe_folder = f"{self.config.temp_folder}/adapt/bitrate/"
             os.makedirs(probe_folder, exist_ok=True)
@@ -716,10 +678,8 @@ class AutoBitrateLadder:
             while left <= right and num_probes < max_probes:
                 num_probes += 1
                 mid = (left + right) // 2
-                encoder.update(
-                    crf=mid,
-                    output_path=f"{probe_folder}{c.chunk_index}_{mid}{encoder.get_chunk_file_extension()}",
-                )
+                encoder.crf = mid
+                encoder.output_path = f"{probe_folder}{c.chunk_index}_{mid}{encoder.get_chunk_file_extension()}"
                 stats = encoder.run(timeout_value=500)
 
                 print(f"[{c.chunk_index}] {mid} crf ~> {stats.bitrate} kb/s")
@@ -788,4 +748,6 @@ class GetComplexity(BaseCommandObject):
         self.chunk = chunk
 
     def run(self):
-        self.complexity = self.auto_bitrate_ladder.get_complexity(self.chunk)
+        self.complexity = self.auto_bitrate_ladder.get_complexity(
+            c=self.chunk, enc=self.auto_bitrate_ladder.config.get_encoder()
+        )

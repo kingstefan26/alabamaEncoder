@@ -1,13 +1,18 @@
-import re
 from typing import List
 
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderX264(Encoder):
+    def get_enum(self) -> EncodersEnum:
+        return EncodersEnum.X264
+
     def get_version(self) -> str:
         # x264 core:164 r3095 baee400
         # Syntax: x264 [options] -o outfile infile
@@ -28,14 +33,18 @@ class EncoderX264(Encoder):
 
         self.speed = max(min(self.speed, 9), 0)
 
+        if not self.hdr:
+            self.bit_override = 8
+
         kommand = (
             f" {self.get_ffmpeg_pipe_command()} | {get_binary('x264')} - --stdin y4m "
         )
 
         kommand += f" --threads {self.threads} "
 
+        kommand += f" --output-depth {self.bit_override} "
         if self.hdr:
-            kommand += f" --output-depth {self.bit_override} "
+            kommand += f" --profile high10 --hdr "
             colormatrix = self.matrix_coefficients
             if colormatrix == "bt2020-ncl":
                 colormatrix = "bt2020nc"
@@ -49,19 +58,20 @@ class EncoderX264(Encoder):
             )
             # if self.svt_master_display:
             #     kommand += f' --mastering-display "{self.svt_master_display}" '
+        else:
+            kommand += " --colorprim bt709 --transfer bt709 --colormatrix bt709 "
+            kommand += " --profile high --force-cfr "
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:
                 self.passes = 1
                 kommand += f" --crf {self.crf}"
+            case EncoderRateDistribution.VBR:
+                kommand += f" --bitrate {self.bitrate} "
             case EncoderRateDistribution.CQ_VBV:
-                raise Exception("FATAL: rate distribution CQ_VBV not supported")
-                # kommand += f" -crf {self.crf} -maxrate {self.bitrate}k -bufsize {self.bitrate * 1.5}k"
+                kommand += f" --crf {self.crf} --bitrate {self.bitrate} "
             case EncoderRateDistribution.VBR_VBV:
                 raise Exception("FATAL: rate distribution VBR_VBV not supported")
-            case EncoderRateDistribution.VBR:
-                raise Exception("FATAL: rate distribution VBR not supported")
-                # kommand += f" -b:v {self.bitrate}k -maxrate {self.bitrate * 1.1}k -bufsize {self.bitrate * 1.5}k "
 
         match self.speed:
             case 9:
@@ -85,34 +95,26 @@ class EncoderX264(Encoder):
             case 0:
                 kommand += " --preset placebo"
 
-        # if this is not optimal, yell at @oofer_dww on disc
-        if self.speed < 5:
-            pass
-            # kommand += (
-            #     "--no-fast-pskip --bframes 8 --scenecut 20 --aq-mode 3 --merange 48 --no-mbtree "
-            #     "--non-deterministic"
-            # )
-            # kommand += " --no-mbtree --vbv-maxrate 20000 --vbv-bufsize 25000 --nal-hrd vbr --rc-lookahead 40 "
+        kommand += f" --tune {self.x264_tune} "
 
         kommand += f" --keyint {self.keyint} "
 
-        if self.passes == 2:
-            raise Exception("FATAL: 2 pass not supported")
-            # kommand += f" -passlogfile {self.output_path}.x264stat "
-            # return [
-            #     f"{kommand} -pass 1 -f null /dev/null",
-            #     f"{kommand} -pass 2 {self.output_path}",
-            # ]
+        kommand += " --stitchable "
 
+        kommand += f" --muxer mkv "
+
+        kommand += f" --fps {Ffmpeg.get_fps_fraction(PathAlabama(self.chunk.path))} "
+
+        if self.passes >= 2:
+            pass_1 = f'{kommand} --pass 1 --stats "{self.output_path}.stats" -o "{self.output_path}"'
+            pass_2 = f'{kommand} --pass 2 --stats "{self.output_path}.stats" -o "{self.output_path}"'
+            cleanups = [
+                f"rm -f {self.output_path}.stats",
+                f"rm -f {self.output_path}.stats.mbtree",
+            ]
+            return [pass_1, pass_2, cleanups]
         elif self.passes == 1:
-            avc_file = self.output_path.replace(".mkv", ".h264")
-            remux_command = (
-                f'{get_binary("mkvmerge")} -o "{self.output_path}" "{avc_file}"'
-            )
-            del_commnad = f'rm "{avc_file}"'
-
-            return [f"{kommand} -o {avc_file}", remux_command, del_commnad]
-            # return [f"{kommand} -o {self.output_path}"]
+            return [f'{kommand} -o "{self.output_path}"']
 
     def get_chunk_file_extension(self) -> str:
         return ".mkv"
@@ -120,16 +122,16 @@ class EncoderX264(Encoder):
     def supports_float_crfs(self) -> bool:
         return True
 
-    def parse_output_for_output(self, buffer) -> List[str]:
-        # 42 frames: 3.60 fps, 2481.60 kb/s
-        if buffer is None:
-            return []
-        match = re.search(r"\d+ frames: .+ kb/s", buffer)
-        if match:  # check if we are past the header, also extract the string
-            _match = re.search(
-                r"(\d+) frames: ([0-9.]+) fps, ([0-9.]+) kb/s",
-                match.group(0),
-            )  # parse out the frame number, time, and bitrate
-            return [_match.group(1), _match.group(2), _match.group(3)]
-        else:
-            return []
+    # def parse_output_for_output(self, buffer) -> List[str]:
+    #     # 42 frames: 3.60 fps, 2481.60 kb/s
+    #     if buffer is None:
+    #         return []
+    #     match = re.search(r"\d+ frames: .+ kb/s", buffer)
+    #     if match:  # check if we are past the header, also extract the string
+    #         _match = re.search(
+    #             r"(\d+) frames: ([0-9.]+) fps, ([0-9.]+) kb/s",
+    #             match.group(0),
+    #         )  # parse out the frame number, time, and bitrate
+    #         return [_match.group(1), _match.group(2), _match.group(3)]
+    #     else:
+    #         return []

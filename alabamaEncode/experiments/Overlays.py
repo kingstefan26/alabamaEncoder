@@ -3,7 +3,7 @@ Testing enable-overlays.md in svtav1 using crf
 """
 import os
 
-from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.experiments.util.ExperimentUtil import (
     run_tests_across_range,
     read_report,
@@ -117,14 +117,14 @@ def analyze():
 
 
 def test():
-    enc_control = EncoderSvtenc()
-    enc_control.update(speed=4)
+    enc_control = EncoderSvt()
+    enc_control.speed = 4
     enc_control.threads = 12
     enc_control.svt_tune = 1
     enc_control.svt_overlay = 0
 
-    enc_test = EncoderSvtenc()
-    enc_test.update(speed=4)
+    enc_test = EncoderSvt()
+    enc_test.speed = 4
     enc_test.threads = 12
     enc_test.svt_tune = 1
     enc_test.svt_overlay = 1

@@ -3,7 +3,7 @@ Testing svtav1 speed 2v3v4 and which one is the best tradeoff
 """
 import os
 
-from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject
@@ -17,9 +17,8 @@ if __name__ == "__main__":
 
         crope_stringe = ""
 
-        svtenc = EncoderSvtenc()
+        svtenc = EncoderSvt()
 
-        svtenc.update()
         svtenc.svt_chroma_thing = 0
         svtenc.keyint = 999
         svtenc.svt_bias_pct = 50
@@ -30,31 +29,30 @@ if __name__ == "__main__":
         if not os.path.exists(test_env):
             os.mkdir(test_env)
 
-        svtenc.update(
-            rate_distribution=EncoderRateDistribution.VBR,
-            bitrate=1500,
-            passes=3,
-            chunk=chunk,
-            current_scene_index=0,
-            threads=12,
-            video_filters=crope_stringe,
-            grain_synth=3,
-        )
+        svtenc.rate_distribution = EncoderRateDistribution.VBR
+        svtenc.bitrate = 1500
+        svtenc.passes = 3
+        svtenc.chunk = chunk
+        svtenc.current_scene_index = 0
+        svtenc.threads = 12
+        svtenc.video_filters = crope_stringe
+        svtenc.grain_synth = 3
 
         if "liveAction_normal" in path:
-            svtenc.update(bitrate=1000)
+            svtenc.bitrate = 1000
         elif "liveAction_highMotion" in path:
-            svtenc.update(bitrate=2000)
+            svtenc.bitrate = 2000
         elif "Animation" in path:
-            svtenc.update(bitrate=1500)
+            svtenc.bitrate = 1500
         elif "stopmotion" in path:
-            svtenc.update(bitrate=3000)
+            svtenc.bitrate = 3000
         elif "liveAction_4k" in path:
-            svtenc.update(bitrate=4000)
+            svtenc.bitrate = 4000
         elif "liveaction_bright" in path:
-            svtenc.update(bitrate=1000)
+            svtenc.bitrate = 1000
 
-        svtenc.update(rate_distribution=EncoderRateDistribution.VBR, passes=3)
+        svtenc.rate_distribution = EncoderRateDistribution.VBR
+        svtenc.passes = 3
 
         print(
             f"| _Vbr {svtenc.bitrate}_ |  time taken  | kpbs | vmaf  | BD Change % | time Change % |\n"
@@ -64,7 +62,8 @@ if __name__ == "__main__":
         four_time = -1
         for speed in [4, 3, 2]:
             print(f"\nRunning speed {speed}")
-            svtenc.update(output_path=f"{test_env}speed{speed}.ivf", speed=speed)
+            svtenc.output_path = f"{test_env}speed{speed}.ivf"
+            svtenc.speed = speed
             print(svtenc.get_encode_commands())
             quit()
             stats = alabamaEncode.core.run(

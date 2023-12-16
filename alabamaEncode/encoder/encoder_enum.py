@@ -42,28 +42,19 @@ class EncodersEnum(Enum):
         else:
             raise ValueError(f"FATAL: Unknown encoder name: {encoder_name}")
 
-    def supports_grain_synth(self) -> bool:
-        """
-        :return: True if the encoder supports grain synthesis, False otherwise
-        """
-        if self == EncodersEnum.SVT_AV1 or self == EncodersEnum.AOMENC:
-            return True
-        else:
-            return False
-
     def get_encoder(self):
         if self == EncodersEnum.X265:
             from alabamaEncode.encoder.impl.X265 import EncoderX265
 
             return EncoderX265()
         elif self == EncodersEnum.SVT_AV1:
-            from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+            from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 
-            return EncoderSvtenc()
+            return EncoderSvt()
         elif self == EncodersEnum.AOMENC:
-            from alabamaEncode.encoder.impl.Aomenc import EncoderAomEnc
+            from alabamaEncode.encoder.impl.Aomenc import EncoderAom
 
-            return EncoderAomEnc()
+            return EncoderAom()
         elif self == EncodersEnum.X264:
             from alabamaEncode.encoder.impl.X264 import EncoderX264
 

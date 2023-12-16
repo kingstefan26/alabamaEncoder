@@ -2,8 +2,8 @@ import asyncio
 import os
 import random
 
-from alabamaEncode.adaptive.analyser import analyze_content
 from alabamaEncode.adaptive.executor import AdaptiveCommand
+from alabamaEncode.conent_analysis.sequence_pipeline import run_sequence_pipeline
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.final_touches import (
     print_stats,
@@ -42,8 +42,9 @@ class AlabamaEncodingJob:
                 quit()
             print(f"Number of available workers: {len(num_workers)}")
         else:
-            enc_version = self.ctx.get_encoder().get_version()
-            print(f"Using {self.ctx.encoder} version: {enc_version}")
+            print(
+                f"Using {self.ctx.prototype_encoder.get_enum()} version: {self.ctx.prototype_encoder.get_version()}"
+            )
 
         if not os.path.exists(self.ctx.output_file):
             sequence: ChunkSequence = get_video_scene_list_skinny(
@@ -58,7 +59,8 @@ class AlabamaEncodingJob:
                 temp_folder=self.ctx.temp_folder,
                 extension=self.ctx.get_encoder().get_chunk_file_extension(),
             )
-            analyze_content(sequence, self.ctx)
+
+            run_sequence_pipeline(self.ctx, sequence)
             chunks_sequence = sequence
 
             iter_counter = 0
@@ -100,13 +102,16 @@ class AlabamaEncodingJob:
                         raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
 
                     if len(command_objects) < 10:
-                        ctx.threads = os.cpu_count()
+                        ctx.prototype_encoder.threads = os.cpu_count()
 
                     print(f"Starting encoding of {len(command_objects)} scenes")
 
                     loop.run_until_complete(
                         execute_commands(
-                            ctx.use_celery, command_objects, ctx.multiprocess_workers
+                            ctx.use_celery,
+                            command_objects,
+                            ctx.multiprocess_workers,
+                            pin_to_cores=ctx.pin_to_cores,
                         )
                     )
 
@@ -149,7 +154,8 @@ class AlabamaEncodingJob:
             scaled=(True if self.ctx.scale_string != "" else False),
             tonemaped=(
                 True
-                if not self.ctx.hdr and Ffmpeg.is_hdr(PathAlabama(self.ctx.input_file))
+                if not self.ctx.prototype_encoder.hdr
+                and Ffmpeg.is_hdr(PathAlabama(self.ctx.input_file))
                 else False
             ),
         )

@@ -62,9 +62,9 @@ def run_test(
     threads = os.cpu_count()
 
     # set the input and output input_path
-    enc.update(
-        chunk=(ChunkObject(path=input_file)), output_path=output_path, threads=threads
-    )
+    enc.chunk = ChunkObject(path=input_file)
+    enc.output_path = output_path
+    enc.threads = threads
     stats = enc.run(
         override_if_exists=False,
         calculate_vmaf=True,
@@ -260,11 +260,9 @@ def run_tests_across_range(
                 os.mkdir(bitrate_env)
 
             for bitrate in tqdm(bitrates, desc="Bitrates", leave=None):
-                enc.update(
-                    bitrate=bitrate,
-                    passes=3,
-                    rate_distribution=EncoderRateDistribution.VBR,
-                )
+                enc.bitrate = bitrate
+                enc.passes = 3
+                enc.rate_distribution = EncoderRateDistribution.VBR
                 version = f"enc{enc_index}_{bitrate}kbs"
                 if enc_index == 0:
                     version = f"control_{bitrate}kbs"
@@ -280,7 +278,9 @@ def run_tests_across_range(
             os.mkdir(crf_env)
 
         for crf in tqdm(crfs, desc="CRF", leave=None):
-            enc.update(crf=crf, passes=1, rate_distribution=EncoderRateDistribution.CQ)
+            enc.crf = crf
+            enc.passes = 1
+            enc.rate_distribution = EncoderRateDistribution.CQ
 
             version = f"enc{enc_index}_{crf}crf"
             if enc_index == 0:

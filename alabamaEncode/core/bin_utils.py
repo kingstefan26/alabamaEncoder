@@ -36,16 +36,21 @@ class FFmpegNotCompiledWithLibrary(Exception):
         return f"ffmpeg is not compiled with {self.lib_name}"
 
 
+ffmpeg_build_conf = ""
+
+
 def check_ffmpeg_libraries(lib_name: str) -> bool:
     """
     Checks if the ffmpeg libraries are compiled with the given library
     :param lib_name: name of the library
     :return: True if the library is compiled, False otherwise
     """
-    return (
-        run_cli(f"ffmpeg -v error -buildconf").verify().get_output().find(lib_name)
-        != -1
-    )
+    global ffmpeg_build_conf
+    if ffmpeg_build_conf == "":
+        ffmpeg_build_conf = (
+            run_cli(f"{get_binary('ffmpeg')} -v error -buildconf").verify().get_output()
+        )
+    return ffmpeg_build_conf.find(lib_name) != -1
 
 
 def verify_ffmpeg_library(lib_name: [str | List[str]]) -> None:
@@ -58,6 +63,20 @@ def verify_ffmpeg_library(lib_name: [str | List[str]]) -> None:
     for lib in lib_name:
         if not check_ffmpeg_libraries(lib):
             raise FFmpegNotCompiledWithLibrary(lib_name)
+
+
+def check_for_ffmpeg_libraries(lib_name: [str | List[str]]) -> bool:
+    """
+    Checks if the ffmpeg libraries are compiled with the given library, and returns True if it is, False otherwise
+    :param lib_name: name of the library(s)
+    :return: True if the library is compiled, False otherwise
+    """
+    if isinstance(lib_name, str):
+        lib_name = [lib_name]
+    for lib in lib_name:
+        if not check_ffmpeg_libraries(lib):
+            return False
+    return True
 
 
 class BinaryNotFound(Exception):

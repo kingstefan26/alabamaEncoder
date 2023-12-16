@@ -75,11 +75,11 @@ class VideoConcatenator:
         vid_output = self.output + ".videoonly.mkv"
         concat_command = (
             f'{get_binary("ffmpeg")} -y -stats -v error -f concat '
-            f'-safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 "{vid_output}"'
+            f'-safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 -vsync cfr "{vid_output}"'
         )
 
         print("Concating Video")
-        print(f"running: {concat_command}")
+        # print(f"running: {concat_command}")
         os.system(concat_command)
         if Ffmpeg.check_for_invalid(PathAlabama(vid_output)):
             print("Invalid file found, exiting")
@@ -103,7 +103,7 @@ class VideoConcatenator:
                 f'-i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} '
                 f'-map_metadata -1 "{audio_output}"'
             )
-            print(f"running: {encode_audio}")
+            # print(f"running: {encode_audio}")
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
                 print("Invalid file found, exiting")
@@ -123,21 +123,21 @@ class VideoConcatenator:
                     f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                     f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} '
                     f'-map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart '
-                    f'-c:v copy -c:a copy "{self.output}"'
+                    f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                 )
-                print(f"running: {final_command}")
+                # print(f"running: {final_command}")
                 out = run_cli(final_command).verify().get_output()
                 if (
                     "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
                     in str(out)
                 ):
                     print("Subtitle encoding failed, trying again")
-                    print(f"running: {final_command}")
+                    # print(f"running: {final_command}")
                     final_command = (
                         f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                         f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
                         f"{title_bit} -map 0:v -map 1:a -movflags +faststart "
-                        f'-c:v copy -c:a copy "{self.output}"'
+                        f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                     )
                     run_cli(final_command).verify()
             else:
@@ -153,7 +153,7 @@ class VideoConcatenator:
                                 f'{get_binary("ffmpeg")} -y -v error -itsoffset {self.start_offset} '
                                 f'-ss {self.start_offset} -i "{sub}" "{temp_sub}"'
                             )
-                            print(f"running: {encode_sub}")
+                            # print(f"running: {encode_sub}")
 
                     for i, sub in enumerate(self.subs_file):
                         if start_offset_command != "":
@@ -166,9 +166,9 @@ class VideoConcatenator:
                     f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                     f'{subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
                     f"{title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart "
-                    f'-c:v copy -c:a copy "{self.output}"'
+                    f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                 )
-                print(f"running: {final_command}")
+                # print(f"running: {final_command}")
                 run_cli(final_command)
 
             if not os.path.exists(self.output) or os.path.getsize(self.output) < 1000:
@@ -177,7 +177,7 @@ class VideoConcatenator:
                 raise Exception("VIDEO CONCAT FAILED")
 
             remove_command = f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"'
-            print(f"running: {remove_command}")
+            # print(f"running: {remove_command}")
             os.system(remove_command)
 
             return
@@ -189,7 +189,7 @@ class VideoConcatenator:
             ]
 
         for command in commands:
-            print("Running: " + command)
+            # print("Running: " + command)
 
             os.system(command)
         if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
@@ -211,8 +211,8 @@ def test():
     temp_dir = tempfile.mkdtemp()
     create_fake_ivf_and_test(temp_dir)
 
-    # make a sub dir and put 20 empty .ivf files
-    sub_dir = os.path.join(temp_dir, "sub")
+    # make a helpers dir and put 20 empty .ivf files
+    sub_dir = os.path.join(temp_dir, "helpers")
     os.mkdir(sub_dir)
     create_fake_ivf_and_test(temp_dir)
 

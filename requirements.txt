@@ -6,4 +6,3 @@ psutil
 opencv-python
 setuptools
 torf
-optuna

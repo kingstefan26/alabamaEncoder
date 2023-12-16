@@ -156,28 +156,15 @@ class Ffmpeg:
         command_v = f"ffprobe -v error -select_streams V:0 {common} {path.get_safe()}"
         command_a = f"ffprobe -v error -select_streams a:0 {common} {path.get_safe()}"
 
-        v_out = run_cli(command_v).get_output()
-        if isinstance(v_out, int):
-            print("Failed getting video bitrate")
-            return 0, 0
-        packets_v_arr = v_out.split("\n")
+        packets_v_arr = (
+            run_cli(command_v).verify().strip_mp4_warning().get_output().split("\n")
+        )
+        packets_a_arr = (
+            run_cli(command_a).verify().strip_mp4_warning().get_output().split("\n")
+        )
 
-        a_out = run_cli(command_a).get_output()
-        if isinstance(a_out, int):
-            print("Failed getting video bitrate")
-            return 0, 0
-        packets_a_arr = a_out.split("\n")
-
-        packets_v_bits = 0
-        packets_a_bits = 0
-
-        for i in packets_v_arr:
-            if i.isdigit():
-                packets_v_bits += int(i) * 8
-
-        for j in packets_a_arr:
-            if j.isdigit():
-                packets_a_bits += int(j) * 8
+        packets_v_bits = sum([int(i) * 8 for i in packets_v_arr if i.isdigit()])
+        packets_a_bits = sum([int(j) * 8 for j in packets_a_arr if j.isdigit()])
 
         real_duration = Ffmpeg.get_video_length(path)
 
@@ -191,13 +178,9 @@ class Ffmpeg:
 
     @staticmethod
     def get_tonemap_vf() -> str:
-        # tonemap_string = 'zscale=t=linear:npl=(>100),format=gbrpf32le,tonemap=tonemap=reinhard:desat=0,
-        # zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion,format=yuv420p10le'
-        tonemap_string = (
-            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,"
-            "zscale=t=bt709:m=bt709:r=tv:d=error_diffusion"
-        )
-        return tonemap_string
+        # https://ffmpeg.org/ffmpeg-filters.html#tonemap
+        verify_ffmpeg_library("libzimg")
+        return "zscale=t=linear,tonemap=mobius,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion"
 
     @staticmethod
     def get_first_frame_data(path: PathAlabama) -> dict:
@@ -246,8 +229,8 @@ class Ffmpeg:
 
         out = (
             run_cli(
-                f"{chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf)} | {get_binary('ffprobe')} -v error -select_streams v:0 "
-                f"-f lavfi -i 'movie=/dev/stdin,entropy,scdet,signalstats' -show_frames -of json"
+                f"{chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf)} | {get_binary('ffprobe')} -v error "
+                f"-select_streams v:0 -f lavfi -i 'movie=/dev/stdin,entropy,scdet,signalstats' -show_frames -of json"
             )
             .verify()
             .get_output()
@@ -318,11 +301,12 @@ class Ffmpeg:
         #       1,
         #       1,
         #       for every frame...
-        #     ]
+        #     ],
         #      "ti": [
         #       1,
         #       1,
         #       for every frame except the first...
+        #     ]
         # }
         # convert to:
         # {

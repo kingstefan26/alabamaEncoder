@@ -3,7 +3,7 @@ Testing the implementation of auto grain synth
 """
 import os
 
-from alabamaEncode.adaptive.sub.grain2 import calc_grainsynth_of_scene
+from alabamaEncode.adaptive.helpers.grain2 import calc_grainsynth_of_scene
 from alabamaEncode.scene.split import get_video_scene_list_skinny
 
 if __name__ == "__main__":

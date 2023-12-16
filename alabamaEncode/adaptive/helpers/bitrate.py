@@ -2,7 +2,7 @@ import os
 import pickle
 import time
 
-from alabamaEncode.adaptive.util import get_probe_file_base
+from alabamaEncode.adaptive.helpers.probe_file_path import get_probe_file_base
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.ssim.calc import get_video_ssim
 
@@ -39,25 +39,25 @@ def get_ideal_bitrate(
             f"{probe_file_base}complexity.probe.{encoder.get_chunk_file_extension()}"
         )
 
-        encoder.update(
-            speed=convex_speed,
-            passes=1,
-            temp_folder=config.temp_folder,
-            chunk=chunk,
-            grain_synth=0,
-            current_scene_index=chunk.chunk_index,
-            output_path=test_probe_path,
-            threads=1,
-            video_filters=config.video_filters,
-            bitrate=config.bitrate,
-            rate_distribution=EncoderRateDistribution.VBR,
-        )
+        encoder.speed = convex_speed
+        encoder.passes = 1
+        encoder.temp_folder = config.temp_folder
+        encoder.chunk = chunk
+        encoder.grain_synth = 0
+        encoder.current_scene_index = chunk.chunk_index
+        encoder.output_path = test_probe_path
+        encoder.threads = 1
+        encoder.video_filters = config.prototype_encoder.video_filters
+        encoder.rate_distribution = EncoderRateDistribution.VBR
 
         encoder.run(override_if_exists=False)
 
         try:
             (ssim, ssim_db) = get_video_ssim(
-                test_probe_path, chunk, get_db=True, video_filters=config.video_filters
+                test_probe_path,
+                chunk,
+                get_db=True,
+                video_filters=config.prototype_encoder.video_filters,
             )
         except Exception as e:
             print(f"Error calculating ssim for complexity rate estimation: {e}")
@@ -75,13 +75,13 @@ def get_ideal_bitrate(
             )
 
         # Interpolate the ideal rate using the ratio
-        ideal_rate = config.bitrate * ratio
+        ideal_rate = config.prototype_encoder.bitrate * ratio
         ideal_rate = int(ideal_rate)
 
         if show_rate_calc_log:
             print(
                 f"{chunk.log_prefix()}===============\n"
-                f"{chunk.log_prefix()} encode rate: {config.bitrate}k/s\n"
+                f"{chunk.log_prefix()} encode rate: {config.prototype_encoder.bitrate}k/s\n"
                 f"{chunk.log_prefix()} ssim dB when using target bitrate: {ssim_db} (wanted: {config.ssim_db_target})\n"
                 f"{chunk.log_prefix()} ratio = 10 ** (dB_target - dB) / 10 = {ratio}\n"
                 f"{chunk.log_prefix()} ideal rate: max(min(encode_rate * ratio, upper_clamp), bottom_clamp) = {ideal_rate:.2f}k/s\n"

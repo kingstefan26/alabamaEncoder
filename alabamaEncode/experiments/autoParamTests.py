@@ -4,7 +4,7 @@ Testing/evaluating autoParam
 
 import os
 
-from alabamaEncode.adaptive.sub.param import AutoParam
+from alabamaEncode.adaptive.helpers.param import AutoParam
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.sequence import ChunkSequence
@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     config = AlabamaContext()
     config.temp_folder = test_folder
-    config.grain_synth = 4
+    config.prototype_encoder.grain_synth = 4
 
     scenes: ChunkSequence = get_video_scene_list_skinny(
         input_file=input_file,

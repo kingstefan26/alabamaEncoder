@@ -5,7 +5,10 @@ import pickle
 import sys
 import time
 
-from alabamaEncode.core.alabama import AlabamaContext, setup_context
+from alabamaEncode.core.alabama import (
+    AlabamaContext,
+    setup_context_for_standalone_usage,
+)
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.worker import worker
@@ -72,7 +75,7 @@ def main():
                     quit()
 
     if ctx is None:
-        ctx = setup_context()
+        ctx = setup_context_for_standalone_usage()
         # save ctx to file "alabamaResume" at working dir
         pickle.dump(ctx, open("alabamaResume", "wb"))
 
@@ -83,7 +86,7 @@ def main():
 
     if os.path.exists(lock_file_path):
         print(
-            "Lock file exists, are you sure another instance is not using encoding in this folder? "
+            "Lock file exists, are you sure another instance is not encoding in this folder? "
             "if not delete the lock file and try again"
         )
         quit()

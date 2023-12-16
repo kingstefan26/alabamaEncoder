@@ -4,7 +4,7 @@ Testing enable-tf=0 In SvtAv1
 import os
 from copy import deepcopy
 
-from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.experiments.util.ExperimentUtil import (
     run_tests_across_range,
     read_report,
@@ -20,7 +20,7 @@ report_path = test_env + experiment_name + " CRF.json"
 
 
 def run_test():
-    control = EncoderSvtenc()
+    control = EncoderSvt()
     control.speed = 4
     control.threads = 12
     control.svt_tune = 1

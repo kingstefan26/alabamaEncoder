@@ -7,9 +7,9 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
-from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.bin_utils import get_binary
-from alabamaEncode.encoder.impl.Svtenc import AvifEncoderSvtenc
+from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.encoder.impl.SvtAvif import AvifEncoderSvtenc
 from alabamaEncode.metrics.image_metrics import ImageMetrics
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence

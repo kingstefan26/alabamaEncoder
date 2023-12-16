@@ -35,6 +35,9 @@ class VmafResult:
             self.mean = mean([x[1] for x in frames])
             self.harmonic_mean = 1 / mean([1 / x[1] for x in frames if x[1] != 0])
 
+        self.max = max([x[1] for x in frames])
+        self.min = min([x[1] for x in frames])
+
         self.std_dev = 0
         for frame in frames:
             self.std_dev += (frame[1] - self.mean) ** 2

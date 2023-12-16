@@ -1,12 +1,14 @@
 import os
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 import numpy as np
 from keras.preprocessing import sequence
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.scene.chunk import ChunkObject
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 import keras
 
 model = None

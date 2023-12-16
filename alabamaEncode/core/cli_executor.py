@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import time
 from queue import Queue
 from threading import Thread
 from typing import List, Callable, Optional
@@ -9,9 +10,10 @@ __all__ = ["run_cli", "run_cli_parallel", "CliResult"]
 
 
 class CliResult:
-    def __init__(self, return_code, output):
+    def __init__(self, return_code, output, time_taken=-1.0):
         self.return_code = return_code
         self.output = output
+        self.time_taken = time_taken
 
     def __repr__(self):
         return f"ExecuteResult(return_code={self.return_code}, output={self.output})"
@@ -78,6 +80,7 @@ def run_cli(
     timeout_value=-1,
     on_output: Optional[Callable[[str], None]] = None,
 ) -> CliResult:
+    start = time.perf_counter()
     p = subprocess.Popen(
         cmd,
         shell=True,
@@ -103,7 +106,8 @@ def run_cli(
 
     output += p.stdout.read().decode("utf-8", errors="ignore")
 
-    return CliResult(p.returncode, output)
+    end = time.perf_counter()
+    return CliResult(p.returncode, output, end - start)
 
 
 def _run_command(

@@ -3,7 +3,7 @@ Testing & experimenting with auto bitrate ladders GUIDED BY COMPLEXITY
 """
 import os
 
-from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
+from alabamaEncode.adaptive.helpers.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.sequence import ChunkSequence
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     input_file = get_test_files()[0]
     config = AlabamaContext()
     config.temp_folder = test_folder
-    config.grain_synth = 3
+    config.prototype_encoder.grain_synth = 3
 
     config.multiprocess_workers = 5
 

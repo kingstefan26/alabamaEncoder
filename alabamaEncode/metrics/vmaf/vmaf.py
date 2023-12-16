@@ -43,7 +43,6 @@ def calc_vmaf(
             for _filter in video_filters.split(","):
                 if not re.match(r"scale=[0-9-]+:[0-9-]+", _filter):
                     vf.append(_filter)
-                # vf.append(_filter)
 
         vf.append(comparison_scaling)
         video_filters = ",".join(vf)
@@ -74,7 +73,7 @@ def calc_vmaf(
     assert os.path.exists(pipe_dist_path)
 
     vmaf_command = (
-        f'{get_binary("vmaf")} --json --output "{log_path}" --model {vmaf_options.get_model()} '
+        f'{get_binary("vmaf")} -q --json --output "{log_path}" --model {vmaf_options.get_model()} '
         f"--reference {pipe_ref_path} "
         f"--distorted {pipe_dist_path} --threads {threads}"
     )

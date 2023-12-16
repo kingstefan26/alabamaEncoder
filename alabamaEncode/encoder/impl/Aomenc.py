@@ -2,13 +2,20 @@ import re
 from copy import copy
 from typing import List
 
-from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
-class EncoderAomEnc(Encoder):
+class EncoderAom(Encoder):
+    def get_enum(self) -> EncodersEnum:
+        return EncodersEnum.AOMENC
+
+    def supports_grain_synth(self) -> bool:
+        return True
+
     def get_version(self) -> str:
         # Included encoders:
         #

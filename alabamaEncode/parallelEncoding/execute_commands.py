@@ -1,6 +1,5 @@
 import asyncio
-import sys
-from asyncio import Future
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 from tqdm import tqdm
@@ -11,10 +10,15 @@ from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load
 
 
 async def execute_commands(
-    use_celery, command_objects, multiprocess_workers, override_sequential=True
+    use_celery,
+    command_objects,
+    multiprocess_workers,
+    override_sequential=True,
+    pin_to_cores=False,
 ):
     """
     Execute a list of commands in parallel
+    :param pin_to_cores:
     :param use_celery: execute on a celery cluster
     :param command_objects: objects with a `run()` method to execute
     :param multiprocess_workers: number of workers in multiprocess mode, -1 for auto adjust
@@ -80,16 +84,30 @@ async def execute_commands(
         completed_count = 0
 
         load = Load()
+        core_count = os.cpu_count()
+        auto_scale = multiprocess_workers == -1
+
         target_cpu_utilization = 1.1
         max_swap_usage = 25
         cpu_threshold = 0.3
-        max_limit = sys.maxsize if multiprocess_workers == -1 else multiprocess_workers
-        concurent_jobs_limit = 2  # Initial value to be adjusted dynamically
-        if multiprocess_workers != -1:
-            concurent_jobs_limit = multiprocess_workers
+
+        if pin_to_cores == -1:
+            if auto_scale:
+                max_limit = core_count * 2
+            else:
+                max_limit = multiprocess_workers
+        else:
+            max_limit = core_count
+
+        concurrent_jobs_limit = 2  # Initial value to be adjusted dynamically
+        if not auto_scale:
+            concurrent_jobs_limit = multiprocess_workers
 
         loop = asyncio.get_event_loop()
+
         executor = ThreadPoolExecutor()
+
+        used_cores = [0] * core_count
 
         # check if the first command is a AdaptiveCommand
         if isinstance(command_objects[0], AdaptiveCommand):
@@ -111,24 +129,34 @@ async def execute_commands(
                 total=total_scenes, desc="Encoding", unit="scene", dynamic_ncols=True
             )
 
-        pbar.set_description(f"Workers: {concurent_jobs_limit} CPU -% SWAP -%")
+        pbar.set_description(f"Workers: 0 CPU -% SWAP -%")
 
         while completed_count < total_scenes:
+            cpu_utilization = load.get_load()
+
             # Start new tasks if there are available slots
             while (
-                len(futures) < concurent_jobs_limit
+                len(futures) < concurrent_jobs_limit
                 and completed_count + len(futures) < total_scenes
             ):
                 command = command_objects[completed_count + len(futures)]
-                in_executor: Future = loop.run_in_executor(executor, command.run)
-                futures.append(in_executor)
+                if pin_to_cores:
+                    # find the first available core
+                    core = used_cores.index(0)
+                    # mark the core as used
+                    used_cores[core] = 1
+                    command.pin_to_core = core
+                futures.append(loop.run_in_executor(executor, command.run))
 
             # Wait for any task to complete
-            done, _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+            # done, _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+
+            # alt version where we wait one sec and loop
+            done, _ = await asyncio.wait(futures, timeout=5)
 
             # Process completed tasks
             for future in done:
-                await future
+                result = await future  # result is the command object run() output
                 # if we are encoding chunks update by the done frames, not the done chunks
                 if isinstance(command_objects[0], AdaptiveCommand):
                     if not command_objects[0].supports_encoded_a_frame_callback():
@@ -141,36 +169,37 @@ async def execute_commands(
                 else:
                     pbar.update()
 
+                if pin_to_cores:
+                    # in this case the result is the AdaptiveCommand object, which returns the core it was pinned to
+                    # mark the core as unused
+                    used_cores[result] = 0
+
                 completed_count += 1
 
             # Remove completed tasks from the future list
             futures = [future for future in futures if not future.done()]
 
-            if multiprocess_workers == -1:
-                # Check CPU utilization and adjust concurent_jobs_limit if needed
-                cpu_utilization = load.get_load()
+            pbar.set_description(
+                f"Workers: {len(futures)} CPU {cpu_utilization * 100:.2f}% "
+                # f"SWAP {swap_usage:.2f}%"
+            )
+
+            if auto_scale and len(futures) > 0:
                 # swap_usage = parse_swap_usage()
-                new_limit = concurent_jobs_limit
                 if (
                     cpu_utilization
                     < target_cpu_utilization
                     # and swap_usage < max_swap_usage
                 ):
-                    new_limit += 1
+                    concurrent_jobs_limit += 1
                 elif (
                     cpu_utilization
                     > target_cpu_utilization + cpu_threshold
                     # or swap_usage > max_swap_usage
                 ):
-                    new_limit -= 1
+                    concurrent_jobs_limit -= 1
 
                 # no less than 1 and no more than max_limit
-                new_limit = max(1, new_limit)
-                if new_limit != concurent_jobs_limit and new_limit <= max_limit:
-                    concurent_jobs_limit = new_limit
-                    pbar.set_description(
-                        f"Workers: {concurent_jobs_limit} CPU {cpu_utilization * 100:.2f}% "
-                        # f"SWAP {swap_usage:.2f}%"
-                    )
+                concurrent_jobs_limit = max(1, min(concurrent_jobs_limit, max_limit))
 
         pbar.close()

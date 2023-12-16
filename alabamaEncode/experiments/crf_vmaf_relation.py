@@ -12,11 +12,10 @@ from matplotlib import pyplot as plt
 
 print(tf.__version__)
 
-from alabamaEncode.adaptive.sub.bitrateLadder import AutoBitrateLadder
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.adaptive.helpers.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.encoder.impl.Svtenc import EncoderSvtenc
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
@@ -31,8 +30,8 @@ def generate_stat_from_chunk(current_chunk: ChunkObject):
 
     # current_chunk = test_clips[0]
     motion = Ffmpeg.get_vmaf_motion(current_chunk)
-    enc = EncoderSvtenc()
-    enc.setup(chunk=current_chunk, config=AlabamaContext())
+    enc = EncoderSvt()
+    enc.chunk = current_chunk
     enc.chunk = current_chunk
     enc.chunk.path = current_chunk.path
     enc.video_filters = current_chunk.video_filters

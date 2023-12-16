@@ -7,6 +7,7 @@ from typing import List
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
@@ -18,20 +19,34 @@ from alabamaEncode.metrics.vmaf.result import VmafResult
 class Encoder(ABC):
     chunk = None
     bitrate: int = None
-    crf: int = None
-    passes: int = 2
+    crf: int = 23
+    passes: int = 1
     video_filters: str = ""
-    output_path: str = None
+    _output_path: str = None
+
+    @property
+    def output_path(self):
+        if self._output_path is None:
+            return self.chunk.chunk_path
+
+        return self._output_path
+
+    @output_path.setter
+    def output_path(self, value):
+        self._output_path = value
+
     speed = 4
     threads = 1
     rate_distribution = EncoderRateDistribution.CQ
-    qm_enabled = False
-    grain_synth = 10
-    qm_min = 8
+    qm_enabled = True
+    grain_synth = 3
+    qm_min = 0
     qm_max = 15
     tile_cols = -1
     tile_rows = -1
     override_flags: str = ""
+    pin_to_core = -1
+    niceness = 0
 
     bit_override = 10
 
@@ -53,9 +68,11 @@ class Encoder(ABC):
     svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
     film_grain_denoise: (0 | 1) = 1
 
-    color_primaries = 1
-    transfer_characteristics = 1
-    matrix_coefficients = 1
+    x264_tune = "film"
+
+    color_primaries = "bt709"
+    transfer_characteristics = "bt709"
+    matrix_coefficients = "bt709"
     maximum_content_light_level = ""
     maximum_frame_average_light_level = ""
     chroma_sample_position = 0
@@ -66,81 +83,6 @@ class Encoder(ABC):
 
     def supports_float_crfs(self) -> bool:
         return False
-
-    def setup(self, chunk, config):
-        self.chunk = chunk
-        self.output_path = chunk.chunk_path
-
-        if config is not None:
-            self.video_filters = config.video_filters
-
-            self.override_flags = config.override_flags
-
-            # encoder options
-            self.crf = config.crf
-            self.bitrate = config.bitrate
-            self.passes = config.passes
-            self.speed = config.speed
-            self.grain_synth = config.grain_synth
-            self.rate_distribution = config.rate_distribution
-            self.threads = config.threads
-            self.qm_enabled = config.qm_enabled
-            self.qm_min = config.qm_min
-            self.qm_max = config.qm_max
-            self.tile_cols = config.tile_cols  # in log2 form
-            self.tile_rows = config.tile_rows  # in log2 form
-
-            # hdr
-            self.color_primaries = config.color_primaries
-            self.transfer_characteristics = config.transfer_characteristics
-            self.matrix_coefficients = config.matrix_coefficients
-            self.maximum_content_light_level = config.maximum_content_light_level
-            self.maximum_frame_average_light_level = (
-                config.maximum_frame_average_light_level
-            )
-            self.chroma_sample_position = config.chroma_sample_position
-            self.svt_master_display = config.svt_master_display
-            self.hdr = config.hdr
-
-    def update(self, **kwargs):
-        """
-        Update the encoder with new values, with type checking
-        """
-        from alabamaEncode.scene.chunk import ChunkObject
-
-        # Define a dictionary mapping attribute names to their types
-        valid_attr_types = {
-            "chunk": ChunkObject,
-            "bitrate": int,
-            "crf": int,
-            "passes": int,
-            "video_filters": str,
-            "output_path": str,
-            "speed": int,
-            "first_pass_speed": int,
-            "grain_synth": int,
-            "threads": int,
-            "tune": int,
-            "rate_distribution": EncoderRateDistribution,
-            "qm_enabled": bool,
-            "qm_min": int,
-            "qm_max": int,
-            "override_flags": str,
-        }
-
-        # Loop over the dictionary
-        for attr, attr_type in valid_attr_types.items():
-            # If the attribute is present in kwargs
-            if attr in kwargs:
-                # Get the value of the attribute
-                value = kwargs.get(attr)
-                # If the value is not an instance of the correct type, raise an Exception
-                if not isinstance(value, attr_type):
-                    raise Exception(f"FATAL: {attr} must be a {attr_type.__name__}")
-
-        # After all checks, update the attributes
-        for attr, value in kwargs.items():
-            setattr(self, attr, value)
 
     def run(
         self,
@@ -203,16 +145,17 @@ class Encoder(ABC):
 
             self.output_path = original_path
 
+            times_called = 0
+            latest_frame_update = 0
+
+            has_frame_callback = (
+                self.parse_output_for_output(None) is not None
+                and self.passes == 1
+                and on_frame_encoded is not None
+            )
+
             for command in commands:
                 parse_func = None
-
-                times_called = 0
-
-                has_frame_callback = (
-                    self.parse_output_for_output(None) is not None
-                    and self.passes == 1
-                    and on_frame_encoded is not None
-                )
 
                 if has_frame_callback:
                     # We can report progress to a callback
@@ -221,11 +164,15 @@ class Encoder(ABC):
                     def parse(string):
                         nonlocal output_buffer
                         nonlocal times_called
+                        nonlocal latest_frame_update
                         output_buffer += string
                         prog = self.parse_output_for_output(output_buffer)
 
                         if len(prog) > 0:
                             times_called += 1
+                            # tqdm.write("FRAME ENCODED")
+                            # tqdm.write(str(prog))
+                            latest_frame_update = prog[0]
                             on_frame_encoded(prog[0], prog[1], prog[2])
 
                             output_buffer = ""
@@ -238,13 +185,28 @@ class Encoder(ABC):
                     ).get_output()
                 )
 
+            if has_frame_callback:
                 num_frames = self.chunk.get_frame_count()
-                if has_frame_callback and times_called < num_frames:
-                    for i in range(num_frames - times_called):
-                        on_frame_encoded(
-                            0, 0, 0
-                        )  # if the encode didnt report any farmes to the callback,
-                        # call it manually for the rest of the frames
+                latest_frame_update = int(latest_frame_update)
+
+                # print(
+                #     f"times called {times_called}, latest frame update {latest_frame_update}, "
+                #     f"total frames {num_frames}"
+                # )
+
+                if latest_frame_update != times_called:
+                    for i in range(latest_frame_update - times_called):
+                        on_frame_encoded(0, 0, 0)
+                        times_called += 1
+
+                # print("times called after compesnsating: ", times_called)
+
+                # if has_frame_callback and times_called < num_frames:
+                #     for i in range(num_frames - times_called):
+                #         on_frame_encoded(
+                #             0, 0, 0
+                #         )  # if the encode didnt report any farmes to the callback,
+                #         # call it manually for the rest of the frames
 
             stats.time_encoding = time.time() - start
 
@@ -341,3 +303,13 @@ class Encoder(ABC):
         :return: a list of [frame, bitrate, fps], [] if no output is found, None if not implemented
         """
         return None
+
+    @abstractmethod
+    def get_enum(self) -> EncodersEnum:
+        pass
+
+    def clone(self):
+        return copy.deepcopy(self)
+
+    def supports_grain_synth(self) -> bool:
+        return False
