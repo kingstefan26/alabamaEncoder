@@ -6,8 +6,6 @@ import numpy as np
 from keras.preprocessing import sequence
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.scene.chunk import ChunkObject
-
 
 import keras
 
@@ -45,13 +43,3 @@ def predict_crf(chunk, vf=""):
 
     return int(crf)
 
-
-def predict_crf_test():
-    c = ChunkObject(
-        path="/mnt/data/objective-1-fast/Netflix_Aerial_1920x1080_60fps_8bit_420_60f.y4m"
-    )
-    print(predict_crf(c))
-
-
-if __name__ == "__main__":
-    predict_crf_test()

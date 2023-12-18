@@ -11,7 +11,10 @@ from alabamaEncode.conent_analysis.sequence.ideal_crf import setup_ideal_crf_wei
 from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import scrape_hdr_metadata
 from alabamaEncode.conent_analysis.sequence.sequence_autograin import setup_autograin
 from alabamaEncode.conent_analysis.sequence.taget_ssimdb import setup_ssimdb_target
-from alabamaEncode.conent_analysis.sequence.target_bitrate_optimisation import setup_ideal_bitrate
+from alabamaEncode.conent_analysis.sequence.target_bitrate_optimisation import (
+    setup_ideal_bitrate,
+)
+from alabamaEncode.conent_analysis.sequence.x264_tune import get_ideal_x264_tune
 
 
 def get_pipeline() -> List[Callable]:
@@ -25,7 +28,8 @@ def get_pipeline() -> List[Callable]:
         setup_autograin,
         setup_ideal_crf_weighted,
         setup_ideal_bitrate,
-        setup_ssimdb_target
+        setup_ssimdb_target,
+        get_ideal_x264_tune,
     ]
 
     return pipeline

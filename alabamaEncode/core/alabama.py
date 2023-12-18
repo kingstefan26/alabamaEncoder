@@ -32,6 +32,7 @@ class AlabamaContext:
     use_celery: bool = False
     multiprocess_workers: int = -1
     log_level: int = 0
+    print_analysis_logs = False
     dry_run: bool = False
 
     temp_folder: str = ""
@@ -74,6 +75,7 @@ class AlabamaContext:
     probe_speed_override = prototype_encoder.speed
     ai_vmaf_targeting = False
     vmaf_target_representation = "mean"
+    weird_x264 = False
 
     flag1: bool = False
     flag2: bool = False
@@ -96,9 +98,15 @@ class AlabamaContext:
     auto_crop = False
     auto_accept_autocrop = False
 
-    def log(self, msg, level=0):
+    def log(self, msg, level=0, category=""):
         if self.log_level > 0 and level <= self.log_level:
             tqdm.write(msg)
+
+        if category != "":
+            with open(os.path.join(self.temp_folder, f"{category}.log"), "a") as f:
+                f.write(msg + "\n")
+            if self.print_analysis_logs:
+                tqdm.write(msg)
 
     def get_encoder(self) -> Encoder:
         if self.prototype_encoder is not None:

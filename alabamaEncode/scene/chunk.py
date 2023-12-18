@@ -115,12 +115,15 @@ class ChunkObject:
         """
         if video_filters is None:
             video_filters = ""
-        end_command = f"ffmpeg -v error -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le "
+        end_command = (
+            f"ffmpeg -threads 1 -v error -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} "
+            f"-pix_fmt yuv420p10le "
+        )
 
         if bit_depth == 8:
             end_command = end_command.replace("10le", "")
 
-        if not "-vf" in video_filters and not video_filters == "":
+        if "-vf" not in video_filters and not video_filters == "":
             video_filters = f"-vf {video_filters}"
 
         end_command += f" -an -sn -strict -1 {video_filters} -f yuv4mpegpipe - "

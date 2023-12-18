@@ -19,7 +19,6 @@ class GrainSynth(ChunkAnalyzePipelineItem):
         grain_synth_result = min(grain_synth_result, 18)
         enc.grain_synth = grain_synth_result
 
-        grain_log = f"{ctx.temp_folder}grain.log"
-        with open(grain_log, "a") as f:
-            f.write(f"{chunk.log_prefix()}computed gs {enc.grain_synth}\n")
+        ctx.log(f"computed gs {enc.grain_synth}", category="grain")
+
         return enc

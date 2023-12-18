@@ -93,17 +93,22 @@ def print_stats(
 
 
 def generate_previews(
-    input_file: str, output_folder: str, num_previews: int, preview_length: int
+    input_file: str, output_folder: str, num_previews: int = 4, preview_length: int = 5
 ):
-    total_length = Ffmpeg.get_video_length(PathAlabama(input_file))
+    total_length = Ffmpeg.get_video_length(PathAlabama(input_file))  # lenght in seconds
+
+    # one preview every 5 minutes, min 1 max 4
+    num_previews = max(1, min(4, int(total_length / 300)))
 
     offsets = []
 
     for i in range(num_previews):
         offsets.append(int(random.uniform(0, total_length)))
 
+    is_av1 = Ffmpeg.get_codec(PathAlabama(input_file)) == "av1"
+
     for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
-        if Ffmpeg.get_codec(PathAlabama(input_file)) == "av1":
+        if is_av1:
             run_cli(
                 f'{get_binary("ffmpeg")} -y -ss {offset} -i "{input_file}" -t {preview_length} '
                 f'-c copy "{output_folder}/preview_{i}.avif"'

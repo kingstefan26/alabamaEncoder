@@ -1,12 +1,12 @@
-import copy
 import os
 
-from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
-    ChunkAnalyzePipelineItem,
+from alabamaEncode.conent_analysis.chunk.final_encode_steps.final_encode_step import (
+    FinalEncodeStep,
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
+from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
@@ -14,13 +14,12 @@ from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-class TargetVmaf(ChunkAnalyzePipelineItem):
-    def __init__(self, alg_type="binary", probe_speed=6):
-        self.alg_type = alg_type
-        self.probe_speed = probe_speed
-
-    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
-        original = copy.deepcopy(enc)
+class TargetX264(FinalEncodeStep):
+    def run(
+        self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
+    ) -> EncodeStats:
+        if not isinstance(enc, EncoderX264):
+            raise Exception("TargetX264 only supports x264")
 
         target_vmaf = ctx.vmaf
 
@@ -28,18 +27,33 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
 
         probe_file_base = get_probe_file_base(chunk.chunk_path)
 
+        enc.x264_tune = ""
+        enc.x264_ipratio = 1.3
+        enc.x264_mbtree = True
+        enc.x264_aq_strength = 0.4
+        enc.x264_merange = 36
+        enc.x264_bframes = 8
+        enc.x264_rc_lookahead = 48
+        enc.x264_ref = 4
+        enc.x264_me = "umh"
+        enc.x264_subme = 10
+        enc.x264_non_deterministic = True
+        enc.x264_vbv_maxrate = 25000
+        enc.x264_vbv_bufsize = 31250
+        enc.speed = 0
+
         def get_score(_crf):
             enc.crf = _crf
             enc.output_path = os.path.join(
                 probe_file_base,
                 f"convexhull.{_crf}{enc.get_chunk_file_extension()}",
             )
-            enc.speed = max(ctx.prototype_encoder.speed + 2, 5)
+            enc.speed = 0  # max(ctx.prototype_encoder.speed + 2, 5)
             enc.passes = 1
             enc.threads = 1
-            enc.grain_synth = 0
-            enc.svt_tune = 0
             enc.override_flags = None
+            enc.rate_distribution = EncoderRateDistribution.CQ
+
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
                 vmaf_params=VmafOptions(
@@ -87,34 +101,30 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         high_crf = 55 if target_vmaf > 90 else 63
         epsilon = 0.1
         depth = 0
-        match self.alg_type:
-            case "binary":
-                mid_crf = 0
-                while low_crf <= high_crf and depth < probes:
-                    mid_crf = (low_crf + high_crf) // 2
+        mid_crf = 0
+        while low_crf <= high_crf and depth < probes:
+            mid_crf = (low_crf + high_crf) // 2
 
-                    # don't try the same crf twice
-                    if mid_crf in [t[0] for t in trys]:
-                        break
+            # don't try the same crf twice
+            if mid_crf in [t[0] for t in trys]:
+                break
 
-                    statistical_representation = get_score(mid_crf)
+            statistical_representation = get_score(mid_crf)
 
-                    ctx.log(
-                        f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {statistical_representation} "
-                        f"attempt {depth + 1}/{probes}",
-                        category="probe",
-                    )
+            ctx.log(
+                f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {statistical_representation} "
+                f"attempt {depth + 1}/{probes}",
+                category="probe",
+            )
 
-                    if abs(statistical_representation - target_vmaf) <= epsilon:
-                        break
-                    elif statistical_representation > target_vmaf:
-                        low_crf = mid_crf + 1
-                    else:
-                        high_crf = mid_crf - 1
-                    trys.append((mid_crf, statistical_representation))
-                    depth += 1
-            case _:
-                raise Exception(f"Unknown alg_type {self.alg_type}")
+            if abs(statistical_representation - target_vmaf) <= epsilon:
+                break
+            elif statistical_representation > target_vmaf:
+                low_crf = mid_crf + 1
+            else:
+                high_crf = mid_crf - 1
+            trys.append((mid_crf, statistical_representation))
+            depth += 1
 
         # if we didn't get it right on the first,
         # via linear interpolation, try to find the crf that is closest to target vmaf
@@ -149,15 +159,36 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
 
         ctx.log(f"{chunk.log_prefix()}Decided on crf: {crf}", category="probe")
 
-        enc.passes = 1
-        enc.svt_tune = 0
-        enc.svt_overlay = 0
-        enc.rate_distribution = EncoderRateDistribution.CQ
+        # measure bitrate of crf at config settings
         enc.crf = crf
-
+        enc.passes = 1
+        enc.x264_collect_pass = True
+        enc.rate_distribution = EncoderRateDistribution.CQ
         enc.output_path = chunk.chunk_path
-        enc.override_flags = original.override_flags
-        enc.speed = original.speed
-        enc.grain_synth = original.grain_synth
+        stats = enc.run()
 
-        return enc
+        ctx.log(
+            f"{chunk.log_prefix()}bitrate test at crf {crf} got {stats.bitrate} k/s,"
+            f" encoding three pass vbr at {stats.bitrate} k/s ",
+            category="probe",
+        )
+
+        enc.passes = -3
+        enc.rate_distribution = EncoderRateDistribution.VBR
+        enc.bitrate = stats.bitrate
+
+        return enc.run(
+            calculate_vmaf=True,
+            vmaf_params=VmafOptions(
+                uhd=ctx.vmaf_4k_model,
+                phone=ctx.vmaf_phone_model,
+                ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
+                if ctx.vmaf_reference_display
+                else None,
+                no_motion=ctx.vmaf_no_motion,
+            ),
+            on_frame_encoded=encoded_a_frame,
+        )
+
+    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
+        raise Exception("dry_run not implemented for TargetX264")

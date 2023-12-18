@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 from alabamaEncode.core.alabama import AlabamaContext
@@ -60,12 +61,18 @@ class AdaptiveCommand(BaseCommandObject):
 
         timeing.start("final_step")
 
-        final_stats = self.ctx.chunk_encode_class.run(
-            enc,
-            chunk=self.chunk,
-            ctx=self.ctx,
-            encoded_a_frame=self.encoded_a_frame_callback,
-        )
+        try:
+            final_stats = self.ctx.chunk_encode_class.run(
+                enc,
+                chunk=self.chunk,
+                ctx=self.ctx,
+                encoded_a_frame=self.encoded_a_frame_callback,
+            )
+        except Exception as e:
+            self.ctx.log(f"final encoding failed: {e}", level=1)
+            if os.path.exists(self.chunk.chunk_path):
+                os.remove(self.chunk.chunk_path)
+            return
 
         timeing.stop("final_step")
         timeing.finish()

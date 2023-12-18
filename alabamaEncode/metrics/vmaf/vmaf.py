@@ -5,6 +5,7 @@ import re
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.metric_exeption import VmafException
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.result import VmafResult
 from alabamaEncode.scene.chunk import ChunkObject
@@ -92,7 +93,10 @@ def calc_vmaf(
     os.remove(pipe_ref_path)
     os.remove(pipe_dist_path)
 
-    log_decoded = json.load(open(log_path))
+    try:
+        log_decoded = json.load(open(log_path))
+    except json.decoder.JSONDecodeError or FileNotFoundError:
+        raise VmafException(f"Could not decode vmaf log: {log_path}")
 
     os.remove(log_path)
 

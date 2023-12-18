@@ -11,6 +11,7 @@ from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.metric_exeption import VmafException
 from alabamaEncode.metrics.ssim.calc import get_video_ssim
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.metrics.vmaf.result import VmafResult
@@ -69,6 +70,21 @@ class Encoder(ABC):
     film_grain_denoise: (0 | 1) = 1
 
     x264_tune = "film"
+    x264_mbtree = True
+    x264_ipratio = 1.4
+    x264_pbratio = 1.3
+    x264_aq_strength = -1
+    x264_merange = -1
+    x264_bframes = -1
+    x264_rc_lookahead = -1
+    x264_ref = -1
+    x264_me = ""
+    x264_non_deterministic = False
+    x264_subme = -1
+    x264_vbv_maxrate = -1
+    x264_vbv_bufsize = -1
+    x264_slow_firstpass = False
+    x264_collect_pass = False
 
     color_primaries = "bt709"
     transfer_characteristics = "bt709"
@@ -235,12 +251,17 @@ class Encoder(ABC):
             # encoder, since the encoder object might have changed the path
             local_chunk.chunk_path = self.output_path
 
-            vmaf_result: VmafResult = calculate_metric(
-                chunk=local_chunk,
-                video_filters=self.video_filters,
-                vmaf_options=vmaf_params if vmaf_params is not None else VmafOptions(),
-                threads=self.threads,
-            )
+            try:
+                vmaf_result: VmafResult = calculate_metric(
+                    chunk=local_chunk,
+                    video_filters=self.video_filters,
+                    vmaf_options=vmaf_params
+                    if vmaf_params is not None
+                    else VmafOptions(),
+                    threads=self.threads,
+                )
+            except VmafException as e:
+                raise Exception(f"VMAF calculation in encoder failed: {e.message}")
 
             stats.vmaf_result = vmaf_result
             stats.vmaf = vmaf_result.mean

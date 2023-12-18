@@ -160,12 +160,8 @@ class AlabamaEncodingJob:
             ),
         )
         if self.ctx.generate_previews:
-            print("Generating previews")
             generate_previews(
-                input_file=self.ctx.output_file,
-                output_folder=self.ctx.output_folder,
-                num_previews=4,
-                preview_length=5,
+                input_file=self.ctx.output_file, output_folder=self.ctx.output_folder
             )
             create_torrent_file(
                 video=self.ctx.output_file,

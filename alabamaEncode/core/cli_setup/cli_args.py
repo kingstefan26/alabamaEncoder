@@ -445,6 +445,19 @@ def read_args(ctx):
         help="nice the encoder process",
     )
 
+    parser.add_argument(
+        "--weird_x264",
+        action="store_true",
+        default=ctx.weird_x264,
+        help="weird x264 vmaf targeting",
+    )
+
+    parser.add_argument(
+        "--print_analysis_logs",
+        action="store_true",
+        help="Print content analysis logs into console, like what crf did vmaf target pick etc",
+    )
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -507,4 +520,8 @@ def read_args(ctx):
     ctx.ai_vmaf_targeting = args.vmaf_ai_assisted_targeting
     ctx.pin_to_cores = not args.dont_pin_to_cores
     ctx.prototype_encoder.niceness = args.niceness
+    ctx.weird_x264 = args.weird_x264
+    ctx.vmaf_target_representation = args.vmaf_target_repesentation
+    ctx.print_analysis_logs = args.print_analysis_logs
+
     return ctx

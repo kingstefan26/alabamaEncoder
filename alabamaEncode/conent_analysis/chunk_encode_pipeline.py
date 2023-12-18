@@ -12,7 +12,10 @@ def setup_chunk_analyze_chain(ctx, sequence):
 
     ctx.chunk_analyze_chain = []
 
-    if ctx.crf_map != "":
+    # setting up rate control, adaptive or not
+    if ctx.weird_x264:
+        ctx.chunk_analyze_chain.append(PlainCrf())
+    elif ctx.crf_map != "":
         ctx.chunk_analyze_chain.append(CrfIndexesMap(ctx.crf_map))
     elif ctx.flag1 is True:
         ctx.chunk_analyze_chain.append(PlainCrf())
@@ -34,6 +37,7 @@ def setup_chunk_analyze_chain(ctx, sequence):
             else:
                 ctx.chunk_analyze_chain.append(PlainVbr())
 
+    # grain synth, per chunk parameters etc
     if ctx.prototype_encoder.grain_synth == -2:
         ctx.chunk_analyze_chain.append(GrainSynth())
 
@@ -56,6 +60,14 @@ def setup_chunk_encoder(ctx, sequence):
     from alabamaEncode.conent_analysis.chunk.final_encode_steps.plain import (
         PlainFinalEncode,
     )
+
+    if ctx.weird_x264:
+        from alabamaEncode.conent_analysis.chunk.final_encode_steps.weirdX264 import (
+            TargetX264,
+        )
+
+        ctx.chunk_encode_class = TargetX264()
+        return ctx
 
     if ctx.flag1:
         ctx.chunk_encode_class = WeridCapedCrfFinalEncode()
