@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import asyncio
 import atexit
 import os
 import pickle
@@ -106,7 +107,11 @@ def main():
             )
             quit()
 
-    AlabamaEncodingJob(ctx).run_pipeline()
+    job = AlabamaEncodingJob(ctx)
+
+    asyncio.run(
+        job.run_pipeline()
+    )  # this runs the whole encoding process
 
     quit()
 

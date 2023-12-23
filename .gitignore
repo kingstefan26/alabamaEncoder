@@ -24,3 +24,5 @@ test_codes/**
 venv/**
 
 **.vmaflog
+
+alabamaEncode/ai_vmaf/train/**

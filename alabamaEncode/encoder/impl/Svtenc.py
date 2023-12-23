@@ -25,11 +25,11 @@ class EncoderSvt(Encoder):
         kommand = ""
 
         # pin to cores if we are targeting specific cores
-        if self.pin_to_core != -1:
-            kommand += f"taskset -a -c {self.pin_to_core} "
-
-        # add niceness
-        kommand += f"nice -n {self.niceness} "
+        # if self.pin_to_core != -1:
+        #     kommand += f"taskset -a -c {self.pin_to_core} "
+        #
+        # # add niceness
+        # kommand += f"nice -n {self.niceness} "
 
         kommand += (
             f"{self.get_ffmpeg_pipe_command()} | "

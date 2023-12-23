@@ -37,7 +37,7 @@ class Encoder(ABC):
         self._output_path = value
 
     speed = 4
-    threads = 1
+    threads = 2
     rate_distribution = EncoderRateDistribution.CQ
     qm_enabled = True
     grain_synth = 3

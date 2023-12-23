@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from typing import List
@@ -27,7 +28,79 @@ class AlabamaContext:
     """
 
     def __str__(self):
-        return self.__dict__.__str__()
+        return "AlabamaContext(" + str(self.dict()) + ")"
+
+    def dict(self):
+        return {
+            "use_celery": self.use_celery,
+            "multiprocess_workers": self.multiprocess_workers,
+            "log_level": self.log_level,
+            "print_analysis_logs": self.print_analysis_logs,
+            "dry_run": self.dry_run,
+            "temp_folder": self.temp_folder,
+            "output_folder": self.output_folder,
+            "output_file": self.output_file,
+            "input_file": self.input_file,
+            "raw_input_file": self.raw_input_file,
+            "pin_to_cores": self.pin_to_cores,
+            "bitrate_string": self.bitrate_string,
+            "resolution_preset": self.resolution_preset,
+            "crop_string": self.crop_string,
+            "scale_string": self.scale_string,
+            "output_height": self.output_height,
+            "output_width": self.output_width,
+            "find_best_bitrate": self.find_best_bitrate,
+            "vbr_perchunk_optimisation": self.vbr_perchunk_optimisation,
+            "ssim_db_target": self.ssim_db_target,
+            "crf_bitrate_mode": self.crf_bitrate_mode,
+            "bitrate_undershoot": self.bitrate_undershoot,
+            "bitrate_overshoot": self.bitrate_overshoot,
+            "bitrate_adjust_mode": self.bitrate_adjust_mode,
+            "cutoff_bitrate": self.cutoff_bitrate,
+            "max_bitrate": self.max_bitrate,
+            "simple_denoise": self.simple_denoise,
+            "vmaf": self.vmaf,
+            "crf_model_weights": self.crf_model_weights,
+            "vmaf_targeting_model": self.vmaf_targeting_model,
+            "vmaf_probe_count": self.vmaf_probe_count,
+            "vmaf_reference_display": self.vmaf_reference_display,
+            "crf_based_vmaf_targeting": self.crf_based_vmaf_targeting,
+            "vmaf_4k_model": self.vmaf_4k_model,
+            "vmaf_phone_model": self.vmaf_phone_model,
+            "vmaf_no_motion": self.vmaf_no_motion,
+            "probe_speed_override": self.probe_speed_override,
+            "ai_vmaf_targeting": self.ai_vmaf_targeting,
+            "vmaf_target_representation": self.vmaf_target_representation,
+            "weird_x264": self.weird_x264,
+            "flag1": self.flag1,
+            "flag2": self.flag2,
+            "flag3": self.flag3,
+            "crf_map": self.crf_map,
+            "max_scene_length": self.max_scene_length,
+            "start_offset": self.start_offset,
+            "end_offset": self.end_offset,
+            "override_scenecache_path_check": self.override_scenecache_path_check,
+            "title": self.title,
+            "sub_file": self.sub_file,
+            "chunk_order": self.chunk_order,
+            "audio_params": self.audio_params,
+            "generate_previews": self.generate_previews,
+            "encoder_name": self.encoder_name,
+            "encode_audio": self.encode_audio,
+            "auto_crop": self.auto_crop,
+            "auto_accept_autocrop": self.auto_accept_autocrop,
+            "poster_url": self.poster_url,
+        }
+
+    def to_json(self):
+        return json.dumps(self.dict())
+
+    def from_json(self, json_str):
+        self.__dict__ = json.loads(json_str)
+        return self
+
+    def __iter__(self):
+        return self.dict().__iter__()
 
     use_celery: bool = False
     multiprocess_workers: int = -1
@@ -46,6 +119,8 @@ class AlabamaContext:
     resolution_preset = ""
     crop_string = ""
     scale_string = ""
+    output_height = -1
+    output_width = -1
 
     chunk_analyze_chain: List[ChunkAnalyzePipelineItem] = []
     chunk_encode_class = None
@@ -92,6 +167,7 @@ class AlabamaContext:
     audio_params = (
         "-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1"
     )
+    poster_url = ""
     generate_previews = True
     encoder_name = "SouAV1R"
     encode_audio = True
@@ -116,15 +192,21 @@ class AlabamaContext:
                 "Prototype encoder is not set, this should be impossible"
             )
 
-    output_height = -1
-    output_width = -1
-
     def get_output_res(self) -> List[int]:
         """
         Returns the output resolution
         """
+        cache_file = os.path.join(self.temp_folder, "output_res.txt")
         if self.output_height != -1 and self.output_width != -1:
             return [self.output_width, self.output_height]
+        else:
+            if os.path.exists(cache_file):
+                with open(cache_file) as f:
+                    res = f.read()
+                    output_width, output_height = res.split(",")
+                    self.output_width = int(output_width)
+                    self.output_height = int(output_height)
+                    return [self.output_width, self.output_height]
         enc = self.get_encoder()
         enc.chunk = ChunkObject(
             path=self.raw_input_file, first_frame_index=0, last_frame_index=2
@@ -143,6 +225,8 @@ class AlabamaContext:
         os.remove(enc.output_path)
         self.output_width = width
         self.output_height = height
+        with open(cache_file, "w") as f:
+            f.write(f"{width},{height}")
         return [width, height]
 
 

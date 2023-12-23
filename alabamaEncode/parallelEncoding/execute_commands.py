@@ -2,11 +2,11 @@ import asyncio
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+import psutil
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.executor import AdaptiveCommand
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
-from alabamaEncode.parallelEncoding.CeleryAutoscaler import Load
 
 
 async def execute_commands(
@@ -15,6 +15,7 @@ async def execute_commands(
     multiprocess_workers,
     override_sequential=True,
     pin_to_cores=False,
+    finished_scene_callback=None,
 ):
     """
     Execute a list of commands in parallel
@@ -22,7 +23,8 @@ async def execute_commands(
     :param use_celery: execute on a celery cluster
     :param command_objects: objects with a `run()` method to execute
     :param multiprocess_workers: number of workers in multiprocess mode, -1 for auto adjust
-    :param override_sequential: if true, will run sequentially if there are less than 10 scenes
+    :param override_sequential: if true, will run sequentially if there is less than 10 scenes
+    :param finished_scene_callback: call when a scene finishes, contains the number of finished scenes
     """
     # if len(command_objects) < 10 and override_sequential == True:
     #     print("Less than 10 scenes, running encodes sequentially")
@@ -83,13 +85,11 @@ async def execute_commands(
         futures = []
         completed_count = 0
 
-        load = Load()
         core_count = os.cpu_count()
         auto_scale = multiprocess_workers == -1
 
-        target_cpu_utilization = 1.1
+        target_cpu_utilization = 95
         max_swap_usage = 25
-        cpu_threshold = 0.3
 
         if pin_to_cores == -1:
             if auto_scale:
@@ -132,8 +132,6 @@ async def execute_commands(
         pbar.set_description(f"Workers: 0 CPU -% SWAP -%")
 
         while completed_count < total_scenes:
-            cpu_utilization = load.get_load()
-
             # Start new tasks if there are available slots
             while (
                 len(futures) < concurrent_jobs_limit
@@ -179,8 +177,10 @@ async def execute_commands(
             # Remove completed tasks from the future list
             futures = [future for future in futures if not future.done()]
 
+            cpu_utilization = psutil.cpu_percent()
+
             pbar.set_description(
-                f"Workers: {len(futures)} CPU {cpu_utilization * 100:.2f}% "
+                f"Workers: {len(futures)} CPU {cpu_utilization:.2f}% "
                 # f"SWAP {swap_usage:.2f}%"
             )
 
@@ -194,12 +194,15 @@ async def execute_commands(
                     concurrent_jobs_limit += 1
                 elif (
                     cpu_utilization
-                    > target_cpu_utilization + cpu_threshold
+                    > target_cpu_utilization
                     # or swap_usage > max_swap_usage
                 ):
                     concurrent_jobs_limit -= 1
 
                 # no less than 1 and no more than max_limit
                 concurrent_jobs_limit = max(1, min(concurrent_jobs_limit, max_limit))
+
+            if finished_scene_callback is not None:
+                finished_scene_callback(completed_count)
 
         pbar.close()

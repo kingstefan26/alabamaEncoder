@@ -458,6 +458,10 @@ def read_args(ctx):
         help="Print content analysis logs into console, like what crf did vmaf target pick etc",
     )
 
+    parser.add_argument(
+        "--poster_url", type=str, help="Url of poster for website updates"
+    )
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -523,5 +527,6 @@ def read_args(ctx):
     ctx.weird_x264 = args.weird_x264
     ctx.vmaf_target_representation = args.vmaf_target_repesentation
     ctx.print_analysis_logs = args.print_analysis_logs
+    ctx.poster_url = args.poster_url
 
     return ctx
