@@ -2,12 +2,12 @@ import os
 from multiprocessing.pool import ThreadPool
 from typing import List
 
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-def verify_integrity(args) -> ChunkObject or None:
+def verify_integrity_wrapper(args) -> ChunkObject or None:
     """
     if chunk is invalid return it, else return None
     :param args:
@@ -50,7 +50,7 @@ class ChunkSequence:
             # /home/user/encode/show/temp/1.mkv
             c.chunk_path = os.path.join(temp_folder, f"{c.chunk_index}{extension}")
 
-    def sequence_integrity_check(self, check_workers: int = 5) -> bool:
+    async def sequence_integrity_check(self, check_workers: int = 5) -> bool:
         """
         checks the integrity of the chunks, and removes any that are invalid, and see if all are done
         :param check_workers: number of workers to use for the check
@@ -65,7 +65,7 @@ class ChunkSequence:
             with ThreadPool(check_workers) as pool:
                 process_args = [(c, pbar, len(self.chunks)) for c in seq_chunks]
                 invalid_chunks: List[ChunkObject or None] = list(
-                    pool.imap(verify_integrity, process_args)
+                    pool.imap(verify_integrity_wrapper, process_args)
                 )
 
         invalid_chunks: List[ChunkObject] = [
@@ -78,6 +78,7 @@ class ChunkSequence:
             for c in invalid_chunks:
                 if os.path.exists(c.chunk_path):
                     os.remove(c.chunk_path)
+                    print(f"Deleted invalid file {c.chunk_path}")
                     del_count += 1
             return True
 

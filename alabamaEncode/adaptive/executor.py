@@ -2,6 +2,9 @@ import json
 import os
 import time
 
+from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
+    DynamicTargetVmaf,
+)
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
@@ -32,49 +35,51 @@ class AdaptiveCommand(BaseCommandObject):
     run_on_celery = False
 
     def supports_encoded_a_frame_callback(self):
-        return self.ctx.prototype_encoder.get_enum() == EncodersEnum.SVT_AV1
+        return (
+            self.ctx.prototype_encoder.get_enum() == EncodersEnum.SVT_AV1
+            and not isinstance(self.ctx.chunk_encode_class, DynamicTargetVmaf)
+        )
 
     def run(self):
         total_start = time.time()
 
         # using it with a statement with MessageWriter
         timeing = Timer()
-
-        timeing.start("analyze_step")
-
-        enc = self.ctx.get_encoder()
-        enc.pin_to_core = self.pin_to_core
-        enc.chunk = self.chunk
-        for step in self.ctx.chunk_analyze_chain:
-            timeing.start(f"analyze_step_{step.__class__.__name__}")
-            enc = step.run(self.ctx, self.chunk, enc)
-            timeing.stop(f"analyze_step_{step.__class__.__name__}")
-
-        rate_search_time = timeing.stop("analyze_step")
-
-        enc.running_on_celery = self.run_on_celery
-
-        if self.ctx.dry_run:
-            print(f"dry run chunk: {self.chunk.chunk_index}")
-            print(self.ctx.chunk_encode_class.dry_run(enc, self.chunk))
-            return
-
-        timeing.start("final_step")
-
         try:
+            timeing.start("analyze_step")
+
+            enc = self.ctx.get_encoder()
+            enc.pin_to_core = self.pin_to_core
+            enc.chunk = self.chunk
+            for step in self.ctx.chunk_analyze_chain:
+                timeing.start(f"analyze_step_{step.__class__.__name__}")
+                enc = step.run(self.ctx, self.chunk, enc)
+                timeing.stop(f"analyze_step_{step.__class__.__name__}")
+
+            rate_search_time = timeing.stop("analyze_step")
+
+            enc.running_on_celery = self.run_on_celery
+
+            if self.ctx.dry_run:
+                print(f"dry run chunk: {self.chunk.chunk_index}")
+                print(self.ctx.chunk_encode_class.dry_run(enc, self.chunk))
+                return
+
+            timeing.start("final_step")
             final_stats = self.ctx.chunk_encode_class.run(
                 enc,
                 chunk=self.chunk,
                 ctx=self.ctx,
                 encoded_a_frame=self.encoded_a_frame_callback,
             )
+            timeing.stop("final_step")
         except Exception as e:
-            self.ctx.log(f"final encoding failed: {e}", level=1)
+            # tqdm.write(f"[{self.chunk.chunk_index}] encoding failed: {e}")
+            raise e
             if os.path.exists(self.chunk.chunk_path):
                 os.remove(self.chunk.chunk_path)
             return
 
-        timeing.stop("final_step")
         timeing.finish()
 
         # round to two places
@@ -94,4 +99,4 @@ class AdaptiveCommand(BaseCommandObject):
         with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
             f.write(json.dumps(final_stats.__dict__()) + "\n")
 
-        return self.pin_to_core
+        return self.pin_to_core, final_stats

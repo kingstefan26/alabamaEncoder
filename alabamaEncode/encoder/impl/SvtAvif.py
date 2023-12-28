@@ -1,3 +1,5 @@
+import os
+
 from alabamaEncode.core.bin_utils import get_binary, verify_ffmpeg_library
 from alabamaEncode.core.cli_executor import run_cli
 

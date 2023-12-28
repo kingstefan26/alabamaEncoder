@@ -2,21 +2,45 @@
 import asyncio
 import atexit
 import os
-import pickle
 import sys
 import time
 
-from alabamaEncode.core.alabama import (
-    AlabamaContext,
-    setup_context_for_standalone_usage,
-)
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.worker import worker
+from alabamaEncode_frontends.cli.cli_setup.autopaths import auto_output_paths
+from alabamaEncode_frontends.cli.cli_setup.cli_args import read_args
+from alabamaEncode_frontends.cli.cli_setup.paths import parse_paths
+from alabamaEncode_frontends.cli.cli_setup.ratecontrol import parse_rd
+from alabamaEncode_frontends.cli.cli_setup.res_preset import parse_resolution_presets
+from alabamaEncode_frontends.cli.cli_setup.video_filters import parse_video_filters
 
 runtime = -1
 runtime_file = ""
 lock_file_path = ""
+
+
+def setup_context_for_standalone_usage() -> AlabamaContext:
+    ctx = AlabamaContext()
+
+    ctx = run_pipeline(ctx)
+
+    return ctx
+
+
+def run_pipeline(ctx):
+    creation_pipeline = [
+        read_args,
+        auto_output_paths,
+        parse_paths,
+        parse_rd,
+        parse_resolution_presets,
+        parse_video_filters,
+    ]
+    for pipeline_item in creation_pipeline:
+        ctx = pipeline_item(ctx)
+    return ctx
 
 
 @atexit.register
@@ -66,19 +90,9 @@ def main():
                 quit()
             case "worker":
                 worker()
-            case "resume":
-                # unpickle ctx from the file "alabamaResume", if doesnt exist in current dir quit
-                if os.path.exists("alabamaResume"):
-                    ctx = pickle.load(open("alabamaResume", "rb"))
-                    print("Resuming from alabamaResume")
-                else:
-                    print("No resume file found in curr dir")
-                    quit()
 
     if ctx is None:
         ctx = setup_context_for_standalone_usage()
-        # save ctx to file "alabamaResume" at working dir
-        pickle.dump(ctx, open("alabamaResume", "wb"))
 
     global runtime_file
     global lock_file_path
@@ -107,11 +121,22 @@ def main():
             )
             quit()
 
+    if ctx.offload_server != "":
+        print("Offloading to remote server")
+        auth_token = os.environ.get("AUTH_BEARER_TOKEN", "")
+        if auth_token == "":
+            print("No AUTH_BEARER_TOKEN set, exiting")
+            sys.exit(1)
+        import requests
+        import json
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        data = json.dumps(ctx.to_json())
+        requests.post(f"{ctx.offload_server}/jobs", data=data, headers=headers)
+
     job = AlabamaEncodingJob(ctx)
 
-    asyncio.run(
-        job.run_pipeline()
-    )  # this runs the whole encoding process
+    asyncio.run(job.run_pipeline())  # this runs the whole encoding process
 
     quit()
 

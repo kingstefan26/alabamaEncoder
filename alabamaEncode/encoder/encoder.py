@@ -4,6 +4,8 @@ import time
 from abc import abstractmethod, ABC
 from typing import List
 
+from tqdm import tqdm
+
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
@@ -37,7 +39,7 @@ class Encoder(ABC):
         self._output_path = value
 
     speed = 4
-    threads = 2
+    threads = 1
     rate_distribution = EncoderRateDistribution.CQ
     qm_enabled = True
     grain_synth = 3
@@ -53,7 +55,7 @@ class Encoder(ABC):
 
     svt_bias_pct = 50  # 100 vbr like, 0 cbr like
     svt_open_gop = True
-    keyint: int = 999999
+    keyint: int = 360  # max chunk is 10s, so this should cover the whole chunk
     svt_sdc: int = 0
     svt_chroma_thing = -2
     svt_supperres_mode = 0
@@ -63,6 +65,10 @@ class Encoder(ABC):
     svt_superres_kf_qthresh = 43
     svt_sframe_interval = 0
     svt_sframe_mode = 2
+    svt_resize_mode = 0
+    svt_resize_denominator = 8
+    svt_resize_kf_denominator = 8
+
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     svt_tf = 1  # temporally filtered ALT-REF frames
     svt_overlay = 0  # enable overlays
@@ -121,6 +127,8 @@ class Encoder(ABC):
         """
         stats = EncodeStats()
 
+        stats.length_frames = self.chunk.get_frame_count()
+
         should_encode = False
 
         if not os.path.exists(self.output_path):
@@ -131,7 +139,7 @@ class Encoder(ABC):
             should_encode = True
 
         if not should_encode:
-            print("Skipping encode, file already exists")
+            tqdm.write("Skipping encode, file already exists")
 
         if should_encode:
             if self.chunk.path is None or self.chunk.path == "":
@@ -239,7 +247,9 @@ class Encoder(ABC):
                 for c in self.get_encode_commands():
                     print(c)
 
-                raise Exception("FATAL: ENCODE FAILED FILE NOT FOUND OR TOO SMALL")
+                raise Exception(
+                    f"FATAL: ENCODE FAILED {self.output_path} NOT FOUND OR TOO SMALL"
+                )
 
             if stats.time_encoding < 1:
                 stats.time_encoding = 1

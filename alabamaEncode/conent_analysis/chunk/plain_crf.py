@@ -12,5 +12,4 @@ class PlainCrf(ChunkAnalyzePipelineItem):
         enc.rate_distribution = EncoderRateDistribution.CQ
         enc.crf = ctx.prototype_encoder.crf
         enc.passes = 1
-        enc.svt_open_gop = True
         return enc

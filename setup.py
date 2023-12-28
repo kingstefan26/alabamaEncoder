@@ -11,10 +11,9 @@ setup(
         "redis",
         "psutil",
         "opencv-python",
-        "optuna",
     ],
     entry_points="""
       [console_scripts]
-      alabamaEncoder=alabamaEncode.__main__:main
+      alabamaEncoder=alabamaEncode_frontends.cli.__main__:main
       """,
 )

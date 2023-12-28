@@ -1,3 +1,8 @@
+from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
+    DynamicTargetVmaf,
+)
+
+
 def setup_chunk_analyze_chain(ctx, sequence):
     """
     Sets up the chunk analyze chain
@@ -15,6 +20,12 @@ def setup_chunk_analyze_chain(ctx, sequence):
     # setting up rate control, adaptive or not
     if ctx.weird_x264:
         ctx.chunk_analyze_chain.append(PlainCrf())
+    elif ctx.dynamic_vmaf_target:
+        print("Using dynamic vmaf targeting")
+        ctx.chunk_analyze_chain.append(PlainCrf())
+    elif ctx.dynamic_vmaf_target_vbr:
+        print("Using dynamic vmaf targeting with vbr")
+        ctx.chunk_analyze_chain.append(PlainVbr())
     elif ctx.crf_map != "":
         ctx.chunk_analyze_chain.append(CrfIndexesMap(ctx.crf_map))
     elif ctx.flag1 is True:
@@ -73,6 +84,14 @@ def setup_chunk_encoder(ctx, sequence):
         ctx.chunk_encode_class = WeridCapedCrfFinalEncode()
     elif ctx.ai_vmaf_targeting:
         ctx.chunk_encode_class = AiTargetedVmafFinalEncode()
+    elif ctx.dynamic_vmaf_target:
+        ctx.chunk_encode_class = DynamicTargetVmaf()
+    elif ctx.dynamic_vmaf_target_vbr:
+        from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf_vbr import (
+            DynamicTargetVmafVBR,
+        )
+
+        ctx.chunk_encode_class = DynamicTargetVmafVBR()
     else:
         ctx.chunk_encode_class = PlainFinalEncode()
 

@@ -8,8 +8,8 @@ import os
 from math import sqrt
 from statistics import mean
 
-from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -19,6 +19,7 @@ def calc_grainsynth_of_scene(
     encoder_max_grain: int = 50,
     scale_vf="",
     crop_vf="",
+    threads=1,
 ) -> int:
     chunk: ChunkObject = copy.deepcopy(_chunk)
 
@@ -54,7 +55,10 @@ def calc_grainsynth_of_scene(
             chunk.first_frame_index = curr
             if chunk.first_frame_index > chunk.last_frame_index:
                 chunk.first_frame_index = chunk.last_frame_index - 1
-            avvs = f"{get_binary('ffmpeg')} -v error -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1"
+            avvs = (
+                f"{get_binary('ffmpeg')} -v error -threads {threads} "
+                f"-y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1"
+            )
             cli = f'{avvs}  {a} -pix_fmt yuv420p "{reference_path}"'
             cli1 = f'{avvs} -vf {b} "{test1_path}"'
             cli2 = f'{avvs} -vf {c} "{test2_path}"'

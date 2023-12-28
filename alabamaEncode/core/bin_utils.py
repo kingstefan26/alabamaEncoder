@@ -6,7 +6,7 @@ Also includes checks if the binaries are what we need (e.g., ffmpeg has been com
 import os
 from shutil import which
 
-__all__ = ["get_binary", "register_bin"]
+__all__ = ["get_binary", "register_bin", "verify_ffmpeg_library"]
 
 from typing import List
 

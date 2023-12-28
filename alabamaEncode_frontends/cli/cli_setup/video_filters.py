@@ -7,15 +7,15 @@ def parse_video_filters(ctx):
     Sets up the video filters
     """
     # make --video_filters mutually exclusive with --hdr --crop_string --scale_string
-    if ctx.prototype_encoder.video_filters != "" and (
-        ctx.prototype_encoder.hdr
-        or ctx.prototype_encoder.video_filters != ""
-        or ctx.scale_string != ""
-    ):
-        print(
-            "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
-        )
-        quit()
+    # if ctx.prototype_encoder.video_filters != "" and (
+    #     ctx.prototype_encoder.hdr
+    #     or ctx.prototype_encoder.video_filters != ""
+    #     or ctx.scale_string != ""
+    # ):
+    #     print(
+    #         "--video_filters is mutually exclusive with --hdr, --crop_string, and --scale_string"
+    #     )
+    #     quit()
 
     if ctx.prototype_encoder.video_filters == "":
         final = ""

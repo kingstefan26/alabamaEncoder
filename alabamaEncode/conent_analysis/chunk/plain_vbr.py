@@ -12,5 +12,4 @@ class PlainVbr(ChunkAnalyzePipelineItem):
         enc.rate_distribution = EncoderRateDistribution.VBR
         enc.bitrate = ctx.prototype_encoder.bitrate
         enc.passes = 3
-        enc.svt_bias_pct = 20
         return enc

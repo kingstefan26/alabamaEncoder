@@ -41,6 +41,12 @@ class Ffmpeg:
         )
 
     @staticmethod
+    def get_frame_count_fast(path: PathAlabama):
+        length_in_secs = Ffmpeg.get_video_length(path)
+        fps = Ffmpeg.get_video_frame_rate(path)
+        return int(length_in_secs * fps)
+
+    @staticmethod
     def get_video_length(path: PathAlabama, sexagesimal=False) -> float | str:
         """
         Returns the video length in seconds

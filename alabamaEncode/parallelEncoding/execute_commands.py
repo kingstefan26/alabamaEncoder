@@ -6,6 +6,7 @@ import psutil
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.executor import AdaptiveCommand
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
 
 
@@ -33,8 +34,9 @@ async def execute_commands(
     #         command.run()
     #
     # elif use_celery:
+    are_commands_adaptive_commands = isinstance(command_objects[0], AdaptiveCommand)
     if use_celery:
-        is_adaptive_command = isinstance(command_objects[0], AdaptiveCommand)
+        is_adaptive_command = are_commands_adaptive_commands
         if is_adaptive_command:
             total_frames = sum([c.chunk.get_frame_count() for c in command_objects])
             pbar = tqdm(
@@ -82,54 +84,49 @@ async def execute_commands(
         pbar.close()
     else:
         total_scenes = len(command_objects)
-        futures = []
-        completed_count = 0
+        futures, completed_count = [], 0
 
-        core_count = os.cpu_count()
-        auto_scale = multiprocess_workers == -1
+        core_count, auto_scale = os.cpu_count(), multiprocess_workers == -1
+        target_cpu_utilization, max_mem_usage = 95, 80
 
-        target_cpu_utilization = 95
-        max_swap_usage = 25
+        max_limit = (
+            core_count * 2
+            if auto_scale
+            else multiprocess_workers
+            if multiprocess_workers != -1
+            else core_count
+        )
 
-        if pin_to_cores == -1:
-            if auto_scale:
-                max_limit = core_count * 2
-            else:
-                max_limit = multiprocess_workers
-        else:
-            max_limit = core_count
+        # to provide a bitrate estimate in the progress bar
+        encoded_frames_so_far = 0
+        encoded_size_so_far = 0  # in kbits
 
-        concurrent_jobs_limit = 2  # Initial value to be adjusted dynamically
-        if not auto_scale:
-            concurrent_jobs_limit = multiprocess_workers
+        concurrent_jobs_limit = multiprocess_workers if not auto_scale else 2
 
-        loop = asyncio.get_event_loop()
-
-        executor = ThreadPoolExecutor()
+        loop, executor = asyncio.get_event_loop(), ThreadPoolExecutor()
 
         used_cores = [0] * core_count
 
-        # check if the first command is a AdaptiveCommand
-        if isinstance(command_objects[0], AdaptiveCommand):
-            total_frames = sum([c.chunk.get_frame_count() for c in command_objects])
-            pbar = tqdm(
-                total=total_frames,
-                desc="Encoding",
-                unit="frame",
-                dynamic_ncols=True,
-                unit_scale=True,
-                smoothing=0,
-            )
+        total_frames = (
+            sum([c.chunk.get_frame_count() for c in command_objects])
+            if are_commands_adaptive_commands
+            else total_scenes
+        )
+        pbar = tqdm(
+            total=total_frames,
+            desc="Encoding",
+            unit="frame" if are_commands_adaptive_commands else "scene",
+            dynamic_ncols=True,
+            unit_scale=True,
+            smoothing=0,
+        )
+        if are_commands_adaptive_commands:
             for adapt_cmnd in command_objects:
                 adapt_cmnd.encoded_a_frame_callback = (
                     lambda frame, bitrate, fps: pbar.update()
                 )
-        else:
-            pbar = tqdm(
-                total=total_scenes, desc="Encoding", unit="scene", dynamic_ncols=True
-            )
 
-        pbar.set_description(f"Workers: 0 CPU -% SWAP -%")
+        pbar.set_description(f"WORKERS: - CPU -% SWAP -%")
 
         while completed_count < total_scenes:
             # Start new tasks if there are available slots
@@ -137,69 +134,55 @@ async def execute_commands(
                 len(futures) < concurrent_jobs_limit
                 and completed_count + len(futures) < total_scenes
             ):
-                command = command_objects[completed_count + len(futures)]
-                if pin_to_cores:
-                    # find the first available core
-                    core = used_cores.index(0)
-                    # mark the core as used
-                    used_cores[core] = 1
-                    command.pin_to_core = core
-                futures.append(loop.run_in_executor(executor, command.run))
+                command, core = (
+                    command_objects[completed_count + len(futures)],
+                    used_cores.index(0) if pin_to_cores else None,
+                )
+                command.pin_to_core = core if pin_to_cores else -1
+                future = loop.run_in_executor(executor, command.run)
+                futures.append(future)
 
-            # Wait for any task to complete
-            # done, _ = await asyncio.wait(futures, return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait(futures, timeout=5)
+            futures = [f for f in futures if not f.done()]
 
-            # alt version where we wait one sec and loop
-            done, _ = await asyncio.wait(futures, timeout=5)
-
-            # Process completed tasks
             for future in done:
-                result = await future  # result is the command object run() output
-                # if we are encoding chunks update by the done frames, not the done chunks
-                if isinstance(command_objects[0], AdaptiveCommand):
-                    if not command_objects[0].supports_encoded_a_frame_callback():
-                        # if the encoder does not support encoded a frame callback,
-                        # update by the number of frames in the chunk,
-                        # otherwise the callback above will update the progress bar
-                        pbar.update(
-                            command_objects[completed_count].chunk.get_frame_count()
-                        )
+                w = await future
+                pined_core: int = w[0]
+                stats: EncodeStats = w[1]
+                if (
+                    are_commands_adaptive_commands
+                    and not command_objects[0].supports_encoded_a_frame_callback()
+                ):
+                    pbar.update(
+                        command_objects[completed_count].chunk.get_frame_count()
+                    )
                 else:
                     pbar.update()
 
-                if pin_to_cores:
-                    # in this case the result is the AdaptiveCommand object, which returns the core it was pinned to
-                    # mark the core as unused
-                    used_cores[result] = 0
+                encoded_frames_so_far += stats.length_frames
+                encoded_size_so_far += stats.size
 
+                if pin_to_cores:
+                    used_cores[pined_core] = 0
                 completed_count += 1
 
-            # Remove completed tasks from the future list
-            futures = [future for future in futures if not future.done()]
-
             cpu_utilization = psutil.cpu_percent()
-
+            mem_usage = psutil.virtual_memory().percent
+            bitrate_estimate = "ESTM BITRATE N/A"
+            if encoded_frames_so_far > 0:
+                bitrate_estimate = f"ESTM BITRATE {(encoded_frames_so_far / encoded_size_so_far) * 1000:.2f} kb/s"
             pbar.set_description(
-                f"Workers: {len(futures)} CPU {cpu_utilization:.2f}% "
-                # f"SWAP {swap_usage:.2f}%"
+                f"WORKERS {len(futures)} CPU {int(cpu_utilization)}% "
+                f"MEM {int(mem_usage)}% {bitrate_estimate}"
             )
 
             if auto_scale and len(futures) > 0:
-                # swap_usage = parse_swap_usage()
-                if (
-                    cpu_utilization
-                    < target_cpu_utilization
-                    # and swap_usage < max_swap_usage
-                ):
-                    concurrent_jobs_limit += 1
-                elif (
-                    cpu_utilization
-                    > target_cpu_utilization
-                    # or swap_usage > max_swap_usage
-                ):
-                    concurrent_jobs_limit -= 1
-
-                # no less than 1 and no more than max_limit
+                concurrent_jobs_limit += (
+                    1
+                    if cpu_utilization < target_cpu_utilization
+                    and mem_usage < max_mem_usage
+                    else -1
+                )
                 concurrent_jobs_limit = max(1, min(concurrent_jobs_limit, max_limit))
 
             if finished_scene_callback is not None:

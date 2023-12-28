@@ -8,11 +8,6 @@ from tqdm import tqdm
 from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
     ChunkAnalyzePipelineItem,
 )
-from alabamaEncode.core.cli_setup.cli_args import read_args
-from alabamaEncode.core.cli_setup.paths import parse_paths
-from alabamaEncode.core.cli_setup.ratecontrol import parse_rd
-from alabamaEncode.core.cli_setup.res_preset import parse_resolution_presets
-from alabamaEncode.core.cli_setup.video_filters import parse_video_filters
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
@@ -95,14 +90,20 @@ class AlabamaContext:
     def to_json(self):
         return json.dumps(self.dict())
 
+    # safe version
     def from_json(self, json_str):
-        self.__dict__ = json.loads(json_str)
+        try:
+            parser_dict = json.loads(json_str)
+        except json.decoder.JSONDecodeError:
+            raise RuntimeError("Invalid JSON")
+        self.__dict__ = parser_dict
         return self
 
     def __iter__(self):
         return self.dict().__iter__()
 
     use_celery: bool = False
+    offload_server = ""
     multiprocess_workers: int = -1
     log_level: int = 0
     print_analysis_logs = False
@@ -151,6 +152,9 @@ class AlabamaContext:
     ai_vmaf_targeting = False
     vmaf_target_representation = "mean"
     weird_x264 = False
+    dynamic_vmaf_target = False
+    dynamic_vmaf_target_vbr = False
+    best_crfs = []
 
     flag1: bool = False
     flag2: bool = False
@@ -175,7 +179,7 @@ class AlabamaContext:
     auto_accept_autocrop = False
 
     def log(self, msg, level=0, category=""):
-        if self.log_level > 0 and level <= self.log_level:
+        if 0 < self.log_level <= level:
             tqdm.write(msg)
 
         if category != "":
@@ -228,20 +232,3 @@ class AlabamaContext:
         with open(cache_file, "w") as f:
             f.write(f"{width},{height}")
         return [width, height]
-
-
-def setup_context_for_standalone_usage() -> AlabamaContext:
-    ctx = AlabamaContext()
-
-    creation_pipeline = [
-        read_args,
-        parse_paths,
-        parse_rd,
-        parse_resolution_presets,
-        parse_video_filters,
-    ]
-
-    for pipeline_item in creation_pipeline:
-        ctx = pipeline_item(ctx)
-
-    return ctx

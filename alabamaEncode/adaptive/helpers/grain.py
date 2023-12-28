@@ -67,7 +67,7 @@ class AutoGrain:
 
         avif_enc = AvifEncoderSvtenc()
 
-        if self.bitrate is not None:
+        if self.bitrate != -1:
             avif_enc.update(bitrate=self.bitrate)
         else:
             avif_enc.update(crf=self.crf)

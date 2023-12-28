@@ -122,7 +122,7 @@ class VideoConcatenator:
                 final_command = (
                     f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                     f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} '
-                    f'-map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart '
+                    f'-map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -map_chapters -1 '
                     f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                 )
                 # print(f"running: {final_command}")
@@ -136,7 +136,7 @@ class VideoConcatenator:
                     final_command = (
                         f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                         f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
-                        f"{title_bit} -map 0:v -map 1:a -movflags +faststart "
+                        f"{title_bit} -map 0:v -map 1:a -movflags +faststart -map_chapters -1 "
                         f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                     )
                     run_cli(final_command).verify()
@@ -165,7 +165,7 @@ class VideoConcatenator:
                 final_command = (
                     f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
                     f'{subs_i} {start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
-                    f"{title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart "
+                    f"{title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -map_chapters -1 "
                     f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                 )
                 # print(f"running: {final_command}")

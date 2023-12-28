@@ -16,6 +16,8 @@ def get_video_scene_list_skinny(
     start_offset=-1,
     end_offset=-1,
     override_bad_wrong_cache_path=False,
+    static_lenght=False,
+    static_lenght_size=720,
 ) -> ChunkSequence:
     """
     :param override_bad_wrong_cache_path:
@@ -49,13 +51,34 @@ def get_video_scene_list_skinny(
             scene_list = pickle.load(open(untouched_scene_list, "rb"))
 
         if scene_list is None:
-            scene_list = detect(
-                video_path=input_file,
-                detector=AdaptiveDetector(
-                    window_width=10, adaptive_threshold=2.5, min_content_val=12
-                ),
-                show_progress=True,
-            )
+            if not static_lenght:
+                scene_list = detect(
+                    video_path=input_file,
+                    detector=AdaptiveDetector(
+                        window_width=10, adaptive_threshold=2.5, min_content_val=12
+                    ),
+                    show_progress=True,
+                )
+                scene_list = [
+                    (scene[0].get_frames(), scene[1].get_frames())
+                    for scene in scene_list
+                ]
+            else:
+                # create static length scenes
+                total_size = Ffmpeg.get_frame_count_fast(PathAlabama(input_file))
+                remaining_frames = 0
+                scene_list = []
+                for i in range(0, total_size, static_lenght_size):
+                    scene_list.append(
+                        (
+                            i,
+                            min(i + static_lenght_size, total_size)
+                            - 1
+                            + remaining_frames,
+                        )
+                    )
+                    remaining_frames = 1
+                scene_list[-1] = (scene_list[-1][0], total_size - 1)
             pickle.dump(scene_list, open(untouched_scene_list, "wb"))
 
         seq = ChunkSequence([])
@@ -71,8 +94,7 @@ def get_video_scene_list_skinny(
 
         # iterate through each scene detected in the video
         for scene in scene_list:
-            start_frame = scene[0].get_frames()
-            end_frame = scene[1].get_frames()
+            start_frame, end_frame = scene
             duration = end_frame - start_frame
 
             # if the scene duration is shorter than max_scene_length, add it as a chunk to the sequence

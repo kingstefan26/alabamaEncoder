@@ -25,8 +25,8 @@ class EncoderSvt(Encoder):
         kommand = ""
 
         # pin to cores if we are targeting specific cores
-        # if self.pin_to_core != -1:
-        #     kommand += f"taskset -a -c {self.pin_to_core} "
+        if self.pin_to_core != -1:
+            kommand += f"taskset -a -c {self.pin_to_core} "
         #
         # # add niceness
         # kommand += f"nice -n {self.niceness} "
@@ -93,7 +93,6 @@ class EncoderSvt(Encoder):
             kommand += f" --bias-pct {self.svt_bias_pct}"
 
             kommand += f" --pin 0"
-
             kommand += f" --lp {self.threads}"
 
             kommand += f" --aq-mode {self.svt_aq_mode}"
@@ -114,6 +113,11 @@ class EncoderSvt(Encoder):
                 kommand += f" --sframe-dist {self.svt_sframe_interval}"
                 kommand += f" --sframe-mode {self.svt_sframe_mode}"
 
+            if self.svt_resize_mode != 0:
+                kommand += f" --resize-mode {self.svt_resize_mode}"
+                kommand += f" --resize-denominator {self.svt_resize_denominator}"
+                kommand += f" --resize-kf-denominator {self.svt_resize_kf_denominator}"
+
             if 0 <= self.grain_synth <= 50:
                 kommand += f" --film-grain {self.grain_synth}"
 
@@ -128,14 +132,14 @@ class EncoderSvt(Encoder):
 
             kommand += f" --enable-tf {self.svt_tf}"
 
-            if self.svt_open_gop and self.passes == 1:
-                kommand += " --irefresh-type 1"
+            # if self.svt_open_gop and self.passes == 1:
+            #     kommand += " --irefresh-type 1"
 
-            if self.svt_overlay == 1:
-                if self.passes == 1:
-                    kommand += f" --enable-overlays {self.svt_overlay}"
-                else:
-                    print("WARNING: overlays only supported in 1 pass crf")
+            # if self.svt_overlay == 1:
+            #     if self.passes == 1:
+            #         kommand += f" --enable-overlays {self.svt_overlay}"
+            #     else:
+            #         print("WARNING: overlays only supported in 1 pass crf")
         else:
             kommand += self.override_flags
 

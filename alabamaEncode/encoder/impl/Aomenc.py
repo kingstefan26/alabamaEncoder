@@ -49,9 +49,7 @@ class EncoderAom(Encoder):
         encode_command += f"--cpu-used={self.speed} "
         encode_command += f"--bit-depth={self.bit_override} "
 
-        if not self.override_flags:
-            pass
-        elif self.override_flags == "":
+        if self.override_flags == "":
             # STOLEN FROM ROOTATKAI IN #BENCHMARKS CUZ HE SAID ITS GOOD OR WHATEVER --lag-in-frames=48
             # --tune-content=psy --tune=ssim --sb-size=dynamic --enable-qm=1 --qm-min=0 --qm-max=8 --row-mt=1
             # --disable-kf --kf-max-dist=9999 --kf-min-dist=1 --disable-trellis-quant=0 --arnr-maxframes=15

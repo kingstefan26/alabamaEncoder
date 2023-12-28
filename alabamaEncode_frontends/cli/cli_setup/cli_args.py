@@ -107,7 +107,15 @@ def read_args(ctx):
         help="What encoder to use",
         type=str,
         default=str(EncodersEnum.SVT_AV1),
-        choices=["svt_av1", "x265", "aomenc", "x264", "vpx_9"],
+        choices=[
+            "svt_av1",
+            "x265",
+            "aomenc",
+            "x264",
+            "vpx_9",
+            "hevc_vaapi",
+            "h264_vaapi",
+        ],
     )
 
     parser.add_argument(
@@ -395,6 +403,7 @@ def read_args(ctx):
         "--vmaf_reference_display",
         type=str,
         default=ctx.vmaf_reference_display,
+        choices=["HD", "FHD", "UHD"],
         help="HD FHD UHD",
     )
 
@@ -460,6 +469,27 @@ def read_args(ctx):
 
     parser.add_argument(
         "--poster_url", type=str, help="Url of poster for website updates"
+    )
+
+    parser.add_argument(
+        "--offload_server",
+        type=str,
+        default="",
+        help="if filled with a server address, will try to send a serialised job to that server",
+    )
+
+    parser.add_argument(
+        "--dynamic_vmaf_target",
+        default=ctx.dynamic_vmaf_target,
+        action="store_true",
+        help="todo",
+    )
+
+    parser.add_argument(
+        "--dynamic_vmaf_target_vbr",
+        default=ctx.dynamic_vmaf_target_vbr,
+        action="store_true",
+        help="todo",
     )
 
     args = parser.parse_args()
@@ -528,5 +558,8 @@ def read_args(ctx):
     ctx.vmaf_target_representation = args.vmaf_target_repesentation
     ctx.print_analysis_logs = args.print_analysis_logs
     ctx.poster_url = args.poster_url
+    ctx.offload_server = args.offload_server
+    ctx.dynamic_vmaf_target = args.dynamic_vmaf_target
+    ctx.dynamic_vmaf_target_vbr = args.dynamic_vmaf_target_vbr
 
     return ctx
