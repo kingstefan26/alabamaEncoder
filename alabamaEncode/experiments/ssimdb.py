@@ -5,11 +5,8 @@ import copy
 import os
 from typing import List
 
-from alabamaEncode.adaptive.helpers.bitrate import get_ideal_bitrate
 from alabamaEncode.adaptive.helpers.bitrateLadder import AutoBitrateLadder
-from alabamaEncode.adaptive.helpers.probe_chunks import (
-    get_test_chunks_out_of_a_sequence,
-)
+from alabamaEncode.conent_analysis.chunk.optimised_vbr import get_ideal_bitrate
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject
@@ -44,7 +41,7 @@ def test():
     config.ssim_db_target = ssim_db_target
     config.prototype_encoder.bitrate = bitrate_being_evaluated
 
-    chunks = get_test_chunks_out_of_a_sequence(chunk_sequence, 10)
+    chunks = chunk_sequence.get_test_chunks_out_of_a_sequence(10)
     test_chunks: List[ChunkObject] = copy.deepcopy(chunks)
     for i, chunk in enumerate(test_chunks):
         chunk.chunk_index = i

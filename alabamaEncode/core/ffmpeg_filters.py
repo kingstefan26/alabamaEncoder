@@ -1,9 +1,13 @@
-class FfmpegFilterGraph:
+class FfmpegFilters:
     def __init__(self):
         self._filters = []
 
     def get_str(self):
-        return ",".join(self._filters)
+        filters = self._filters
+        if len(filters) == 0:
+            return ""
+        filters = [f for f in filters if f is not None and f != ""]
+        return ",".join(filters)
 
     def set_crop(self, x, y, width, height):
         for i in range(0, len(self._filters)):

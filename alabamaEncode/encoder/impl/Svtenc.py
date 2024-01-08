@@ -24,12 +24,8 @@ class EncoderSvt(Encoder):
 
         kommand = ""
 
-        # pin to cores if we are targeting specific cores
         if self.pin_to_core != -1:
             kommand += f"taskset -a -c {self.pin_to_core} "
-        #
-        # # add niceness
-        # kommand += f"nice -n {self.niceness} "
 
         kommand += (
             f"{self.get_ffmpeg_pipe_command()} | "
@@ -90,7 +86,6 @@ class EncoderSvt(Encoder):
                     raise Exception("FATAL: VBR_VBV is not supported")
 
             kommand += f" --tune {self.svt_tune}"
-            kommand += f" --bias-pct {self.svt_bias_pct}"
 
             kommand += f" --pin 0"
             kommand += f" --lp {self.threads}"
@@ -131,15 +126,6 @@ class EncoderSvt(Encoder):
                 kommand += " --enable-qm 0"
 
             kommand += f" --enable-tf {self.svt_tf}"
-
-            # if self.svt_open_gop and self.passes == 1:
-            #     kommand += " --irefresh-type 1"
-
-            # if self.svt_overlay == 1:
-            #     if self.passes == 1:
-            #         kommand += f" --enable-overlays {self.svt_overlay}"
-            #     else:
-            #         print("WARNING: overlays only supported in 1 pass crf")
         else:
             kommand += self.override_flags
 

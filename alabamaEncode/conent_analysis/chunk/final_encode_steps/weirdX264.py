@@ -9,8 +9,6 @@ from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -23,9 +21,7 @@ class TargetX264(FinalEncodeStep):
 
         target_vmaf = ctx.vmaf
 
-        from alabamaEncode.adaptive.helpers.probe_file_path import get_probe_file_base
-
-        probe_file_base = get_probe_file_base(chunk.chunk_path)
+        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         enc.x264_tune = ""
         enc.x264_ipratio = 1.3
@@ -56,16 +52,7 @@ class TargetX264(FinalEncodeStep):
 
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=VmafOptions(
-                    uhd=ctx.vmaf_4k_model,
-                    phone=ctx.vmaf_phone_model,
-                    ref=ComparisonDisplayResolution.from_string(
-                        ctx.vmaf_reference_display
-                    )
-                    if ctx.vmaf_reference_display
-                    else None,
-                    no_motion=ctx.vmaf_no_motion,
-                ),
+                vmaf_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
             match ctx.vmaf_target_representation:
@@ -179,14 +166,7 @@ class TargetX264(FinalEncodeStep):
 
         return enc.run(
             calculate_vmaf=True,
-            vmaf_params=VmafOptions(
-                uhd=ctx.vmaf_4k_model,
-                phone=ctx.vmaf_phone_model,
-                ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
-                if ctx.vmaf_reference_display
-                else None,
-                no_motion=ctx.vmaf_no_motion,
-            ),
+            vmaf_params=ctx.get_vmaf_options(),
             on_frame_encoded=encoded_a_frame,
         )
 

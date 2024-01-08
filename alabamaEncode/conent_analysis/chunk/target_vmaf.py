@@ -9,8 +9,6 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -24,9 +22,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
 
         target_vmaf = ctx.vmaf
 
-        from alabamaEncode.adaptive.helpers.probe_file_path import get_probe_file_base
-
-        probe_file_base = get_probe_file_base(chunk.chunk_path)
+        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         def get_score(_crf):
             enc.crf = _crf
@@ -42,16 +38,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             enc.override_flags = None
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=VmafOptions(
-                    uhd=ctx.vmaf_4k_model,
-                    phone=ctx.vmaf_phone_model,
-                    ref=ComparisonDisplayResolution.from_string(
-                        ctx.vmaf_reference_display
-                    )
-                    if ctx.vmaf_reference_display
-                    else None,
-                    no_motion=ctx.vmaf_no_motion,
-                ),
+                vmaf_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
             match ctx.vmaf_target_representation:

@@ -14,9 +14,6 @@ from typing import List, Tuple
 
 from tqdm import tqdm
 
-from alabamaEncode.adaptive.helpers.probe_chunks import (
-    get_test_chunks_out_of_a_sequence,
-)
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
@@ -52,8 +49,8 @@ class AutoBitrateLadder:
         self.chunk_sequence = chunk_sequence
         self.config: AlabamaContext = config
 
-        self.chunks = get_test_chunks_out_of_a_sequence(
-            self.chunk_sequence, self.random_pick_count
+        self.chunks = self.chunk_sequence.get_test_chunks_out_of_a_sequence(
+            self.random_pick_count
         )
 
         if len(self.chunks) == 0:
@@ -133,7 +130,6 @@ class AutoBitrateLadder:
                 self.config.use_celery,
                 commands,
                 -1,
-                override_sequential=False,
             )
         )
 
@@ -221,7 +217,6 @@ class AutoBitrateLadder:
                 self.config.use_celery,
                 commands,
                 self.config.multiprocess_workers,
-                override_sequential=False,
             )
         )
 
@@ -359,7 +354,6 @@ class AutoBitrateLadder:
                 self.config.use_celery,
                 commands,
                 self.config.multiprocess_workers,
-                override_sequential=False,
             )
         )
 
@@ -426,7 +420,6 @@ class AutoBitrateLadder:
                 self.config.use_celery,
                 commands,
                 self.config.multiprocess_workers,
-                override_sequential=False,
             )
         )
 
@@ -465,7 +458,6 @@ class AutoBitrateLadder:
         enc.grain_synth = self.config.prototype_encoder.grain_synth
         enc.rate_distribution = EncoderRateDistribution.VBR
         enc.threads = 1
-        enc.svt_bias_pct = 90
 
         runs = []
 
@@ -478,7 +470,6 @@ class AutoBitrateLadder:
             mid_bitrate = (left + right) // 2
             enc.bitrate = mid_bitrate
             mid_vmaf = enc.run(
-                timeout_value=300,
                 calculate_vmaf=True,
                 vmaf_params=VmafOptions(uhd=True, neg=True),
             ).vmaf_result.mean
@@ -521,7 +512,7 @@ class AutoBitrateLadder:
             num_probes += 1
             mid_crf = (left + right) // 2
             encoder.crf = mid_crf
-            encoder.run(timeout_value=300)
+            encoder.run()
 
             mid_vmaf = calculate_metric(
                 chunk=chunk,
@@ -606,7 +597,6 @@ class AutoBitrateLadder:
             f"{self.config.temp_folder}adapt/bitrate/ssim_translate/{chunk.chunk_index}"
             f"{enc.get_chunk_file_extension()}"
         )
-        enc.svt_bias_pct = 90
         try:
             stats: EncodeStats = enc.run(calcualte_ssim=True)
         except Exception as e:
@@ -633,7 +623,7 @@ class AutoBitrateLadder:
             encoder.crf = crf
             encoder.output_path = f"{probe_folder}{c.chunk_index}_{crf}{encoder.get_chunk_file_extension()}"
 
-            stats = encoder.run(timeout_value=500)
+            stats = encoder.run()
 
             print(f"[{c.chunk_index}] {crf} crf -> {stats.bitrate} kb/s")
             bitrates.append(stats.bitrate)
@@ -680,7 +670,7 @@ class AutoBitrateLadder:
                 mid = (left + right) // 2
                 encoder.crf = mid
                 encoder.output_path = f"{probe_folder}{c.chunk_index}_{mid}{encoder.get_chunk_file_extension()}"
-                stats = encoder.run(timeout_value=500)
+                stats = encoder.run()
 
                 print(f"[{c.chunk_index}] {mid} crf ~> {stats.bitrate} kb/s")
 

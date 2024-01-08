@@ -1,6 +1,7 @@
 # get broken/backend url from env
 import os
 import traceback
+from typing import Any
 
 from celery import Celery
 
@@ -19,11 +20,12 @@ app.conf.update(
     task_serializer="pickle",
     result_serializer="pickle",
     accept_content=["pickle"],
+    broker_connection_retry_on_startup=True,
 )
 
 
-@app.task
-def run_command_on_celery(command: BaseCommandObject) -> None:
+@app.task(bind=True)
+def run_command_on_celery(self, command: BaseCommandObject) -> Any:
     """
     Lo and behold!
     I present unto thee an exquisitely crafted manifestation of code,
@@ -51,7 +53,7 @@ def run_command_on_celery(command: BaseCommandObject) -> None:
     # whereupon the symphony of computational prowess reaches its crescendo.
 
     try:
-        command.run()  # And thus, with a flourish and a flicker,
+        return command.run()  # And thus, with a flourish and a flicker,
     except:
         traceback.print_exc()
 

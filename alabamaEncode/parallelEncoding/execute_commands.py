@@ -6,7 +6,6 @@ import psutil
 from tqdm import tqdm
 
 from alabamaEncode.adaptive.executor import AdaptiveCommand
-from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
 
 
@@ -14,9 +13,9 @@ async def execute_commands(
     use_celery,
     command_objects,
     multiprocess_workers,
-    override_sequential=True,
     pin_to_cores=False,
     finished_scene_callback=None,
+    size_estimate_data=None,
 ):
     """
     Execute a list of commands in parallel
@@ -24,37 +23,27 @@ async def execute_commands(
     :param use_celery: execute on a celery cluster
     :param command_objects: objects with a `run()` method to execute
     :param multiprocess_workers: number of workers in multiprocess mode, -1 for auto adjust
-    :param override_sequential: if true, will run sequentially if there is less than 10 scenes
     :param finished_scene_callback: call when a scene finishes, contains the number of finished scenes
+    :param size_estimate_data: tuple(frames, kB) of scenes encoded so far for the estimate
     """
-    # if len(command_objects) < 10 and override_sequential == True:
-    #     print("Less than 10 scenes, running encodes sequentially")
-    #
-    #     for command in command_objects:
-    #         command.run()
-    #
-    # elif use_celery:
     are_commands_adaptive_commands = isinstance(command_objects[0], AdaptiveCommand)
+    # to provide a bitrate estimate in the progress bar
+    encoded_frames_so_far = 0
+    encoded_size_so_far = 0  # in kbits
+    if size_estimate_data is not None:
+        encoded_frames_so_far, encoded_size_so_far = size_estimate_data
+
     if use_celery:
-        is_adaptive_command = are_commands_adaptive_commands
-        if is_adaptive_command:
-            total_frames = sum([c.chunk.get_frame_count() for c in command_objects])
-            pbar = tqdm(
-                total=total_frames,
-                desc="Encoding",
-                unit="frame",
-                dynamic_ncols=True,
-                unit_scale=True,
-                smoothing=0,
-            )
-        else:
-            pbar = tqdm(
-                total=len(command_objects),
-                desc="Encoding",
-                unit="scene",
-                dynamic_ncols=True,
-                smoothing=0,
-            )
+        pbar = tqdm(
+            total=sum([c.chunk.get_frame_count() for c in command_objects])
+            if are_commands_adaptive_commands
+            else len(command_objects),
+            desc="Encoding",
+            unit="frame" if are_commands_adaptive_commands else "scene",
+            dynamic_ncols=True,
+            unit_scale=True if are_commands_adaptive_commands else False,
+            smoothing=0,
+        )
 
         for a in command_objects:
             a.run_on_celery = True
@@ -62,25 +51,48 @@ async def execute_commands(
         running_tasks = [
             run_command_on_celery.delay(command) for command in command_objects
         ]
+        pbar.set_description(f"WORKERS - ESTM BITRATE -")
 
         while True:
-            num_workers = len(app.control.inspect().active_queues())
-            if num_workers is None or num_workers < 0:
-                print("No workers available, waiting for workers to become available")
-            if all(result.ready() for result in running_tasks):
-                break
-            for task in running_tasks:
-                if task.ready():
-                    if is_adaptive_command:
-                        pbar.update(
-                            command_objects[
+            try:
+                num_workers = len(app.control.inspect().active_queues())
+                if num_workers is None or num_workers < 0:
+                    print(
+                        "No workers available, waiting for workers to become available"
+                    )
+                if all(task.ready() for task in running_tasks):
+                    break
+                for task in running_tasks:
+                    if task.ready():
+                        result = task.get()
+                        if are_commands_adaptive_commands and result is not None:
+                            finished_command = command_objects[
                                 running_tasks.index(task)
-                            ].chunk.get_frame_count()
-                        )
-                    else:
-                        pbar.update()
-                    running_tasks.remove(task)
-                    await asyncio.sleep(1)
+                            ]
+                            pbar.update(finished_command.chunk.get_frame_count())
+                            pinned_code, stats = result
+                            encoded_frames_so_far += stats["length_frames"]
+                            encoded_size_so_far += stats["size"]
+                            bitrate_estimate = "ESTM BITRATE -"
+                            if encoded_frames_so_far > 0:
+                                fps = command_objects[0].chunk.framerate
+                                bitrate_estimate = (
+                                    f"ESTM BITRATE {((encoded_size_so_far * 8) / (encoded_frames_so_far / fps)):.2f} "
+                                    f"kb/s"
+                                )
+
+                            pbar.set_description(
+                                f"WORKERS {num_workers} {bitrate_estimate}"
+                            )
+                        else:
+                            pbar.update()
+                        running_tasks.remove(task)
+                await asyncio.sleep(1)
+            except KeyboardInterrupt as e:
+                print("Keyboard interrupt, cancelling tasks")
+                for task in running_tasks:
+                    task.revoke()
+                raise e
         pbar.close()
     else:
         total_scenes = len(command_objects)
@@ -97,10 +109,6 @@ async def execute_commands(
             else core_count
         )
 
-        # to provide a bitrate estimate in the progress bar
-        encoded_frames_so_far = 0
-        encoded_size_so_far = 0  # in kbits
-
         concurrent_jobs_limit = multiprocess_workers if not auto_scale else 2
 
         loop, executor = asyncio.get_event_loop(), ThreadPoolExecutor()
@@ -108,7 +116,7 @@ async def execute_commands(
         used_cores = [0] * core_count
 
         total_frames = (
-            sum([c.chunk.get_frame_count() for c in command_objects])
+            sum([c.chunk.length for c in command_objects])
             if are_commands_adaptive_commands
             else total_scenes
         )
@@ -146,31 +154,33 @@ async def execute_commands(
             futures = [f for f in futures if not f.done()]
 
             for future in done:
-                w = await future
-                pined_core: int = w[0]
-                stats: EncodeStats = w[1]
-                if (
-                    are_commands_adaptive_commands
-                    and not command_objects[0].supports_encoded_a_frame_callback()
-                ):
-                    pbar.update(
-                        command_objects[completed_count].chunk.get_frame_count()
-                    )
+                rslt = await future
+                if are_commands_adaptive_commands:
+                    pined_core: int = rslt[0]
+                    stats = rslt[1]
+                    if not command_objects[0].supports_encoded_a_frame_callback():
+                        pbar.update(
+                            command_objects[completed_count].chunk.get_frame_count()
+                        )
+                    encoded_frames_so_far += stats["length_frames"]
+                    encoded_size_so_far += stats["size"]
+
+                    if pin_to_cores:
+                        used_cores[pined_core] = 0
                 else:
                     pbar.update()
 
-                encoded_frames_so_far += stats.length_frames
-                encoded_size_so_far += stats.size
-
-                if pin_to_cores:
-                    used_cores[pined_core] = 0
                 completed_count += 1
 
             cpu_utilization = psutil.cpu_percent()
             mem_usage = psutil.virtual_memory().percent
             bitrate_estimate = "ESTM BITRATE N/A"
             if encoded_frames_so_far > 0:
-                bitrate_estimate = f"ESTM BITRATE {(encoded_frames_so_far / encoded_size_so_far) * 1000:.2f} kb/s"
+                fps = command_objects[0].chunk.framerate
+                bitrate_estimate = (
+                    f"ESTM BITRATE {((encoded_size_so_far * 8) / (encoded_frames_so_far / fps)):.2f} "
+                    f"kb/s"
+                )
             pbar.set_description(
                 f"WORKERS {len(futures)} CPU {int(cpu_utilization)}% "
                 f"MEM {int(mem_usage)}% {bitrate_estimate}"

@@ -8,11 +8,14 @@ from tqdm import tqdm
 from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
     ChunkAnalyzePipelineItem,
 )
+from alabamaEncode.core.alamaba_kv import AlabamaKv
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -85,6 +88,10 @@ class AlabamaContext:
             "auto_crop": self.auto_crop,
             "auto_accept_autocrop": self.auto_accept_autocrop,
             "poster_url": self.poster_url,
+            "statically_sized_scenes": self.statically_sized_scenes,
+            "scene_merge": self.scene_merge,
+            "args_tune": self.args_tune,
+            "denoise_vmaf_ref": self.denoise_vmaf_ref,
         }
 
     def to_json(self):
@@ -108,6 +115,7 @@ class AlabamaContext:
     log_level: int = 0
     print_analysis_logs = False
     dry_run: bool = False
+    kv: [AlabamaKv | None] = None
 
     temp_folder: str = ""
     output_folder: str = ""
@@ -138,8 +146,10 @@ class AlabamaContext:
     cutoff_bitrate: int = -1
     max_bitrate: int = 0
     simple_denoise = False
+    args_tune = "balanced"
 
     vmaf: int = 96
+    denoise_vmaf_ref = False
     crf_model_weights = "7,2,10,2,7"
     vmaf_targeting_model = "binary"
     vmaf_probe_count = 2
@@ -162,6 +172,8 @@ class AlabamaContext:
     crf_map = ""
 
     max_scene_length: int = 10
+    statically_sized_scenes = False
+    scene_merge = False
     start_offset: int = -1
     end_offset: int = -1
     override_scenecache_path_check: bool = False
@@ -195,6 +207,17 @@ class AlabamaContext:
             raise RuntimeError(
                 "Prototype encoder is not set, this should be impossible"
             )
+
+    def get_vmaf_options(self) -> VmafOptions:
+        return VmafOptions(
+            uhd=self.vmaf_4k_model,
+            phone=self.vmaf_phone_model,
+            ref=ComparisonDisplayResolution.from_string(self.vmaf_reference_display)
+            if self.vmaf_reference_display
+            else None,
+            no_motion=self.vmaf_no_motion,
+            denoise_refrence=self.denoise_vmaf_ref,
+        )
 
     def get_output_res(self) -> List[int]:
         """
@@ -232,3 +255,38 @@ class AlabamaContext:
         with open(cache_file, "w") as f:
             f.write(f"{width},{height}")
         return [width, height]
+
+    def get_kv(self) -> AlabamaKv:
+        if self.kv is None:
+            self.kv = AlabamaKv(self.temp_folder)
+        return self.kv
+
+    def get_probe_file_base(self, encoded_scene_path) -> str:
+        """
+        A helper function to get a probe file path derived from the encoded scene path
+
+        Examples:
+        /home/test/out/temp/1.ivf -> /home/test/out/temp/1_rate_probes/
+        /home/test/out/temp/42.ivf -> /home/test/out/temp/42_rate_probes/
+        /home/test/out/temp/filename.ivf -> /home/test/out/temp/filename_rate_probes/
+        """
+        # get base file name without an extension
+        file_without_extension = os.path.splitext(os.path.basename(encoded_scene_path))[
+            0
+        ]
+
+        # temp folder
+        path_without_file = os.path.dirname(encoded_scene_path)
+
+        # join
+        probe_folder_path = os.path.join(
+            path_without_file, (file_without_extension + "_rate_probes")
+        )
+
+        # add trailing slash
+        probe_folder_path += os.path.sep
+
+        os.makedirs(probe_folder_path, exist_ok=True)
+
+        # new file base
+        return probe_folder_path

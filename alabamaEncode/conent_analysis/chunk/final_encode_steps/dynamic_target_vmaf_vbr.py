@@ -8,8 +8,6 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -46,18 +44,9 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
             return statistical_representation
 
         original = copy.deepcopy(enc)
-        vmaf_options = VmafOptions(
-            uhd=ctx.vmaf_4k_model,
-            phone=ctx.vmaf_phone_model,
-            ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
-            if ctx.vmaf_reference_display
-            else None,
-            no_motion=ctx.vmaf_no_motion,
-        )
+        vmaf_options = ctx.get_vmaf_options()
 
-        from alabamaEncode.adaptive.helpers.probe_file_path import get_probe_file_base
-
-        probe_file_base = get_probe_file_base(chunk.chunk_path)
+        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         enc.passes = 3
         enc.rate_distribution = EncoderRateDistribution.VBR

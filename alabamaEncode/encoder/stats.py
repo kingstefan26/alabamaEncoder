@@ -36,17 +36,11 @@ class EncodeStats:
         self.vmaf = vmaf
         self.ssim = ssim
         self.ssim_db = ssim_db
-        self.size = size
+        self.size = size  # size in kilo Bytes
         self.total_fps = total_fps
         self.target_miss_proc = target_miss_proc
         self.rate_search_time = rate_search_time
         self.chunk_index = chunk_index
-        self.vmaf_percentile_1 = vmaf_percentile_1
-        self.vmaf_percentile_5 = vmaf_percentile_5
-        self.vmaf_percentile_10 = vmaf_percentile_10
-        self.vmaf_percentile_25 = vmaf_percentile_25
-        self.vmaf_percentile_50 = vmaf_percentile_50
-        self.vmaf_avg = vmaf_avg
         self.basename = basename
         self.version = version
         self.vmaf_result = vmaf_result
@@ -58,19 +52,19 @@ class EncodeStats:
             "bitrate": self.bitrate,
             "chunk_index": self.chunk_index,
             "length_frames": self.length_frames,
-            "vmaf": self.vmaf,
+            "vmaf": self.vmaf_result.mean,
             "ssim": self.ssim,
             "ssim_db": self.ssim_db,
             "size": self.size,
             "total_fps": self.total_fps,
             "target_miss_proc": self.target_miss_proc,
             "rate_search_time": self.rate_search_time,
-            "vmaf_percentile_1": self.vmaf_percentile_1,
-            "vmaf_percentile_5": self.vmaf_percentile_5,
-            "vmaf_percentile_10": self.vmaf_percentile_10,
-            "vmaf_percentile_25": self.vmaf_percentile_25,
-            "vmaf_percentile_50": self.vmaf_percentile_50,
-            "vmaf_avg": self.vmaf_avg,
+            "vmaf_percentile_1": self.vmaf_result.percentile_1,
+            "vmaf_percentile_5": self.vmaf_result.percentile_5,
+            "vmaf_percentile_10": self.vmaf_result.percentile_10,
+            "vmaf_percentile_25": self.vmaf_result.percentile_25,
+            "vmaf_percentile_50": self.vmaf_result.percentile_50,
+            "vmaf_avg": self.vmaf_result.mean,
             "basename": self.basename,
             "version": self.version,
         }

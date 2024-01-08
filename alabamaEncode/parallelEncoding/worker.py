@@ -17,12 +17,5 @@ def worker():
     if len(sys.argv) > 2:
         concurrency = sys.argv[2]
 
-    app.worker_main(
-        argv=[
-            "worker",
-            "--loglevel=info",
-            f"--concurrency={concurrency}",
-            "--without-gossip",
-        ]
-    )
+    app.worker_main(argv=["worker", "--loglevel=info", f"--concurrency={concurrency}"])
     quit()

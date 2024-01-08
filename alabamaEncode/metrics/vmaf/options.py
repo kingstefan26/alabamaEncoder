@@ -10,12 +10,14 @@ class VmafOptions:
         neg=False,
         ref: ComparisonDisplayResolution = None,
         no_motion=False,
+        denoise_refrence=False,
     ):
         self.phone = phone
         self.uhd = uhd
         self.neg = neg
         self.ref = ref
         self.no_motion = no_motion
+        self.denoise_reference = denoise_refrence
 
     def get_model(self) -> str:
         models = get_models()

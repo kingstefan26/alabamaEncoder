@@ -112,6 +112,11 @@ for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
             tqdm.write(f"Found invalid file: {name}.ivf")
             invalid_files.append(name)
 
+for i in range(args.max):
+    if str(i) not in file_names:
+        tqdm.write(f"Missing file: {i}.ivf")
+        invalid_files.append(str(i))
+
 # if there are invalid files, print them out
 if len(invalid_files) > 0:
     # red text
@@ -138,24 +143,24 @@ if mux_audio:
 
     kumannds = []
 
-    output_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -movflags +faststart -c:v copy "temp_{output}"'
+    output_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -movflags +faststart -c:v copy "{output}.TEMP.mkv"'
     print("Running command: " + output_)
     os.system(output_)
 
     # video_length = get_video_lenght()
-    video_length = Ffmpeg.get_video_length(PathAlabama(f"temp_{output}"))
+    video_length = Ffmpeg.get_video_length(PathAlabama(f"{output}.TEMP.mkv"))
 
     kumannds.append(
-        f'ffmpeg -v error -i "temp_{output}" -i "{tmp_dir}temp.mkv" -map 0:v -map 1:a -c:a libopus -ac 2 '
-        f'-b:a 70k -vbr on -movflags +faststart -c:v copy -t {video_length} "ttemp_{output}"'
+        f'ffmpeg -v error -i "{output}.TEMP.mkv" -i "{tmp_dir}/temp.mkv" -map 0:v -map 1:a -c:a libopus -ac 2 '
+        f'-b:a 70k -vbr on -movflags +faststart -c:v copy -t {video_length} "{output}.TTEMP.mkv"'
     )
 
     # second command that uses mkvmerge to write additional metadata & fixup the container
-    kumannds.append(f'mkvmerge -o "{output}" "ttemp_{output}"')
+    kumannds.append(f'mkvmerge -o "{output}" "{output}.TTEMP.mkv"')
 
     # remove temp
-    kumannds.append(f'rm "temp_{output}"')
-    kumannds.append(f'rm "ttemp_{output}"')
+    kumannds.append(f'rm "{output}.TEMP.mkv"')
+    kumannds.append(f'rm "{output}.TTEMP.mkv"')
 
     for command in kumannds:
         print("Running: " + command)

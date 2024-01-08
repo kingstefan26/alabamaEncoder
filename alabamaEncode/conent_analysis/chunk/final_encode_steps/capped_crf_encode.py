@@ -34,7 +34,6 @@ class WeridCapedCrfFinalEncode(FinalEncodeStep):
         enc.passes = 3
         enc.rate_distribution = EncoderRateDistribution.VBR
         enc.bitrate = encode_bitrate
-        enc.svt_bias_pct = 20
         os.remove(enc.output_path)
         stats: EncodeStats = enc.run(on_frame_encoded=encoded_a_frame)
         return stats

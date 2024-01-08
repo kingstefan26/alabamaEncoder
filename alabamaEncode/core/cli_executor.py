@@ -47,7 +47,7 @@ class CliResult:
         :param fail_message: message to raise if the cli failed
         :param bad_output_hints: list of strings that,
         when found in the output, will cause the verification to fail
-        :param files: a list of files that must exist
+        :param files: a list of files that must exist and bigger than zero bytes
         :return: self for pipelining
         """
         if not self.success():
@@ -60,7 +60,7 @@ class CliResult:
                     raise RuntimeError(fail_message)
         if files:
             for file in files:
-                if not os.path.exists(file):
+                if not os.path.exists(file) or os.path.getsize(file) == 0:
                     raise RuntimeError(fail_message)
         return self
 
@@ -91,9 +91,7 @@ def run_cli(
 
     output = ""
     while p.poll() is None:  # While the process is still running...
-        chunk = p.stdout.read(1).decode(
-            "utf-8", errors="ignore"
-        )  # Read output chunk by chunk
+        chunk = p.stdout.read(1).decode(errors="ignore")  # Read output chunk by chunk
         output += chunk  # Add chunk to total output
         if on_output is not None:  # If on_output is provided...
             on_output(chunk)  # ...apply it to each chunk
@@ -103,8 +101,10 @@ def run_cli(
             p.wait(timeout=timeout_value)
         except subprocess.TimeoutExpired:
             p.kill()
+    else:
+        p.wait()
 
-    output += p.stdout.read().decode("utf-8", errors="ignore")
+    output += p.stdout.read().decode(errors="ignore")
 
     end = time.perf_counter()
     return CliResult(p.returncode, output, end - start)

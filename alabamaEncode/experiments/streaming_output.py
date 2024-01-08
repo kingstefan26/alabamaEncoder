@@ -21,6 +21,3 @@ if __name__ == "__main__":
     enc.run(
         on_frame_encoded=lambda frame, bitrate, fps: print(f"{frame} {bitrate} {fps}")
     )
-
-    # print(bafar)
-    # print(speed_strings)

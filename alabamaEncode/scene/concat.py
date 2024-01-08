@@ -85,7 +85,14 @@ class VideoConcatenator:
             print("Invalid file found, exiting")
             return
 
-        if self.mux_audio:
+        has_audio_track = False
+        tracks = Ffmpeg.get_tracks(PathAlabama(self.file_with_audio))
+        for track in tracks:
+            if track["codec_type"] == "audio":
+                has_audio_track = True
+                break
+
+        if self.mux_audio and has_audio_track:
             print("Getting video length")
             start_offset_command = (
                 f"-ss {self.start_offset}" if self.start_offset != -1 else ""
@@ -182,6 +189,8 @@ class VideoConcatenator:
 
             return
         else:
+            if not has_audio_track:
+                print("No audio track found, not encoding")
             print("Not muxing audio")
             commands = [
                 f"mv {vid_output} {self.output}",

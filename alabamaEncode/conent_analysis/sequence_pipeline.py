@@ -4,6 +4,7 @@ from alabamaEncode.conent_analysis.chunk_encode_pipeline import (
     setup_chunk_analyze_chain,
     setup_chunk_encoder,
 )
+from alabamaEncode.conent_analysis.sequence.args_tune import tune_args_for_fdlty_or_apl
 from alabamaEncode.conent_analysis.sequence.autocrop import do_autocrop
 from alabamaEncode.conent_analysis.sequence.denoise_filtering import setup_denoise
 from alabamaEncode.conent_analysis.sequence.encoding_tiles import setup_tiles
@@ -22,6 +23,7 @@ def get_pipeline() -> List[Callable]:
         setup_chunk_analyze_chain,
         setup_chunk_encoder,
         scrape_hdr_metadata,
+        tune_args_for_fdlty_or_apl,
         do_autocrop,
         setup_tiles,
         setup_denoise,

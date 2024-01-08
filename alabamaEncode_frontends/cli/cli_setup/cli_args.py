@@ -142,6 +142,22 @@ def read_args(ctx):
         metavar="max_scene_length",
     )
 
+    scene_split_method_group = parser.add_mutually_exclusive_group()
+
+    scene_split_method_group.add_argument(
+        "--statically_sized_scenes",
+        help="Instead of preforming scene detection do statically sized scenes at about 30secs",
+        action="store_true",
+        default=ctx.statically_sized_scenes,
+    )
+
+    scene_split_method_group.add_argument(
+        "--scene_merge",
+        help="Merge scenes until they met the max scene length",
+        action="store_true",
+        default=ctx.scene_merge,
+    )
+
     parser.add_argument(
         "--crf_based_vmaf_targeting",
         help="per chunk, find a crf that hits target quality and encode using that",
@@ -492,6 +508,20 @@ def read_args(ctx):
         help="todo",
     )
 
+    parser.add_argument(
+        "--tune",
+        default=ctx.args_tune,
+        type=str,
+        choices=["fidelity", "appeal", "balanced"],
+    )
+
+    parser.add_argument(
+        "--denoise_vmaf_ref",
+        default=ctx.denoise_vmaf_ref,
+        action="store_true",
+        help="Denoise the vmaf reference",
+    )
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -561,5 +591,9 @@ def read_args(ctx):
     ctx.offload_server = args.offload_server
     ctx.dynamic_vmaf_target = args.dynamic_vmaf_target
     ctx.dynamic_vmaf_target_vbr = args.dynamic_vmaf_target_vbr
+    ctx.statically_sized_scenes = args.statically_sized_scenes
+    ctx.scene_merge = args.scene_merge
+    ctx.args_tune = args.tune
+    ctx.denoise_vmaf_ref = args.denoise_vmaf_ref
 
     return ctx

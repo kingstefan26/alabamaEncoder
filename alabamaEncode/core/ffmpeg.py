@@ -47,6 +47,19 @@ class Ffmpeg:
         return int(length_in_secs * fps)
 
     @staticmethod
+    def get_tracks(path: PathAlabama):
+        path.check_video()
+        out = (
+            run_cli(
+                f'{get_binary("ffprobe")} -v error -show_entries stream -of json {path.get_safe()}'
+            )
+            .verify()
+            .strip_mp4_warning()
+            .get_output()
+        )
+        return json.loads(out)["streams"]
+
+    @staticmethod
     def get_video_length(path: PathAlabama, sexagesimal=False) -> float | str:
         """
         Returns the video length in seconds
@@ -55,11 +68,10 @@ class Ffmpeg:
         :return: float
         """
         path.check_video()
-        do_hexadecimal = "-sexagesimal" if sexagesimal else ""
         out = (
             run_cli(
-                f"ffprobe -v error -show_entries format=duration {do_hexadecimal} -of default=noprint_wrappers=1"
-                f":nokey=1 {path.get_safe()}"
+                f"ffprobe -v error -show_entries format=duration {'-sexagesimal' if sexagesimal else ''}"
+                f" -of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
             )
             .verify(bad_output_hints=["N/A", "Invalid data found"])
             .strip_mp4_warning()
@@ -71,7 +83,7 @@ class Ffmpeg:
     @staticmethod
     def get_total_bitrate(path: PathAlabama) -> float:
         path.check_video()
-        return os.path.getsize(path.get()) * 8 / Ffmpeg.get_video_length(path)
+        return (os.path.getsize(path.get()) * 8) / Ffmpeg.get_video_length(path)
 
     @staticmethod
     def get_height(path: PathAlabama) -> int:
@@ -349,3 +361,20 @@ class Ffmpeg:
                 "siti.ti": siti[key][1],
             }
         return new
+
+
+def track_test():
+    tracks = Ffmpeg.get_tracks(PathAlabama("/home/kokoniara/owoStreamCopy_ffv1.mkv"))
+    for track in tracks:
+        match track["codec_type"]:
+            case "video":
+                print("video track")
+            case "audio":
+                print("audio track")
+            case "subtitle":
+                print("subtitle track")
+        print(track)
+
+
+if __name__ == "__main__":
+    track_test()

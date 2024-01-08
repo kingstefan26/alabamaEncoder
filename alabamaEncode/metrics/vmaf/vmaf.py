@@ -50,6 +50,13 @@ def calc_vmaf(
 
         dist_filter = f" -vf {comparison_scaling} "
 
+    if vmaf_options.denoise_reference:
+        # before scaling use the `vaguedenoiser` filter
+        vf = video_filters.split(",")
+        # add to the front of a list
+        vf.insert(0, "vaguedenoiser")
+        video_filters = ",".join(vf)
+
     if video_filters != "":
         video_filters = f" -vf {video_filters} "
 

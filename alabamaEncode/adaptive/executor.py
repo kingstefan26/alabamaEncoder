@@ -8,6 +8,7 @@ from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf 
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
 
@@ -17,22 +18,16 @@ class AdaptiveCommand(BaseCommandObject):
     Class that gets the ideal bitrate and encodes the final chunk
     """
 
-    ctx: AlabamaContext
-    chunk: ChunkObject
-
-    pin_to_core = -1
-
     def __init__(self, ctx: AlabamaContext, chunk: ChunkObject):
         super().__init__()
         self.ctx = ctx
         self.chunk = chunk
         self.encoded_a_frame_callback: callable = None
-
-    # how long (seconds) before we time out the final encoding
-    # currently set to 30 minutes
-    final_encode_timeout = 1800
-
-    run_on_celery = False
+        self.pin_to_core = -1
+        # how long (seconds) before we time out the final encoding
+        # currently set to 30 minutes
+        self.final_encode_timeout = 1800
+        self.run_on_celery = False
 
     def supports_encoded_a_frame_callback(self):
         return (
@@ -40,7 +35,7 @@ class AdaptiveCommand(BaseCommandObject):
             and not isinstance(self.ctx.chunk_encode_class, DynamicTargetVmaf)
         )
 
-    def run(self):
+    def run(self) -> [int, EncodeStats]:
         total_start = time.time()
 
         # using it with a statement with MessageWriter
@@ -99,4 +94,4 @@ class AdaptiveCommand(BaseCommandObject):
         with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
             f.write(json.dumps(final_stats.__dict__()) + "\n")
 
-        return self.pin_to_core, final_stats
+        return self.pin_to_core, final_stats.__dict__()

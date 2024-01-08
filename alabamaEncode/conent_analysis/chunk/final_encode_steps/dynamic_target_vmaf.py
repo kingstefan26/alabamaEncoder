@@ -19,8 +19,6 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -57,18 +55,9 @@ class DynamicTargetVmaf(FinalEncodeStep):
             return statistical_representation
 
         original = copy.deepcopy(enc)
-        vmaf_options = VmafOptions(
-            uhd=ctx.vmaf_4k_model,
-            phone=ctx.vmaf_phone_model,
-            ref=ComparisonDisplayResolution.from_string(ctx.vmaf_reference_display)
-            if ctx.vmaf_reference_display
-            else None,
-            no_motion=ctx.vmaf_no_motion,
-        )
+        vmaf_options = ctx.get_vmaf_options()
 
-        from alabamaEncode.adaptive.helpers.probe_file_path import get_probe_file_base
-
-        probe_file_base = get_probe_file_base(chunk.chunk_path)
+        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         enc.output_path = os.path.join(
             probe_file_base,
@@ -78,10 +67,10 @@ class DynamicTargetVmaf(FinalEncodeStep):
         enc.passes = 1
         enc.rate_distribution = EncoderRateDistribution.CQ
 
-        low_crf = 10 if not isinstance(enc, EncoderSvt) else 18
-        low_crf_cap = 10
-        high_crf = 63
-        high_crf_cap = 63
+        low_crf = 12 if not isinstance(enc, EncoderSvt) else 18
+        low_crf_cap = low_crf
+        high_crf = 55
+        high_crf_cap = high_crf
         target_vmaf = ctx.vmaf
         vmaf_max_error = 0.7
         current_vmaf_error = 100
@@ -89,9 +78,10 @@ class DynamicTargetVmaf(FinalEncodeStep):
         max_depth = 2
         trys = []
         mid_crf = (low_crf + high_crf) // 2
-        if len(ctx.best_crfs) > 2:
+        if len(ctx.get_kv().get_all("best_crfs")) > 2:
             # set the mean of the best crf's so far as the first guess
-            mid_crf = int(sum(ctx.best_crfs) / len(ctx.best_crfs))
+            best_crfs = ctx.get_kv().get_all("best_crfs")
+            mid_crf = int(sum(best_crfs.values()) / len(best_crfs))
 
             ctx.log(
                 f"{chunk.log_prefix()}overriding first attempt to {mid_crf}",
@@ -102,9 +92,21 @@ class DynamicTargetVmaf(FinalEncodeStep):
             if depth > 0:
                 mid_crf = (low_crf + high_crf) // 2
 
+                if current_vmaf_error > 3.5:
+                    # incase the error is very large, skip to the edges of the range
+                    mid_crf = low_crf if mid_vmaf < target_vmaf else high_crf
+                    ctx.log(
+                        f"{chunk.log_prefix()}Large error skipping to edge of range: {mid_crf}",
+                        category="probe",
+                    )
+
             depth += 1
             enc.crf = mid_crf
             enc.speed = min(max(ctx.prototype_encoder.speed + 2, 5), original.speed)
+            enc.output_path = os.path.join(
+                probe_file_base,
+                f"{chunk.chunk_index}_{enc.crf}{enc.get_chunk_file_extension()}",
+            )
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
                 vmaf_params=vmaf_options,
@@ -124,7 +126,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
                     category="probe",
                 )
                 # move to the original path
-                ctx.best_crfs.append(mid_crf)
+                ctx.get_kv().set("best_crfs", chunk.chunk_index, mid_crf)
                 os.rename(enc.output_path, original.output_path)
                 return stats
 
@@ -136,7 +138,6 @@ class DynamicTargetVmaf(FinalEncodeStep):
                 )
                 # move to the original path
                 os.rename(enc.output_path, original.output_path)
-                print(f"MOVING {enc.output_path} -> {original.output_path}")
                 return stats
 
             if mid_vmaf < target_vmaf:
@@ -160,10 +161,9 @@ class DynamicTargetVmaf(FinalEncodeStep):
                     f"vmaflow{vmaf_low} == {vmaf_high}vmafhigh, quiting",
                     category="probe",
                 )
-                ctx.best_crfs.append(crf_low)
+                ctx.get_kv().set("best_crfs", chunk.chunk_index, crf_low)
                 os.rename(enc.output_path, original.output_path)
-                print(f"MOVING {enc.output_path} -> {original.output_path}")
-                return interpolated_stats
+                return stats
 
             interpolated_crf = crf_low + (crf_high - crf_low) * (
                 (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
@@ -185,9 +185,9 @@ class DynamicTargetVmaf(FinalEncodeStep):
                     f"crf {interpolated_crf} already tried, quiting",
                     category="probe",
                 )
-                ctx.best_crfs.append(interpolated_crf)
-                os.rename(enc.output_path, enc.output_path)
-                return interpolated_stats
+                ctx.get_kv().set("best_crfs", chunk.chunk_index, interpolated_crf)
+                os.rename(enc.output_path, original.output_path)
+                return stats
 
             if enc.supports_float_crfs():
                 interpolated_crf = interpolated_crf
@@ -201,33 +201,40 @@ class DynamicTargetVmaf(FinalEncodeStep):
 
             enc.crf = interpolated_crf
             enc.speed = original.speed
-            interpolated_stats = enc.run(calculate_vmaf=True, vmaf_params=vmaf_options)
-            vmaf_result = get_statistical_rep(interpolated_stats)
+            enc.output_path = os.path.join(
+                probe_file_base,
+                f"{chunk.chunk_index}_{enc.crf}{enc.get_chunk_file_extension()}",
+            )
+            stats: EncodeStats = enc.run(
+                calculate_vmaf=True,
+                vmaf_params=vmaf_options,
+            )
+            vmaf_result = get_statistical_rep(stats)
             trys.append((interpolated_crf, vmaf_result))
             current_vmaf_error = abs(target_vmaf - vmaf_result)
             if current_vmaf_error > vmaf_max_error:
                 ctx.log(
                     f"{chunk.log_prefix()}Interpolate pass {interpol_step}: "
-                    f"crf {interpolated_crf} vmaf {vmaf_result} {interpolated_stats.bitrate} kb/s",
+                    f"crf {interpolated_crf} vmaf {vmaf_result} {stats.bitrate} kb/s",
                     category="probe",
                 )
             else:
                 ctx.log(
                     f"{chunk.log_prefix()}Interpolate pass {interpol_step}: "
-                    f"crf {interpolated_crf} vmaf {vmaf_result} {interpolated_stats.bitrate} kb/s, success, quiting",
+                    f"crf {interpolated_crf} vmaf {vmaf_result} {stats.bitrate} kb/s, success, quiting",
                     category="probe",
                 )
-                ctx.best_crfs.append(interpolated_crf)
+                ctx.get_kv().set("best_crfs", chunk.chunk_index, interpolated_crf)
                 os.rename(enc.output_path, original.output_path)
-                return interpolated_stats
+                return stats
 
         ctx.log(
             f"{chunk.log_prefix()}Failed to hit target after {interpol_steps} steps, quiting",
             category="probe",
         )
-        ctx.best_crfs.append(interpolated_crf)
+        ctx.get_kv().set("best_crfs", chunk.chunk_index, interpolated_crf)
         os.rename(enc.output_path, original.output_path)
-        return interpolated_stats
+        return stats
 
     def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
         raise Exception(f"dry_run not implemented for {self.__class__.__name__}")

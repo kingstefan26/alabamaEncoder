@@ -21,7 +21,6 @@ if __name__ == "__main__":
 
         svtenc.svt_chroma_thing = 0
         svtenc.keyint = 999
-        svtenc.svt_bias_pct = 50
         svtenc.svt_open_gop = False
 
         test_env = "./tstVBR" + path.split("/")[-1].split(".")[0] + "/"
@@ -70,7 +69,7 @@ if __name__ == "__main__":
                 override_if_exists=False, calculate_vmaf=True
             )
 
-            curr_db_rate = stats.size / stats.vmaf
+            curr_db_rate = stats.size_kB / stats.vmaf
             if speed == 4:
                 four_time = stats.time_encoding
                 four_dbrate = curr_db_rate

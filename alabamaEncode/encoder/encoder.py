@@ -16,7 +16,6 @@ from alabamaEncode.metrics.calc import calculate_metric
 from alabamaEncode.metrics.metric_exeption import VmafException
 from alabamaEncode.metrics.ssim.calc import get_video_ssim
 from alabamaEncode.metrics.vmaf.options import VmafOptions
-from alabamaEncode.metrics.vmaf.result import VmafResult
 
 
 class Encoder(ABC):
@@ -43,7 +42,7 @@ class Encoder(ABC):
     rate_distribution = EncoderRateDistribution.CQ
     qm_enabled = True
     grain_synth = 3
-    qm_min = 0
+    qm_min = 8
     qm_max = 15
     tile_cols = -1
     tile_rows = -1
@@ -53,7 +52,6 @@ class Encoder(ABC):
 
     bit_override = 10
 
-    svt_bias_pct = 50  # 100 vbr like, 0 cbr like
     svt_open_gop = True
     keyint: int = 360  # max chunk is 10s, so this should cover the whole chunk
     svt_sdc: int = 0
@@ -68,12 +66,11 @@ class Encoder(ABC):
     svt_resize_mode = 0
     svt_resize_denominator = 8
     svt_resize_kf_denominator = 8
-
     svt_tune = 0  # tune for PsychoVisual Optimization by default
     svt_tf = 1  # temporally filtered ALT-REF frames
     svt_overlay = 0  # enable overlays
     svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
-    film_grain_denoise: (0 | 1) = 1
+    film_grain_denoise: (0 | 1) = 0
 
     x264_tune = "film"
     x264_mbtree = True
@@ -153,20 +150,19 @@ class Encoder(ABC):
                 raise Exception("FATAL: current_scene_index is None")
 
             original_path = copy.deepcopy(self.output_path)
+            temp_celery_path = "/tmp/celery/"
+            celery_path = (
+                f"{temp_celery_path}{os.path.basename(self.output_path)}"
+                f"{self.get_chunk_file_extension()}"
+            )
 
             if self.running_on_celery:
-                temp_celery_path = "/tmp/celery/"
                 os.makedirs(temp_celery_path, exist_ok=True)
-                self.output_path = f"{temp_celery_path}{self.chunk.chunk_index}{self.get_chunk_file_extension()}"
+                self.output_path = celery_path
 
             cli_output = []
             start = time.time()
             commands = self.get_encode_commands()
-
-            if self.running_on_celery:
-                commands.append(f'cp {self.output_path} "{original_path}"')
-                commands.append(f"rm {self.output_path} {self.output_path}.stat")
-
             self.output_path = original_path
 
             times_called = 0
@@ -178,66 +174,68 @@ class Encoder(ABC):
                 and on_frame_encoded is not None
             )
 
-            for command in commands:
-                parse_func = None
+            try:
+                for command in commands:
+                    parse_func = None
+
+                    if has_frame_callback:
+                        # We can report progress to a callback
+                        output_buffer = ""
+
+                        def parse(string):
+                            nonlocal output_buffer
+                            nonlocal times_called
+                            nonlocal latest_frame_update
+                            output_buffer += string
+                            prog = self.parse_output_for_output(output_buffer)
+
+                            if len(prog) > 0:
+                                times_called += 1
+                                # tqdm.write("FRAME ENCODED")
+                                # tqdm.write(str(prog))
+                                latest_frame_update = prog[0]
+                                on_frame_encoded(prog[0], prog[1], prog[2])
+
+                                output_buffer = ""
+
+                        parse_func = parse
+
+                    cli_out = (
+                        run_cli(
+                            command, timeout_value=timeout_value, on_output=parse_func
+                        )
+                        .verify()
+                        .get_output()
+                    )
+                    cli_output.append(cli_out)
+
+                if self.running_on_celery:
+                    # os.rename(celery_path, original_path)
+                    # do a copy instead bc "invalid cross-device link"
+                    run_cli(f'cp "{celery_path}" "{original_path}"').verify()
+                    os.remove(celery_path)
 
                 if has_frame_callback:
-                    # We can report progress to a callback
-                    output_buffer = ""
+                    latest_frame_update = int(latest_frame_update)
 
-                    def parse(string):
-                        nonlocal output_buffer
-                        nonlocal times_called
-                        nonlocal latest_frame_update
-                        output_buffer += string
-                        prog = self.parse_output_for_output(output_buffer)
-
-                        if len(prog) > 0:
+                    if latest_frame_update != times_called:
+                        for i in range(latest_frame_update - times_called):
+                            on_frame_encoded(0, 0, 0)
                             times_called += 1
-                            # tqdm.write("FRAME ENCODED")
-                            # tqdm.write(str(prog))
-                            latest_frame_update = prog[0]
-                            on_frame_encoded(prog[0], prog[1], prog[2])
 
-                            output_buffer = ""
+                stats.time_encoding = time.time() - start
 
-                    parse_func = parse
+                if (
+                    not os.path.exists(self.output_path)
+                    or os.path.getsize(self.output_path) < 100
+                ):
+                    raise Exception(
+                        f"FATAL: ENCODE FAILED {self.output_path} NOT FOUND OR TOO SMALL"
+                    )
 
-                cli_output.append(
-                    run_cli(
-                        command, timeout_value=timeout_value, on_output=parse_func
-                    ).get_output()
-                )
-
-            if has_frame_callback:
-                num_frames = self.chunk.get_frame_count()
-                latest_frame_update = int(latest_frame_update)
-
-                # print(
-                #     f"times called {times_called}, latest frame update {latest_frame_update}, "
-                #     f"total frames {num_frames}"
-                # )
-
-                if latest_frame_update != times_called:
-                    for i in range(latest_frame_update - times_called):
-                        on_frame_encoded(0, 0, 0)
-                        times_called += 1
-
-                # print("times called after compesnsating: ", times_called)
-
-                # if has_frame_callback and times_called < num_frames:
-                #     for i in range(num_frames - times_called):
-                #         on_frame_encoded(
-                #             0, 0, 0
-                #         )  # if the encode didnt report any farmes to the callback,
-                #         # call it manually for the rest of the frames
-
-            stats.time_encoding = time.time() - start
-
-            if (
-                not os.path.exists(self.output_path)
-                or os.path.getsize(self.output_path) < 100
-            ):
+                if stats.time_encoding < 1:
+                    stats.time_encoding = 1
+            except Exception as e:
                 print("Encode command failed, output:")
                 for o in cli_output:
                     if isinstance(o, str):
@@ -246,13 +244,7 @@ class Encoder(ABC):
                 print("Commands: ")
                 for c in self.get_encode_commands():
                     print(c)
-
-                raise Exception(
-                    f"FATAL: ENCODE FAILED {self.output_path} NOT FOUND OR TOO SMALL"
-                )
-
-            if stats.time_encoding < 1:
-                stats.time_encoding = 1
+                raise e
 
         if calculate_vmaf:
             local_chunk = copy.deepcopy(
@@ -262,7 +254,7 @@ class Encoder(ABC):
             local_chunk.chunk_path = self.output_path
 
             try:
-                vmaf_result: VmafResult = calculate_metric(
+                stats.vmaf_result = calculate_metric(
                     chunk=local_chunk,
                     video_filters=self.video_filters,
                     vmaf_options=vmaf_params
@@ -272,15 +264,6 @@ class Encoder(ABC):
                 )
             except VmafException as e:
                 raise Exception(f"VMAF calculation in encoder failed: {e.message}")
-
-            stats.vmaf_result = vmaf_result
-            stats.vmaf = vmaf_result.mean
-            stats.vmaf_percentile_1 = vmaf_result.percentile_1
-            stats.vmaf_percentile_5 = vmaf_result.percentile_5
-            stats.vmaf_percentile_10 = vmaf_result.percentile_10
-            stats.vmaf_percentile_25 = vmaf_result.percentile_25
-            stats.vmaf_percentile_50 = vmaf_result.percentile_50
-            stats.vmaf_avg = vmaf_result.mean
 
         if calcualte_ssim:
             ssim, ssim_db = get_video_ssim(

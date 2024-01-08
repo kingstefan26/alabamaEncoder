@@ -42,11 +42,6 @@ class AlabamaEncodingJob:
         self.proc_done = 0
         self.current_step_name = "idle"
         self.serialise_folder = self.get_serialise_folder()
-        # title_hash = hash(
-        #     self.ctx.title
-        #     if self.ctx.title != ""
-        #     else os.path.basename(self.ctx.output_file)
-        # )
         sha1 = hashlib.sha1()
         sha1.update(
             str.encode(
@@ -268,6 +263,8 @@ class AlabamaEncodingJob:
                 start_offset=self.ctx.start_offset,
                 end_offset=self.ctx.end_offset,
                 override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
+                static_length=self.ctx.statically_sized_scenes,
+                scene_merge=self.ctx.scene_merge,
             )
             sequence.setup_paths(
                 temp_folder=self.ctx.temp_folder,
@@ -294,10 +291,15 @@ class AlabamaEncodingJob:
                 try:
                     command_objects = []
                     ctx = self.ctx
+                    frames_encoded_so_far = 0
+                    size_kb_so_far = 0
 
                     for chunk in sequence.chunks:
                         if not chunk.is_done():
                             command_objects.append(AdaptiveCommand(ctx, chunk))
+                        else:
+                            frames_encoded_so_far += chunk.get_frame_count()
+                            size_kb_so_far += chunk.size_kB
 
                     # order chunks based on order
                     if ctx.chunk_order == "random":
@@ -340,6 +342,7 @@ class AlabamaEncodingJob:
                             ctx.multiprocess_workers,
                             pin_to_cores=ctx.pin_to_cores,
                             finished_scene_callback=update_proc_done,
+                            size_estimate_data=(frames_encoded_so_far, size_kb_so_far),
                         )
                     )
                     await encode_task

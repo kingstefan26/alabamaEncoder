@@ -1,3 +1,4 @@
+import copy
 import os
 import pickle
 
@@ -16,10 +17,13 @@ def get_video_scene_list_skinny(
     start_offset=-1,
     end_offset=-1,
     override_bad_wrong_cache_path=False,
-    static_lenght=False,
-    static_lenght_size=720,
+    static_length=False,
+    scene_merge=False,
+    static_length_size=720,
 ) -> ChunkSequence:
     """
+    :param static_length_size:  size of static length scenes
+    :param static_length: instead of detection, create static length scenes
     :param override_bad_wrong_cache_path:
     :param start_offset:
     :param end_offset:
@@ -27,12 +31,12 @@ def get_video_scene_list_skinny(
     :param cache_file_path: path that the cache will be saved to
     :param max_scene_length: max scene length in seconds,
      cut the scene in the middle recursively until max_scene_length is reached
+    :param scene_merge: merge scenes, so they are at minimum max_scene_length
     :return:
     """
-    if cache_file_path is None or cache_file_path == "":
-        raise Exception("Failed reading scene cache's path")
+    cache_path_is_valid = cache_file_path is not None and cache_file_path != ""
 
-    if os.path.exists(cache_file_path):
+    if cache_path_is_valid and os.path.exists(cache_file_path):
         print("Found scene cache... loading")
         seq: ChunkSequence = pickle.load(open(cache_file_path, "rb"))
 
@@ -42,219 +46,252 @@ def get_video_scene_list_skinny(
                 f"Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),"
                 f" please correct this (wrong temp folder?), use --override_bad_wrong_cache_path to override."
             )
-    else:
-        print("Creating scene cache")
+        print(f"Computed {len(seq)} scenes")
+        return seq
 
-        untouched_scene_list = cache_file_path + ".untouched"
-        scene_list = None
+    print("Creating scene cache")
+
+    scene_list = None
+
+    untouched_scene_list = cache_file_path + ".untouched"
+    if cache_path_is_valid:
         if os.path.exists(untouched_scene_list):
             scene_list = pickle.load(open(untouched_scene_list, "rb"))
 
-        if scene_list is None:
-            if not static_lenght:
-                scene_list = detect(
-                    video_path=input_file,
-                    detector=AdaptiveDetector(
-                        window_width=10, adaptive_threshold=2.5, min_content_val=12
-                    ),
-                    show_progress=True,
-                )
-                scene_list = [
-                    (scene[0].get_frames(), scene[1].get_frames())
-                    for scene in scene_list
-                ]
-            else:
-                # create static length scenes
-                total_size = Ffmpeg.get_frame_count_fast(PathAlabama(input_file))
-                remaining_frames = 0
-                scene_list = []
-                for i in range(0, total_size, static_lenght_size):
-                    scene_list.append(
-                        (
-                            i,
-                            min(i + static_lenght_size, total_size)
-                            - 1
-                            + remaining_frames,
-                        )
-                    )
-                    remaining_frames = 1
-                scene_list[-1] = (scene_list[-1][0], total_size - 1)
+    framerate: float = Ffmpeg.get_video_frame_rate(PathAlabama(input_file))
+    width: int = Ffmpeg.get_width(PathAlabama(input_file))
+    height: int = Ffmpeg.get_height(PathAlabama(input_file))
+
+    if scene_list is None:
+        if static_length:
+            # create static length scenes
+            total_size = Ffmpeg.get_frame_count_fast(PathAlabama(input_file))
+            print(f"Using static length scenes of {static_length_size} frames")
+            scene_list = [
+                (i, min(i + static_length_size, total_size))
+                for i in range(0, total_size, static_length_size)
+            ]
+        else:
+            scene_list = detect(
+                video_path=input_file,
+                detector=AdaptiveDetector(
+                    window_width=10, adaptive_threshold=2.5, min_content_val=12
+                ),
+                show_progress=True,
+            )
+            scene_list = [
+                (scene[0].get_frames(), scene[1].get_frames()) for scene in scene_list
+            ]
+
+        if cache_path_is_valid:
             pickle.dump(scene_list, open(untouched_scene_list, "wb"))
 
-        seq = ChunkSequence([])
-        seq.input_file = input_file
+    if scene_merge and not static_length:
+        new_scene_list = copy.deepcopy(scene_list)
+        # for i, scene in enumerate(new_scene_list):
+        #     if i == 0:
+        #         continue
+        #     start, end = scene
+        #     print(f"checking scene {i} ({start} - {end})")
+        #     prev_start, prev_end = scene_list[i - 1]
+        #     print(f"prev scene {i - 1} ({prev_start} - {prev_end})")
+        #     if start - prev_end < max_scene_length * framerate:
+        #         new_scene_list[-1] = (prev_start, end)
+        #         print(f"merging scene {i} with {i - 1} ({prev_start} - {end})")
+        #     else:
+        #         new_scene_list.append(scene)
+        #
+        i = 0
+        while i < len(new_scene_list) - 1:
+            if i == 0:
+                i += 1
+                continue
+            prev_start, prev_end = new_scene_list[i - 1]
 
-        framerate: float = Ffmpeg.get_video_frame_rate(PathAlabama(input_file))
-        width: int = Ffmpeg.get_width(PathAlabama(input_file))
-        height: int = Ffmpeg.get_height(PathAlabama(input_file))
-
-        seq.chunks = []
-
-        max_duration_frames = int(max_scene_length * framerate)
-
-        # iterate through each scene detected in the video
-        for scene in scene_list:
-            start_frame, end_frame = scene
-            duration = end_frame - start_frame
-
-            # if the scene duration is shorter than max_scene_length, add it as a chunk to the sequence
-            if duration <= max_duration_frames:
-                seq.chunks.append(
-                    ChunkObject(
-                        start_frame,
-                        end_frame,
-                        path=input_file,
-                        framerate=framerate,
-                        width=width,
-                        height=height,
-                    )
-                )
+            start, end = new_scene_list[i]
+            if end - prev_start < int(max_scene_length * framerate):
+                new_scene_list[i - 1] = (prev_start, end)
+                del new_scene_list[i]
             else:
-                # otherwise, split the scene into multiple chunks that are shorter than max_scene_length
-                num_chunks = int(duration / max_duration_frames) + 1
-                chunk_duration = duration / num_chunks
-                for j in range(num_chunks):
-                    start = int(start_frame + j * chunk_duration)
-                    end = int(start_frame + (j + 1) * chunk_duration)
-                    if j == num_chunks - 1:
-                        end = end_frame  # add any remaining frames to the last chunk
-                    seq.chunks.append(
-                        ChunkObject(
-                            start,
-                            end,
-                            path=input_file,
-                            framerate=framerate,
-                            width=width,
-                            height=height,
-                        )
-                    )
+                i += 1
 
-        if len(seq.chunks) == 0:
-            print("Scene detection failed, falling back to a single chunk")
+        scene_list = new_scene_list
+
+    seq = ChunkSequence([])
+    seq.input_file = input_file
+
+    seq.chunks = []
+
+    max_duration_frames = int(max_scene_length * framerate)
+
+    # iterate through each scene detected in the video
+    for scene in scene_list:
+        start_frame, end_frame = scene
+        duration = end_frame - start_frame
+
+        # if the scene duration is shorter than max_scene_length, add it as a chunk to the sequence
+        if duration <= max_duration_frames or static_length or scene_merge:
             seq.chunks.append(
                 ChunkObject(
-                    0,
-                    Ffmpeg.get_frame_count(PathAlabama(input_file)),
+                    start_frame,
+                    end_frame,
                     path=input_file,
                     framerate=framerate,
                     width=width,
                     height=height,
                 )
             )
-
-        for i, chunk in enumerate(seq.chunks):
-            chunk.chunk_index = i
-
-        # cut any scenes that are in the offsets if a scene is at the border of the offset, cut it, so it fits
-        if start_offset != -1 or end_offset != -1:
-            new_chunks = []
-            current_position = 0
-            total_duration = Ffmpeg.get_video_length(PathAlabama(input_file))
-            end_offset = (
-                total_duration - end_offset if end_offset != -1 else total_duration
-            )
-
-            kept_chunks = []
-            discarded_chunks = []
-
-            for chunk in seq.chunks:
-                # Calculate the chunk duration in seconds
-                chunk_duration: float = chunk.get_lenght()
-
-                # Calculate the start and end positions of the chunk
-                chunk_start = current_position
-                chunk_end = current_position + chunk_duration
-
-                # Check if the chunk is entirely outside the bounds
-                if (start_offset != -1 and chunk_end <= start_offset) or (
-                    end_offset != -1 and chunk_start >= end_offset
-                ):
-                    # Chunk is entirely outside the bounds, discard it
-                    current_position += chunk_duration
-                    discarded_chunks.append(chunk.chunk_index)
-                    # print(f'Discarding chunk {chunk.chunk_index}')
-                    continue
-
-                # Check if the chunk is entirely within the bounds
-                if (start_offset == -1 or chunk_start >= start_offset) and (
-                    end_offset == -1 or chunk_end <= end_offset
-                ):
-                    # Chunk is entirely within the bounds, include it in the new chunks
-                    kept_chunks.append(chunk.chunk_index)
-                    # print(f'Keeping chunk {chunk.chunk_index}')
-                    new_chunks.append(chunk)
-                else:
-                    # Adjust the chunk start and end positions based on the offsets
-                    if start_offset != -1 and chunk_start < start_offset:
-                        # Chunk starts before the start offset, adjust the start position
-                        chunk_start = start_offset
-
-                    if end_offset != -1 and chunk_end > end_offset:
-                        # Chunk ends after the end offset, adjust the end position
-                        chunk_end = end_offset
-
-                    # Calculate the new chunk duration and frame indexes
-                    new_chunk_duration = chunk_end - chunk_start
-                    new_start_frame = int(
-                        chunk.first_frame_index
-                        + (chunk_start - current_position) * framerate
-                    )
-                    new_end_frame = int(
-                        new_start_frame + new_chunk_duration * framerate
-                    )
-
-                    print(
-                        f"Cutting chunk {chunk.chunk_index} to {new_start_frame} - {new_end_frame}"
-                    )
-
-                    # Create a new chunk object with the updated values
-                    new_chunk = ChunkObject(
-                        new_start_frame,
-                        new_end_frame,
+        else:
+            # otherwise, split the scene into multiple chunks that are shorter than max_scene_length
+            num_chunks = int(duration / max_duration_frames) + 1
+            chunk_duration = duration / num_chunks
+            for j in range(num_chunks):
+                start = int(start_frame + j * chunk_duration)
+                end = int(start_frame + (j + 1) * chunk_duration)
+                if j == num_chunks - 1:
+                    end = end_frame  # add any remaining frames to the last chunk
+                seq.chunks.append(
+                    ChunkObject(
+                        start,
+                        end,
                         path=input_file,
                         framerate=framerate,
                         width=width,
                         height=height,
                     )
-                    new_chunks.append(new_chunk)
-
-                # Update the current position for the next chunk
-                current_position = chunk_end
-
-            if len(kept_chunks) == 0:
-                raise Exception(
-                    "ERROR No chunks kept after cutting offsets, did you set the parameters correctly?"
                 )
 
-            print(f"keeping chunks {min(kept_chunks)}-{max(kept_chunks)}")
-            print(f"discarding chunks {min(discarded_chunks)}-{max(discarded_chunks)}")
+    if len(seq.chunks) == 0:
+        print("Scene detection failed, falling back to a single chunk")
+        seq.chunks.append(
+            ChunkObject(
+                0,
+                Ffmpeg.get_frame_count(PathAlabama(input_file)),
+                path=input_file,
+                framerate=framerate,
+                width=width,
+                height=height,
+            )
+        )
 
-            # Replace the old list of chunks with the new one
-            seq.chunks = new_chunks
+    for i, chunk in enumerate(seq.chunks):
+        chunk.chunk_index = i
 
-        # test to see if any frames overlap
-        # for i in range(len(seq.chunks) - 1):
-        #     if seq.chunks[i].last_frame_index >= seq.chunks[i + 1].first_frame_index:
-        #         print(
-        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} overlap,
-        #             this should not happen')
-        #         # fix the overlap by cutting the first chunk
-        #         seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
+    # cut any scenes that are in the offsets if a scene is at the border of the offset, cut it, so it fits
+    if start_offset != -1 or end_offset != -1:
+        new_chunks = []
+        current_position = 0
+        total_duration = Ffmpeg.get_video_length(PathAlabama(input_file))
+        end_offset = total_duration - end_offset if end_offset != -1 else total_duration
 
-        # test to see if any frames are missing
-        # for i in range(len(seq.chunks) - 1):
-        #     if seq.chunks[i].last_frame_index + 1 != seq.chunks[i + 1].first_frame_index:
-        #         print(
-        #             f'Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} are missing frames,
-        #             this should not happen')
-        #         # fix the missing frames by adding them to the first chunk
-        #         seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
+        kept_chunks = []
+        discarded_chunks = []
 
-        # add chunk indexes, this has to be done after because we scenes can be split, and keeping track of the index
-        # would be painful
-        for i, chunk in enumerate(seq.chunks):
-            chunk.chunk_index = i
+        for chunk in seq.chunks:
+            # Calculate the chunk duration in seconds
+            chunk_duration: float = chunk.get_lenght()
 
+            # Calculate the start and end positions of the chunk
+            chunk_start = current_position
+            chunk_end = current_position + chunk_duration
+
+            # Check if the chunk is entirely outside the bounds
+            if (start_offset != -1 and chunk_end <= start_offset) or (
+                end_offset != -1 and chunk_start >= end_offset
+            ):
+                # Chunk is entirely outside the bounds, discard it
+                current_position += chunk_duration
+                discarded_chunks.append(chunk.chunk_index)
+                # print(f'Discarding chunk {chunk.chunk_index}')
+                continue
+
+            # Check if the chunk is entirely within the bounds
+            if (start_offset == -1 or chunk_start >= start_offset) and (
+                end_offset == -1 or chunk_end <= end_offset
+            ):
+                # Chunk is entirely within the bounds, include it in the new chunks
+                kept_chunks.append(chunk.chunk_index)
+                # print(f'Keeping chunk {chunk.chunk_index}')
+                new_chunks.append(chunk)
+            else:
+                # Adjust the chunk start and end positions based on the offsets
+                if start_offset != -1 and chunk_start < start_offset:
+                    # Chunk starts before the start offset, adjust the start position
+                    chunk_start = start_offset
+
+                if end_offset != -1 and chunk_end > end_offset:
+                    # Chunk ends after the end offset, adjust the end position
+                    chunk_end = end_offset
+
+                # Calculate the new chunk duration and frame indexes
+                new_chunk_duration = chunk_end - chunk_start
+                new_start_frame = int(
+                    chunk.first_frame_index
+                    + (chunk_start - current_position) * framerate
+                )
+                new_end_frame = int(new_start_frame + new_chunk_duration * framerate)
+
+                print(
+                    f"Cutting chunk {chunk.chunk_index} to {new_start_frame} - {new_end_frame}"
+                )
+
+                # Create a new chunk object with the updated values
+                new_chunk = ChunkObject(
+                    new_start_frame,
+                    new_end_frame,
+                    path=input_file,
+                    framerate=framerate,
+                    width=width,
+                    height=height,
+                )
+                new_chunks.append(new_chunk)
+
+            # Update the current position for the next chunk
+            current_position = chunk_end
+
+        if len(kept_chunks) == 0:
+            raise Exception(
+                "ERROR No chunks kept after cutting offsets, did you set the parameters correctly?"
+            )
+
+        print(f"keeping chunks {min(kept_chunks)}-{max(kept_chunks)}")
+        print(f"discarding chunks {min(discarded_chunks)}-{max(discarded_chunks)}")
+
+        # Replace the old list of chunks with the new one
+        seq.chunks = new_chunks
+
+    # test to see if any frames overlap
+    # for i in range(len(seq.chunks) - 1):
+    #     if seq.chunks[i].last_frame_index >= seq.chunks[i + 1].first_frame_index:
+    #         print(
+    #             f"Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} overlap, "
+    #             f"this should not happen"
+    #         )
+    # fix the overlap by cutting the first chunk
+    # seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
+
+    # test to see if any frames are missing
+    # for i in range(len(seq.chunks) - 1):
+    #     if seq.chunks[i].last_frame_index + 1 != seq.chunks[i + 1].first_frame_index:
+    #         print(
+    #             f"Chunks {seq.chunks[i].chunk_index} and {seq.chunks[i + 1].chunk_index} are missing frames, "
+    #             f"this should not happen"
+    #         )
+    # fix the missing frames by adding them to the first chunk
+    # seq.chunks[i].last_frame_index = seq.chunks[i + 1].first_frame_index - 1
+
+    # add chunk indexes, this has to be done after because scenes can be split, and keeping track of the index
+    # would be painful
+    for i, chunk in enumerate(seq.chunks):
+        chunk.chunk_index = i
+
+    # print all scenes
+    # for i, chunk in enumerate(seq.chunks):
+    #     print(
+    #         f"Scene {i}: {chunk.first_frame_index} - {chunk.last_frame_index} ({chunk.get_lenght():.2f}s)"
+    #     )
+
+    if cache_path_is_valid:
         pickle.dump(seq, open(cache_file_path, "wb"))
 
     print(f"Computed {len(seq)} scenes")

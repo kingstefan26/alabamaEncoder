@@ -52,6 +52,7 @@ class ChunkObject:
         self.chunk_path = ""  # path to the encoded (or not yet) chunk file
         self.chunk_done = False
         self.ideal_bitrate = -1
+        self.size_kB = -1
 
     def __str__(self):
         return f"ChunkObject({self.first_frame_index}, {self.last_frame_index}, {self.path}, {self.framerate})"
@@ -174,7 +175,7 @@ class ChunkObject:
                         f"{self.log_prefix()} failed the integrity because: {e} 🤕"
                     )
             return True
-
+        self.size_kB = os.path.getsize(self.chunk_path) / 1000
         self.chunk_done = True
         return False
 

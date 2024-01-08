@@ -1,4 +1,6 @@
+import copy
 import os
+import random
 from multiprocessing.pool import ThreadPool
 from typing import List
 
@@ -49,6 +51,32 @@ class ChunkSequence:
             # or
             # /home/user/encode/show/temp/1.mkv
             c.chunk_path = os.path.join(temp_folder, f"{c.chunk_index}{extension}")
+
+    def get_test_chunks_out_of_a_sequence(
+        self, random_pick_count: int = 7
+    ) -> List[ChunkObject]:
+        """
+        Get an equally distributed list of chunks from a sequence for testing, does not modify the original sequence
+        :param random_pick_count: Number of random chunks to pick
+        :return: List of Chunk objects
+        """
+        chunks_copy: List[ChunkObject] = copy.deepcopy(self.chunks)
+        chunks_copy = chunks_copy[
+            int(len(chunks_copy) * 0.2) : int(len(chunks_copy) * 0.8)
+        ]
+
+        if len(chunks_copy) > 10:
+            # bases on length, remove every x scene from the list so its shorter
+            chunks_copy = chunks_copy[:: int(len(chunks_copy) / 10)]
+
+        random.shuffle(chunks_copy)
+        chunks = chunks_copy[:random_pick_count]
+
+        if len(chunks) == 0:
+            print("Failed to shuffle chunks for analysis, using all")
+            chunks = self.chunks
+
+        return copy.deepcopy(chunks)
 
     async def sequence_integrity_check(self, check_workers: int = 5) -> bool:
         """
