@@ -1,1 +1,0 @@
-NFS_SERVER=192.168.1.38 NFS_MNT=/home/kokoniara/dev/VideoSplit/temp docker run -e REDIS_HOST='192.168.1.38' --mount "src=mynfs,dst=$NFS_MNT,volume-opt=device=:$NFS_MNT,\"volume-opt=o=addr=$NFS_SERVER,vers=4,soft\",type=volume,volume-driver=local,volume-opt=type=nfs" --rm -it lovelycelery
