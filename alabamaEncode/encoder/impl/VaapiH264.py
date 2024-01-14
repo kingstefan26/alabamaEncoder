@@ -30,7 +30,8 @@ class EncoderVaapiH264(Encoder):
                 raise NotImplementedError
 
         vec.append(f"-quality 0")
-        vec.append(f"-compression_level 100")
+        vec.append(f"-compression_level 0")
+        vec.append(f"-profile high")
 
         # hdr
         if self.hdr:
@@ -53,7 +54,7 @@ class EncoderVaapiH264(Encoder):
         return [" ".join(vec)]
 
     def get_chunk_file_extension(self) -> str:
-        return ".h264"
+        return ".avi"
 
     def get_version(self) -> str:
         return "N/A"

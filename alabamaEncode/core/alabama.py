@@ -91,10 +91,10 @@ class AlabamaContext:
             "statically_sized_scenes": self.statically_sized_scenes,
             "scene_merge": self.scene_merge,
             "args_tune": self.args_tune,
-            "denoise_vmaf_ref": self.denoise_vmaf_ref,
+            "denoise_vmaf_ref": self.denoise_vmaf_ref
         }
 
-    def to_json(self):
+    def to_json(self) -> str:
         return json.dumps(self.dict())
 
     # safe version

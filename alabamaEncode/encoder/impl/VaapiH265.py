@@ -23,12 +23,17 @@ class EncoderVaapiH265(Encoder):
                 vec.append(f"-qp {self.crf}")
                 vec.append("-rc_mode 1")
             case EncoderRateDistribution.VBR:
-                vec.append(f"-b:v {self.bitrate}k")
+                vec.append(f"-b:v {int(self.bitrate)}k")
                 vec.append("-rc_mode 3")
             case _:
                 raise NotImplementedError
 
-        vec.append(f"-compression_level 100")
+        vec.append(f"-tier high")
+
+        vec.append(f"-compression_level 0")
+
+        if self.bit_override == 10:
+            vec.append(f"-profile:v main10")
 
         # hdr
         if self.hdr:

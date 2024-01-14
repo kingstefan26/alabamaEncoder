@@ -40,12 +40,18 @@ parser.add_argument(
     "-m", "--max", help="Max .ivf index number", type=int, default=-1, metavar="max"
 )
 
+parser.add_argument("-e", help="extension of files to concat", type=str, default="ivf")
+
+parser.add_argument("--start_offset", help="start offset", type=int, default=0)
+
 args = parser.parse_args()
 
 mux_audio = args.audio
 
 # output file name
 output = args.output
+
+ext = args.e
 
 # temp dir
 tmp_dir = args.temp_dir
@@ -82,7 +88,7 @@ file_names = []
 invalid_files = []
 
 for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
-    if name.endswith(".ivf"):
+    if name.endswith(f".{ext}"):
         # get the file name
         name = name[:-4]
 
@@ -97,7 +103,7 @@ for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
         file_names.append(name)
         # run ffmpeg command that checks if the file is valid
         # ffmpeg -v error -i $i -c copy -f null -
-        argv_ = f'ffmpeg -v error -i "{tmp_dir}{name}.ivf" -c copy -f null -'
+        argv_ = f'ffmpeg -v error -i "{tmp_dir}{name}.{ext}" -c copy -f null -'
         # if the command has any output then the file is invalid
         p = subprocess.Popen(
             argv_,
@@ -109,12 +115,12 @@ for name in tqdm(os.listdir(tmp_dir), desc="Checking files"):
         p.wait()
         proc_output = p.stdout.read()
         if len(proc_output) > 0:
-            tqdm.write(f"Found invalid file: {name}.ivf")
+            tqdm.write(f"Found invalid file: {name}.{ext}")
             invalid_files.append(name)
 
 for i in range(args.max):
     if str(i) not in file_names:
-        tqdm.write(f"Missing file: {i}.ivf")
+        tqdm.write(f"Missing file: {i}.{ext}")
         invalid_files.append(str(i))
 
 # if there are invalid files, print them out
@@ -126,41 +132,50 @@ if len(invalid_files) > 0:
     # assamble the command to remove the invalid files
     command = "rm "
     for name in invalid_files:
-        command += f"{tmp_dir}{name}.ivf "
+        command += f"{tmp_dir}{name}.{ext} "
     print(command)
     quit()
+
 
 # treat the names like numbers and sort them
 file_names.sort(key=lambda f: int("".join(filter(str.isdigit, f))))
 
 with open("mhmconcat", "w") as f:
     for name in file_names:
-        f.write(f"file '{tmp_dir}{name}.ivf'\n")
+        f.write(f"file '{tmp_dir}{name}.{ext}'\n")
 
 # if the audio flag is set, then mux the audio
 if mux_audio:
     print("muxing audio innt luv")
 
-    kumannds = []
-
     output_ = f'ffmpeg -v error -f concat -safe 0 -i mhmconcat -movflags +faststart -c:v copy "{output}.TEMP.mkv"'
     print("Running command: " + output_)
     os.system(output_)
 
-    # video_length = get_video_lenght()
     video_length = Ffmpeg.get_video_length(PathAlabama(f"{output}.TEMP.mkv"))
 
+    offset = f"-ss {args.start_offset}" if args.start_offset != 0 else ""
+    audio_enc = (
+        f'ffmpeg -y -v error {offset} -i "{tmp_dir}/temp.mkv" '
+        f'-c:a libopus -ac 2 -b:a 96k -map 0:a:0 -t {video_length} "{output}.AUDIO.mkv"'
+    )
+    print("Running command: " + audio_enc)
+    os.system(audio_enc)
+
+    kumannds = []
+
     kumannds.append(
-        f'ffmpeg -v error -i "{output}.TEMP.mkv" -i "{tmp_dir}/temp.mkv" -map 0:v -map 1:a -c:a libopus -ac 2 '
-        f'-b:a 70k -vbr on -movflags +faststart -c:v copy -t {video_length} "{output}.TTEMP.mkv"'
+        f'ffmpeg -y -v error -i "{output}.TEMP.mkv" -i "{output}.AUDIO.mkv" -map 0:v -map 1:a '
+        f'-movflags +faststart -c:a copy -c:v copy "{output}"'
     )
 
     # second command that uses mkvmerge to write additional metadata & fixup the container
-    kumannds.append(f'mkvmerge -o "{output}" "{output}.TTEMP.mkv"')
+    # kumannds.append(f'mkvmerge -o "{output}" "{output}.TTEMP.mkv"')
 
     # remove temp
     kumannds.append(f'rm "{output}.TEMP.mkv"')
-    kumannds.append(f'rm "{output}.TTEMP.mkv"')
+    kumannds.append(f'rm "{output}.AUDIO.mkv"')
+    # kumannds.append(f'rm "{output}.TTEMP.mkv"')
 
     for command in kumannds:
         print("Running: " + command)

@@ -88,19 +88,6 @@ def get_video_scene_list_skinny(
 
     if scene_merge and not static_length:
         new_scene_list = copy.deepcopy(scene_list)
-        # for i, scene in enumerate(new_scene_list):
-        #     if i == 0:
-        #         continue
-        #     start, end = scene
-        #     print(f"checking scene {i} ({start} - {end})")
-        #     prev_start, prev_end = scene_list[i - 1]
-        #     print(f"prev scene {i - 1} ({prev_start} - {prev_end})")
-        #     if start - prev_end < max_scene_length * framerate:
-        #         new_scene_list[-1] = (prev_start, end)
-        #         print(f"merging scene {i} with {i - 1} ({prev_start} - {end})")
-        #     else:
-        #         new_scene_list.append(scene)
-        #
         i = 0
         while i < len(new_scene_list) - 1:
             if i == 0:

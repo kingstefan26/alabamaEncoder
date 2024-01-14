@@ -386,7 +386,7 @@ class AlabamaEncodingJob:
             output_folder=self.ctx.output_folder,
             output=self.ctx.output_file,
             input_file=self.ctx.raw_input_file,
-            grain_synth=-1,
+            grain_synth=self.ctx.prototype_encoder.grain_synth,
             title=self.ctx.title,
             cut_intro=(True if self.ctx.start_offset > 0 else False),
             cut_credits=(True if self.ctx.end_offset > 0 else False),

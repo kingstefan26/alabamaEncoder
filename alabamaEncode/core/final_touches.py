@@ -49,9 +49,11 @@ def print_stats(
         title = os.path.basename(output)
     print_and_save(f"## {title}")
 
-    print_and_save(f"- total bitrate `{total_bitrate} kb/s`")
-    print_and_save(f"- total size `{sizeof_fmt(os.path.getsize(output)).strip()}`")
-    print_and_save(
+    lines = []
+
+    lines.append(f"- total bitrate `{total_bitrate} kb/s`")
+    lines.append(f"- total size `{sizeof_fmt(os.path.getsize(output)).strip()}`")
+    lines.append(
         f"- length `{Ffmpeg.get_video_length(PathAlabama(output), True).split('.')[0]}`"
     )
     size_decrease = round(
@@ -60,11 +62,14 @@ def print_stats(
         * 100,
         2,
     )
-    print_and_save(
+    lines.append(
         f"- sause `{os.path.basename(input_file)}`, size `{sizeof_fmt(os.path.getsize(input_file))}`, size decrease "
         f"from source `{size_decrease}%`"
     )
-    print_and_save(f"- grain synth `{grain_synth}`")
+
+    if grain_synth == -2:
+        grain_synth = "per scene"
+    lines.append(f"- grain synth `{grain_synth}`")
 
     arr = []
     if tonemaped:
@@ -73,15 +78,17 @@ def print_stats(
         arr.append("croped")
     if scaled:
         arr.append("scaled")
-
-    print_and_save(f"- {' & '.join(arr)}")
+    if len(arr) > 0:
+        lines.append(f"- {' & '.join(arr)}")
 
     if cut_intro and cut_credits is False:
-        print_and_save(f"- intro cut")
+        lines.append(f"- intro cut")
     elif cut_intro is False and cut_credits:
-        print_and_save(f"- credits cut")
+        lines.append(f"- credits cut")
     elif cut_intro and cut_credits:
-        print_and_save(f"- intro & credits cut")
+        lines.append(f"- intro & credits cut")
+
+    print_and_save("\n".join(lines))
 
     print_and_save("\n")
     print_and_save(
@@ -89,7 +96,7 @@ def print_stats(
         f"&w={Ffmpeg.get_width(PathAlabama(output))}&h={Ffmpeg.get_height(PathAlabama(output))}"
     )
     print_and_save("\n")
-    print_and_save("ALABAMAENCODES © 2024\n")
+    lines.append("ALABAMAENCODES © 2024\n")
 
 
 def generate_previews(
