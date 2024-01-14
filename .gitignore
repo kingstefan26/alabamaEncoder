@@ -25,4 +25,4 @@ venv/**
 
 **.vmaflog
 
-alabamaEncode/ai_vmaf/train/**
+alabamaEncode/ai_vmaf/train
