@@ -1,0 +1,62 @@
+import os
+
+from alabamaEncode.conent_analysis.chunk.target_vmaf import TargetVmaf
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.bin_utils import register_bin
+from alabamaEncode.encoder.impl.X264 import EncoderX264
+from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.scene.sequence import ChunkSequence
+from alabamaEncode.scene.split import get_video_scene_list_skinny
+
+if __name__ == "__main__":
+    env = "./seq_convexhull"
+    env = os.path.abspath(env)
+    if not os.path.exists(env):
+        os.mkdir(env)
+
+    scenes: ChunkSequence = get_video_scene_list_skinny(
+        input_file="/home/kokoniara/ep3_halo_test.mkv",
+        max_scene_length=10,
+        cache_file_path=f"{env}/scenes_skinny.pt",
+    )
+
+    scenes.setup_paths(env, ".mkv")
+
+    register_bin("SvtAv1EncApp", "/home/kokoniara/.local/opt/SvtAv1EncApp")
+    ref_display = ComparisonDisplayResolution.FHD
+    resolutions = [
+        "1920:-2",
+        "1366:-2",
+        "1280:-2",
+        "960:-2",
+        # "854:-2",
+        # "768:-2",
+        # "640:-2",
+        # "480:-2",
+    ]
+    vmaf_targets = [45, 55, 62, 68, 81, 87, 90, 93, 95, 97]
+    ctx = AlabamaContext()
+    ctx.vmaf_reference_display = "FHD"
+    ctx.temp_folder = env
+
+    enc = EncoderX264()
+    enc.speed = 2
+
+    for scene in scenes.chunks:
+        for res in resolutions:
+            ctx.vmaf = 95
+            enc.video_filters = f"crop=3840:1920:0:120,scale={res}"
+            scene.chunk_path = os.path.join(env, f"{res.split(':')[0]}p_{ctx.vmaf}.mkv")
+            enc.chunk = scene
+            tar = TargetVmaf(alg_type="binary", probe_speed=enc.speed)
+            tar.run(chunk=scene, ctx=ctx, enc=enc)
+            print(f"res: {res}, target 95, computed crf: {enc.crf}")
+
+            stats = enc.run(
+                calculate_vmaf=True,
+                vmaf_params=VmafOptions(ref=ref_display),
+            )
+            print(
+                f"target 95, res: {res}, final vmaf: {stats.vmaf} crf: {enc.crf} bitrate: {stats.bitrate}"
+            )

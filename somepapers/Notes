@@ -1,0 +1,53 @@
+PREPARE STEP:
+finite set of resolutions R = [140p, 260p, 360, 480p, 720p, 1080p, 2160p] etc
+finite set of CRF's C = [16, 18, 20, 22, 24, 28, 34, 36] etc
+
+calculate complexity of every chunk ->
+pick top 5% most complex chunks ->
+
+FOR EACH CHUNK:
+Encode each R at each C -> q` = quality, b` = bitrate
+for each R
+interpolate what b` is the farthest away from other C b`'s that has the highest q` ->
+save in hashmap H`:
+H`[R] = [C crf that was used, b` best bitrate]
+
+Average [C, b`] values across every chunks H` for each R and save in new H hashmap
+
+ENCODE:
+FOR EACH [R resolution, C crf, b` ideal bitrate] in H[R]:
+do trial encode with a stat file of each chunk at crf C & resolution R -> resulting bitrate = b ->
+see if b > b`
+-> if bigger then b` encode at b` three pass
+-> if smaller then b`, do the other two passes using vbr while targeting b
+
+: win??
+
+
+
+actual solution:
+
+calc complexity per chunk
+
+binary seach bitrate to vmaf of top 5%tile complex chunks to get a cutoff bitrate, store in CUTOFF_BITRATE
+
+acroding to complexity evenly sample x chunks that are in the 99%tile of complexity,
+binary seach bitrate to vmaf from that sample set, average, and store that in VIDEO_BITRATE
+
+calc crf that matches VIDEO_BITRATE acording to another evenly samples sample set from the 99%tile set,
+store that in VIDEO_CRF
+
+encode each chunk at VIDEO_CRF, if it crosses CUTOFF_BITRATE, do three pass at CUTOFF_BITRATE
+
+Using crf will make sure that the 90%tile scenes will be consisten in quality and maintain a certain bitrate,
+but the 10%tile will get capped, also allows us to get a video that will utilise the bitrate best, no need
+to guess what bitrate matches what resolution
+
+
+
+
+
+v2:
+
+
+ 
