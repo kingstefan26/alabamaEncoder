@@ -1,19 +1,41 @@
 ### arcane s01e02
 
-avc & vp9
+### h264
 
 | bitrate | res       | vmeth |
 |---------|-----------|-------|
-| 50      | 480x270   | 45    |
-| 80      | 608x342   | 55    |
-| 100     | 768x432   | 62    |
-| 130     | 768x432   | 68    |
-| 250     | 960x540   | 81    |
+| 58      | 480x270   | 45    |
+| 78      | 608x342   | 55    |
+| 98      | 768x432   | 62    |
+| 127     | 768x432   | 68    |
+| 248     | 960x540   | 81    |
 | 385     | 1280x720  | 87    |
-| 600     | 1280x720  | 90    |
-| 1100    | 1920x1080 | 93    |
-| 1900    | 1920x1080 | 95    |
-| 4000    | 1920x1080 | 96    |
+| 586     | 1280x720  | 90    |
+| 1121    | 1920x1080 | 93    |
+| 1876    | 1920x1080 | 95    |
+| 3697    | 1920x1080 | 96    |
+
+### vp9
+
+| bitrate | res       | vmeth |
+|---------|-----------|-------|
+| 95      | 768x432   | 73    | 
+| 117     | 960x540   | 78    | 
+| 200     | 960x540   | 84    | 
+| 346     | 1280x720  | 91    | 
+| 674     | 1920x1080 | 95    |
+
+### av1
+
+| bitrate | res | vmeth |
+|---------|-----|-------|
+| -       | -   | -     |
+
+### hevc
+
+| bitrate | res | vmeth |
+|---------|-----|-------|
+| -       | -   | -     |
 
 ## speculation on the nf per scene encode process
 
@@ -21,7 +43,7 @@ avc & vp9
 
 1. good quality/bitrate separation on the bitrate ladder
 2. optimal resolution for the targeted quality level (vmaf score)
-3. a bitrate ladder granular enough to allow for smooth bitrate switching
+3. a bitrate ladder granular enough to allow smooth bitrate switching
 
 ##### why?
 
@@ -86,6 +108,4 @@ This is enabled by guiding the bitrate ladder creation by quality levels, not ar
   Although I don't run a streaming service, so there are probably other good reasons why they do it this way.
   <Br>
   _PS If you know ill love to hear it._
-- My process assumes the same codec, personally haven't figured out how to weave multiple codecs into this,
-  <Br>
-  unless the solution is to literally do this whole thing per codec.
+- You cant really target lower vmaf's with av1, in my anignotal testing vmaf 80 usually means 100kb/s 
