@@ -223,17 +223,10 @@ class AlabamaContext:
         """
         Returns the output resolution
         """
-        cache_file = os.path.join(self.temp_folder, "output_res.txt")
-        if self.output_height != -1 and self.output_width != -1:
+        cache = self.get_kv().get_global("output_res")
+        if cache is not None:
+            self.output_width, self.output_height = cache.split(",")
             return [self.output_width, self.output_height]
-        else:
-            if os.path.exists(cache_file):
-                with open(cache_file) as f:
-                    res = f.read()
-                    output_width, output_height = res.split(",")
-                    self.output_width = int(output_width)
-                    self.output_height = int(output_height)
-                    return [self.output_width, self.output_height]
         enc = self.get_encoder()
         enc.chunk = ChunkObject(
             path=self.raw_input_file, first_frame_index=0, last_frame_index=2
@@ -252,8 +245,8 @@ class AlabamaContext:
         os.remove(enc.output_path)
         self.output_width = width
         self.output_height = height
-        with open(cache_file, "w") as f:
-            f.write(f"{width},{height}")
+        self.get_kv().set_global("output_res", f"{width},{height}")
+
         return [width, height]
 
     def get_kv(self) -> AlabamaKv:
