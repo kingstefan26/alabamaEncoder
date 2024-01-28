@@ -13,6 +13,8 @@ class AlabamaKv(object):
     get(bucket, key) -> str
     get_all(bucket) -> dict
     exists(bucket, key) -> bool
+    get_global(key) -> str  # shortcut for get("kv", key)
+    set_global(key, value)  # shortcut for set("kv", key, value)
     """
 
     def __init__(self, folder):
