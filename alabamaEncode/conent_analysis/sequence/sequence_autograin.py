@@ -24,7 +24,6 @@ def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
             input_file=sequence.input_file,
             scenes=sequence,
             temp_folder=ctx.temp_folder,
-            scene_pick_seed=2,
             video_filters=ctx.prototype_encoder.video_filters,
             kv=ctx.get_kv(),
             crf=ctx.prototype_encoder.crf,
@@ -136,10 +135,8 @@ def wrapper(obj):
 def get_best_avg_grainsynth(
     input_file: str,
     scenes: ChunkSequence,
-    scene_pick_seed: int,
     temp_folder="./grain_test",
     kv: AlabamaKv = None,
-    random_pick=6,
     bitrate=-1,
     crf=20,
     video_filters: str = "",
@@ -173,10 +170,10 @@ def get_best_avg_grainsynth(
         # bases on length, remove every x scene from the list so its shorter
         scenes.chunks = scenes.chunks[:: int(len(scenes.chunks) / 10)]
 
-    random.seed(scene_pick_seed)
+    random.seed(2)
     random.shuffle(scenes.chunks)
 
-    chunks_for_processing = scenes.chunks[:random_pick]
+    chunks_for_processing = scenes.chunks[:6]
 
     jobs = [
         {
@@ -197,7 +194,7 @@ def get_best_avg_grainsynth(
 
     # get the results
     ideal_grain = int(mean(results))
-    print(f"for {random_pick} random scenes, the average ideal grain is {ideal_grain}")
+    print(f"for 6 random scenes, the average ideal grain is {ideal_grain}")
     if kv is not None:
         kv.set_global(cache_key, ideal_grain)
     return ideal_grain
