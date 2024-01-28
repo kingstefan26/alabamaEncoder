@@ -1,12 +1,13 @@
 import os
 
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.final_encode_step import (
+from alabamaEncode.conent_analysis.chunk.final_encode_step import (
     FinalEncodeStep,
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.calc import get_metric_from_stats
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -14,34 +15,6 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
     def run(
         self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
     ) -> EncodeStats:
-        def get_statistical_rep(_stats):
-            match ctx.vmaf_target_representation:
-                case "mean":
-                    statistical_representation = _stats.vmaf_result.mean
-                case "harmonic_mean":
-                    statistical_representation = _stats.vmaf_result.harmonic_mean
-                case "max":
-                    statistical_representation = _stats.vmaf_result.max
-                case "min":
-                    statistical_representation = _stats.vmaf_result.min
-                case "median":
-                    statistical_representation = _stats.vmaf_result.percentile_50
-                case "percentile_1":
-                    statistical_representation = _stats.vmaf_result.percentile_1
-                case "percentile_5":
-                    statistical_representation = _stats.vmaf_result.percentile_5
-                case "percentile_10":
-                    statistical_representation = _stats.vmaf_result.percentile_10
-                case "percentile_25":
-                    statistical_representation = _stats.vmaf_result.percentile_25
-                case "percentile_50":
-                    statistical_representation = _stats.vmaf_result.percentile_50
-                case _:
-                    raise Exception(
-                        f"Unknown vmaf_target_representation {ctx.vmaf_target_representation}"
-                    )
-            return statistical_representation
-
         vmaf_options = ctx.get_vmaf_options()
         probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
         enc.passes = 3
@@ -81,7 +54,9 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
             )
             nonlocal total_encodes
             total_encodes += 1
-            metric = get_statistical_rep(stats)
+            metric = get_metric_from_stats(
+                stats, statistical_representation=ctx.vmaf_target_representation
+            )
             metric_error = abs(metric - target_vmaf)
             log(
                 f"bitrate: {stats.bitrate}; {metric_name}: {metric}; error: {metric_error}"
@@ -94,7 +69,7 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
         def finish(_stats, bitrate, additional_message=""):
             prefi = f"{additional_message}; " if additional_message != "" else ""
             log(
-                f"{prefi}bitrate {bitrate}; {metric_name}: {get_statistical_rep(_stats)};"
+                f"{prefi}bitrate {bitrate}; {metric_name}: {get_metric_from_stats(_stats, ctx.vmaf_target_representation)};"
                 f" real bitrate: {_stats.bitrate} kb/s"
             )
             ctx.get_kv().set("best_bitrates", chunk.chunk_index, bitrate)

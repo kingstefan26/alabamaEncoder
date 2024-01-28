@@ -3,6 +3,7 @@ import copy
 import os
 import pickle
 from concurrent.futures import ThreadPoolExecutor as Executor
+from math import log
 
 import keras
 import numpy as np
@@ -10,15 +11,39 @@ import tensorflow as tf
 from keras import layers
 from matplotlib import pyplot as plt
 
+from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
+from alabamaEncode.encoder.stats import EncodeStats
+
 print(tf.__version__)
 
-from alabamaEncode.adaptive.helpers.bitrateLadder import AutoBitrateLadder
 from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
+
+
+def get_complexity(enc: Encoder, c: ChunkObject) -> float:
+    _enc = copy.deepcopy(enc)
+    _enc.chunk = c
+    _enc.speed = 12
+    _enc.passes = 1
+    _enc.rate_distribution = EncoderRateDistribution.CQ
+    _enc.crf = 16
+    _enc.threads = 1
+    _enc.grain_synth = 0
+    _enc.output_path = (
+        f"/tmp/{c.chunk_index}_complexity{_enc.get_chunk_file_extension()}"
+    )
+    stats: EncodeStats = _enc.run()
+    formula = log(stats.bitrate)
+    # self.config.log(
+    #     f"[{c.chunk_index}] complexity: {formula:.2f} in {stats.time_encoding}s"
+    # )
+    os.remove(_enc.output_path)
+    return c.chunk_index, formula
 
 
 def generate_stat_from_chunk(current_chunk: ChunkObject):
@@ -35,7 +60,7 @@ def generate_stat_from_chunk(current_chunk: ChunkObject):
     enc.chunk = current_chunk
     enc.chunk.path = current_chunk.path
     enc.video_filters = current_chunk.video_filters
-    complexity = AutoBitrateLadder.get_complexity(enc, current_chunk)[1]
+    complexity = get_complexity(enc, current_chunk)
     enc.speed = 4
     enc.passes = 1
     enc.threads = 2

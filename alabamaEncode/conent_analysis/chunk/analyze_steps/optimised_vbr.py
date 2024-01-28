@@ -2,7 +2,7 @@ import os
 import pickle
 import time
 
-from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
+from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.alabama import AlabamaContext
@@ -49,7 +49,7 @@ def get_ideal_bitrate(
         encoder = config.get_encoder()
 
         test_probe_path = (
-            f"{probe_file_base}complexity.probe.{encoder.get_chunk_file_extension()}"
+            f"{probe_file_base}complexity.probe{encoder.get_chunk_file_extension()}"
         )
 
         encoder.speed = convex_speed

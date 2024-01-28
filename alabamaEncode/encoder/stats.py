@@ -20,12 +20,6 @@ class EncodeStats:
         target_miss_proc: int = -1,
         rate_search_time: int = -1,
         chunk_index: int = -1,
-        vmaf_percentile_1: float = -1,
-        vmaf_percentile_5: float = -1,
-        vmaf_percentile_10: float = -1,
-        vmaf_percentile_25: float = -1,
-        vmaf_percentile_50: float = -1,
-        vmaf_avg: float = -1,
         basename: str = "",
         version: str = "",
         vmaf_result: VmafResult = None,
@@ -43,7 +37,7 @@ class EncodeStats:
         self.chunk_index = chunk_index
         self.basename = basename
         self.version = version
-        self.vmaf_result = vmaf_result
+        self.vmaf_result = vmaf_result or VmafResult()
         self.length_frames = length_frames
 
     def __dict__(self):

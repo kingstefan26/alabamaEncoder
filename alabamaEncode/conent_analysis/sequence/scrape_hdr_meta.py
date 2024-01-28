@@ -5,9 +5,10 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def scrape_hdr_metadata(ctx, sequence):
+def scrape_hdr_metadata(ctx: AlabamaContext, sequence: ChunkSequence):
     """
     Scrapes HDR metadata from the input file
     """
@@ -54,12 +55,14 @@ def scrape_hdr_metadata(ctx, sequence):
 
             for side_data in obj["side_data_list"]:
                 if side_data["side_data_type"] == "Content light level metadata":
-                    ctx.prototype_encoder.maximum_content_light_level = side_data[
-                        "max_content"
-                    ]
-                    ctx.prototype_encoder.maximum_frame_average_light_level = side_data[
-                        "max_average"
-                    ]
+                    if ctx.prototype_encoder.maximum_content_light_level == "":
+                        ctx.prototype_encoder.maximum_content_light_level = side_data[
+                            "max_content"
+                        ]
+                    if ctx.prototype_encoder.maximum_frame_average_light_level == "":
+                        ctx.prototype_encoder.maximum_frame_average_light_level = (
+                            side_data["max_average"]
+                        )
                     print(
                         f"Setting max content light level to {ctx.prototype_encoder.maximum_content_light_level}"
                     )

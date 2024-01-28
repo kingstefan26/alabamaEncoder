@@ -1,4 +1,4 @@
-from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
+from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.alabama import AlabamaContext
@@ -7,9 +7,11 @@ from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-class PlainVbr(ChunkAnalyzePipelineItem):
+class CapedCrf(ChunkAnalyzePipelineItem):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
-        enc.rate_distribution = EncoderRateDistribution.VBR
-        enc.bitrate = ctx.prototype_encoder.bitrate
-        enc.passes = 3
+        enc.rate_distribution = EncoderRateDistribution.CQ_VBV
+        enc.bitrate = ctx.max_bitrate
+        enc.crf = ctx.prototype_encoder.crf
+        enc.passes = 1
+        enc.svt_open_gop = True
         return enc

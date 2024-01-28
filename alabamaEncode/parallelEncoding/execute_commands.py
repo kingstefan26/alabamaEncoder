@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import psutil
 from tqdm import tqdm
 
-from alabamaEncode.adaptive.executor import AdaptiveCommand
+from alabamaEncode.core.chunk_job import ChunkEncoder
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
 
 
@@ -26,7 +26,9 @@ async def execute_commands(
     :param finished_scene_callback: call when a scene finishes, contains the number of finished scenes
     :param size_estimate_data: tuple(frames, kB) of scenes encoded so far for the estimate
     """
-    are_commands_adaptive_commands = isinstance(command_objects[0], AdaptiveCommand)
+    if len(command_objects) == 0:
+        return
+    are_commands_adaptive_commands = isinstance(command_objects[0], ChunkEncoder)
     # to provide a bitrate estimate in the progress bar
     encoded_frames_so_far = 0
     encoded_size_so_far = 0  # in kbits
@@ -162,8 +164,9 @@ async def execute_commands(
                         pbar.update(
                             command_objects[completed_count].chunk.get_frame_count()
                         )
-                    encoded_frames_so_far += stats["length_frames"]
-                    encoded_size_so_far += stats["size"]
+                    if stats is not None:
+                        encoded_frames_so_far += stats["length_frames"]
+                        encoded_size_so_far += stats["size"]
 
                     if pin_to_cores:
                         used_cores[pined_core] = 0

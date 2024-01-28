@@ -10,6 +10,7 @@ class EncodersEnum(Enum):
     VP8: int = 5
     VAAPI_H265: int = 6
     VAAPI_H264: int = 7
+    RAV1E: int = 8
 
     def __str__(self):
         return self.name
@@ -55,6 +56,8 @@ class EncodersEnum(Enum):
             or encoder_name == "h264_vaapi"
         ):
             return EncodersEnum.VAAPI_H264
+        elif encoder_name == "rav1e" or encoder_name == "RAV1E":
+            return EncodersEnum.RAV1E
         else:
             raise ValueError(f"FATAL: Unknown encoder name: {encoder_name}")
 
@@ -91,3 +94,7 @@ class EncodersEnum(Enum):
             from alabamaEncode.encoder.impl.VaapiH264 import EncoderVaapiH264
 
             return EncoderVaapiH264()
+        elif self == EncodersEnum.RAV1E:
+            from alabamaEncode.encoder.impl.rav1e import EncoderRav1e
+
+            return EncoderRav1e()

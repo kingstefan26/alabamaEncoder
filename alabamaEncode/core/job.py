@@ -11,9 +11,15 @@ import psutil
 import requests
 from tqdm import tqdm
 
-from alabamaEncode.adaptive.executor import AdaptiveCommand
-from alabamaEncode.conent_analysis.sequence_pipeline import run_sequence_pipeline
+from alabamaEncode.conent_analysis.opinionated_vmaf import (
+    get_vmaf_list,
+)
+from alabamaEncode.conent_analysis.pipelines import (
+    run_sequence_pipeline,
+    get_refine_steps,
+)
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.chunk_job import ChunkEncoder
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.final_touches import (
     print_stats,
@@ -253,7 +259,14 @@ class AlabamaEncodingJob:
                 f"Using {self.ctx.prototype_encoder.get_enum()} version: {self.ctx.prototype_encoder.get_version()}"
             )
 
-        if not os.path.exists(self.ctx.output_file):
+        def encode_finished():
+            if self.ctx.multi_res_pipeline:
+                return os.path.exists(self.ctx.output_file)
+                # TODO: do a paranoid check for all files
+            else:
+                return os.path.exists(self.ctx.output_file)
+
+        if not encode_finished():
             constant_updates = asyncio.create_task(self.constant_updates())
             self.update_current_step_name("Running scene detection")
             sequence: ChunkSequence = get_video_scene_list_skinny(
@@ -264,6 +277,7 @@ class AlabamaEncodingJob:
                 end_offset=self.ctx.end_offset,
                 override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
                 static_length=self.ctx.statically_sized_scenes,
+                static_length_size=self.ctx.max_scene_length,
                 scene_merge=self.ctx.scene_merge,
             )
             sequence.setup_paths(
@@ -273,7 +287,7 @@ class AlabamaEncodingJob:
 
             self.update_proc_done(10)
             self.update_current_step_name("Analyzing content")
-            run_sequence_pipeline(self.ctx, sequence)
+            await run_sequence_pipeline(self.ctx, sequence)
             chunks_sequence = sequence
 
             self.update_proc_done(20)
@@ -295,12 +309,33 @@ class AlabamaEncodingJob:
                     frames_encoded_so_far = 0
                     size_kb_so_far = 0
 
+                    def is_done(c):
+                        if ctx.multi_res_pipeline:
+                            enc = ctx.get_encoder()
+                            vmafs = get_vmaf_list(enc.get_codec())
+
+                            for vmaf in vmafs:
+                                output_path = (
+                                    f"{ctx.temp_folder}/"
+                                    f"{c.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
+                                )
+                                if not os.path.exists(output_path):
+                                    return False
+
+                            return True
+                        else:
+                            return c.is_done()
+
                     for chunk in sequence.chunks:
-                        if not chunk.is_done():
-                            command_objects.append(AdaptiveCommand(ctx, chunk))
+                        if not is_done(chunk):
+                            command_objects.append(ChunkEncoder(ctx, chunk))
                         else:
                             frames_encoded_so_far += chunk.get_frame_count()
                             size_kb_so_far += chunk.size_kB
+
+                    threads = os.cpu_count()
+                    if len(command_objects) < threads:
+                        ctx.prototype_encoder.threads = threads / len(command_objects)
 
                     # order chunks based on order
                     if ctx.chunk_order == "random":
@@ -318,9 +353,6 @@ class AlabamaEncodingJob:
                     else:
                         raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
 
-                    if len(command_objects) < 6:
-                        ctx.prototype_encoder.threads = os.cpu_count()
-
                     print(
                         f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"
                     )
@@ -336,17 +368,27 @@ class AlabamaEncodingJob:
                             * 75
                         )
 
-                    encode_task = asyncio.create_task(
-                        execute_commands(
-                            ctx.use_celery,
-                            command_objects,
-                            ctx.multiprocess_workers,
-                            pin_to_cores=ctx.pin_to_cores,
-                            finished_scene_callback=update_proc_done,
-                            size_estimate_data=(frames_encoded_so_far, size_kb_so_far),
+                    if len(command_objects) == 0:
+                        print("Nothing to encode, skipping")
+                    else:
+                        encode_task = asyncio.create_task(
+                            execute_commands(
+                                ctx.use_celery,
+                                command_objects,
+                                ctx.multiprocess_workers,
+                                pin_to_cores=ctx.pin_to_cores,
+                                finished_scene_callback=update_proc_done,
+                                size_estimate_data=(
+                                    frames_encoded_so_far,
+                                    size_kb_so_far,
+                                ),
+                            )
                         )
-                    )
-                    await encode_task
+                        await encode_task
+
+                    refine_steps = get_refine_steps(ctx)
+                    for step in refine_steps:
+                        step(ctx, sequence)
 
                 except KeyboardInterrupt:
                     print("Keyboard interrupt, stopping")
@@ -355,27 +397,28 @@ class AlabamaEncodingJob:
                         task.cancel()
                     quit()
 
-            self.update_proc_done(95)
-            self.update_current_step_name("Concatenating scenes")
+            if not self.ctx.multi_res_pipeline:
+                self.update_proc_done(95)
+                self.update_current_step_name("Concatenating scenes")
 
-            try:
-                VideoConcatenator(
-                    output=self.ctx.output_file,
-                    file_with_audio=self.ctx.input_file,
-                    audio_param_override=self.ctx.audio_params,
-                    start_offset=self.ctx.start_offset,
-                    end_offset=self.ctx.end_offset,
-                    title=self.ctx.title,
-                    encoder_name=self.ctx.encoder_name,
-                    mux_audio=self.ctx.encode_audio,
-                    subs_file=[self.ctx.sub_file],
-                ).find_files_in_dir(
-                    folder_path=self.ctx.temp_folder,
-                    extension=self.ctx.get_encoder().get_chunk_file_extension(),
-                ).concat_videos()
-            except Exception as e:
-                print("Concat failed 😷")
-                raise e
+                try:
+                    VideoConcatenator(
+                        output=self.ctx.output_file,
+                        file_with_audio=self.ctx.input_file,
+                        audio_param_override=self.ctx.audio_params,
+                        start_offset=self.ctx.start_offset,
+                        end_offset=self.ctx.end_offset,
+                        title=self.ctx.title,
+                        encoder_name=self.ctx.encoder_name,
+                        mux_audio=self.ctx.encode_audio,
+                        subs_file=[self.ctx.sub_file],
+                    ).find_files_in_dir(
+                        folder_path=self.ctx.temp_folder,
+                        extension=self.ctx.get_encoder().get_chunk_file_extension(),
+                    ).concat_videos()
+                except Exception as e:
+                    print("Concat failed 😷")
+                    raise e
             constant_updates.cancel()
         else:
             print("Output file exists 🤑, printing stats")
@@ -410,6 +453,7 @@ class AlabamaEncodingJob:
                 output_folder=self.ctx.output_folder,
             )
 
+        # TODO cleanup right in multiencode
         print("Cleaning up temp folder 🥺")
         for root, dirs, files in os.walk(self.ctx.temp_folder):
             # remove all folders that contain 'rate_probes'

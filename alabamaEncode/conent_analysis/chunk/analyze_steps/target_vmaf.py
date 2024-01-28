@@ -1,42 +1,29 @@
+import copy
 import os
 
-from alabamaEncode.conent_analysis.chunk.final_encode_step import (
-    FinalEncodeStep,
+from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
+from alabamaEncode.conent_analysis.opinionated_vmaf import (
+    get_crf_limits,
+    get_vmaf_probe_speed,
+    get_vmaf_probe_offset,
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
-from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.calc import get_metric_from_stats
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-class TargetX264(FinalEncodeStep):
-    def run(
-        self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
-    ) -> EncodeStats:
-        if not isinstance(enc, EncoderX264):
-            raise Exception("TargetX264 only supports x264")
+class TargetVmaf(ChunkAnalyzePipelineItem):
+    def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
+        original = copy.deepcopy(enc)
 
         target_vmaf = ctx.vmaf
 
         probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
-
-        enc.x264_tune = ""
-        enc.x264_ipratio = 1.3
-        enc.x264_mbtree = True
-        enc.x264_aq_strength = 0.4
-        enc.x264_merange = 36
-        enc.x264_bframes = 8
-        enc.x264_rc_lookahead = 48
-        enc.x264_ref = 4
-        enc.x264_me = "umh"
-        enc.x264_subme = 10
-        enc.x264_non_deterministic = True
-        enc.x264_vbv_maxrate = 25000
-        enc.x264_vbv_bufsize = 31250
-        enc.speed = 0
 
         def get_score(_crf):
             enc.crf = _crf
@@ -44,48 +31,26 @@ class TargetX264(FinalEncodeStep):
                 probe_file_base,
                 f"convexhull.{_crf}{enc.get_chunk_file_extension()}",
             )
-            enc.speed = 0  # max(ctx.prototype_encoder.speed + 2, 5)
+            enc.speed = get_vmaf_probe_speed(enc)
             enc.passes = 1
             enc.threads = 1
+            enc.grain_synth = 0
+            enc.svt_tune = 0
             enc.override_flags = None
-            enc.rate_distribution = EncoderRateDistribution.CQ
-
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
                 vmaf_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
-            match ctx.vmaf_target_representation:
-                case "mean":
-                    statistical_representation = stats.vmaf_result.mean
-                case "harmonic_mean":
-                    statistical_representation = stats.vmaf_result.harmonic_mean
-                case "max":
-                    statistical_representation = stats.vmaf_result.max
-                case "min":
-                    statistical_representation = stats.vmaf_result.min
-                case "median":
-                    statistical_representation = stats.vmaf_result.percentile_50
-                case "percentile_1":
-                    statistical_representation = stats.vmaf_result.percentile_1
-                case "percentile_5":
-                    statistical_representation = stats.vmaf_result.percentile_5
-                case "percentile_10":
-                    statistical_representation = stats.vmaf_result.percentile_10
-                case "percentile_25":
-                    statistical_representation = stats.vmaf_result.percentile_25
-                case "percentile_50":
-                    statistical_representation = stats.vmaf_result.percentile_50
-                case _:
-                    raise Exception(
-                        f"Unknown vmaf_target_representation {ctx.vmaf_target_representation}"
-                    )
-            return statistical_representation
+
+            return get_metric_from_stats(
+                stats=stats,
+                statistical_representation=ctx.vmaf_target_representation,
+            ) + get_vmaf_probe_offset(enc)
 
         probes = ctx.vmaf_probe_count
         trys = []
-        low_crf = 20 if isinstance(enc, EncoderSvt) else 10
-        high_crf = 55 if target_vmaf > 90 else 63
+        low_crf, high_crf = get_crf_limits(enc.get_codec())
         epsilon = 0.1
         depth = 0
         mid_crf = 0
@@ -139,6 +104,10 @@ class TargetX264(FinalEncodeStep):
                     crf = interpolated_crf
                 else:
                     crf = int(interpolated_crf)
+
+                crf_min, crf_max = get_crf_limits(enc.get_codec())
+
+                crf = max(min(crf, crf_max), crf_min)
             else:
                 crf = mid_crf
         else:
@@ -146,29 +115,15 @@ class TargetX264(FinalEncodeStep):
 
         ctx.log(f"{chunk.log_prefix()}Decided on crf: {crf}", category="probe")
 
-        # measure bitrate of crf at config settings
-        enc.crf = crf
         enc.passes = 1
-        enc.x264_collect_pass = True
+        enc.svt_tune = 0
+        enc.svt_overlay = 0
         enc.rate_distribution = EncoderRateDistribution.CQ
+        enc.crf = crf
+
         enc.output_path = chunk.chunk_path
-        stats = enc.run()
+        enc.override_flags = original.override_flags
+        enc.speed = original.speed
+        enc.grain_synth = original.grain_synth
 
-        ctx.log(
-            f"{chunk.log_prefix()}bitrate test at crf {crf} got {stats.bitrate} k/s,"
-            f" encoding three pass vbr at {stats.bitrate} k/s ",
-            category="probe",
-        )
-
-        enc.passes = -3
-        enc.rate_distribution = EncoderRateDistribution.VBR
-        enc.bitrate = stats.bitrate
-
-        return enc.run(
-            calculate_vmaf=True,
-            vmaf_params=ctx.get_vmaf_options(),
-            on_frame_encoded=encoded_a_frame,
-        )
-
-    def dry_run(self, enc: Encoder, chunk: ChunkObject) -> str:
-        raise Exception("dry_run not implemented for TargetX264")
+        return enc

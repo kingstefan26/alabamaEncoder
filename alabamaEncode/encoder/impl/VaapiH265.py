@@ -1,22 +1,26 @@
 from typing import List
 
 from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderVaapiH265(Encoder):
-    def get_encode_commands(self) -> List[str]:
-        vec = []
-        vec.append(self.get_ffmpeg_pipe_command())
-        vec.append("|")
-        vec.append(get_binary("ffmpeg"))
-        vec.append(" -hide_banner -y -i -")
-        vec.append(f"-c:v hevc_vaapi")
-        vec.append(f"-vaapi_device /dev/dri/renderD128")
+    def get_codec(self) -> Codec:
+        return Codec.h265
 
-        vec.append(f"-g {self.keyint}")
+    def get_encode_commands(self) -> List[str]:
+        vec = [
+            self.get_ffmpeg_pipe_command(),
+            "|",
+            get_binary("ffmpeg"),
+            " -hide_banner -y -i -",
+            f"-c:v hevc_vaapi",
+            f"-vaapi_device /dev/dri/renderD128",
+            f"-g {self.keyint}",
+        ]
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:

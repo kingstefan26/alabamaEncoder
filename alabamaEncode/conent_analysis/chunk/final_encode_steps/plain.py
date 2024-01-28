@@ -1,4 +1,4 @@
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.final_encode_step import (
+from alabamaEncode.conent_analysis.chunk.final_encode_step import (
     FinalEncodeStep,
 )
 from alabamaEncode.core.alabama import AlabamaContext
@@ -12,7 +12,7 @@ class PlainFinalEncode(FinalEncodeStep):
         self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
     ) -> EncodeStats:
         return enc.run(
-            calculate_vmaf=True,
+            calculate_vmaf=not ctx.dont_calc_final_vmaf,
             vmaf_params=ctx.get_vmaf_options(),
             on_frame_encoded=encoded_a_frame,
         )

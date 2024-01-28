@@ -2,6 +2,8 @@ import json
 import os
 import time
 
+from tqdm import tqdm
+
 from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
     DynamicTargetVmaf,
 )
@@ -13,7 +15,7 @@ from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-class AdaptiveCommand(BaseCommandObject):
+class ChunkEncoder(BaseCommandObject):
     """
     Class that gets the ideal bitrate and encodes the final chunk
     """
@@ -38,7 +40,6 @@ class AdaptiveCommand(BaseCommandObject):
     def run(self) -> [int, EncodeStats]:
         total_start = time.time()
 
-        # using it with a statement with MessageWriter
         timeing = Timer()
         try:
             timeing.start("analyze_step")
@@ -69,29 +70,32 @@ class AdaptiveCommand(BaseCommandObject):
             )
             timeing.stop("final_step")
         except Exception as e:
-            # tqdm.write(f"[{self.chunk.chunk_index}] encoding failed: {e}")
-            raise e
+            tqdm.write(f"{self.chunk.log_prefix()}encoding failed: {e}")
             if os.path.exists(self.chunk.chunk_path):
                 os.remove(self.chunk.chunk_path)
             return
 
         timeing.finish()
 
-        # round to two places
-        total_fps = round(self.chunk.get_frame_count() / (time.time() - total_start), 2)
-        final_stats.total_fps = total_fps
-        final_stats.chunk_index = self.chunk.chunk_index
-        final_stats.rate_search_time = rate_search_time
-        self.ctx.log(
-            f"[{self.chunk.chunk_index}] final stats:"
-            f" vmaf={final_stats.vmaf} "
-            f" time={int(final_stats.time_encoding)}s "
-            f" bitrate={final_stats.bitrate}k"
-            f" chunk_length={round(self.chunk.get_lenght(), 2)}s"
-            f" total_fps={total_fps}"
-        )
-        # save the stats to [temp_folder]/chunks.log
-        with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
-            f.write(json.dumps(final_stats.__dict__()) + "\n")
-
-        return self.pin_to_core, final_stats.__dict__()
+        if final_stats is not None:
+            # round to two places
+            total_fps = round(
+                self.chunk.get_frame_count() / (time.time() - total_start), 2
+            )
+            final_stats.total_fps = total_fps
+            final_stats.chunk_index = self.chunk.chunk_index
+            final_stats.rate_search_time = rate_search_time
+            self.ctx.log(
+                f"[{self.chunk.chunk_index}] final stats:"
+                f" vmaf={final_stats.vmaf} "
+                f" time={int(final_stats.time_encoding)}s "
+                f" bitrate={final_stats.bitrate}k"
+                f" chunk_length={round(self.chunk.get_lenght(), 2)}s"
+                f" total_fps={total_fps}"
+            )
+            # save the stats to [temp_folder]/chunks.log
+            with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
+                f.write(json.dumps(final_stats.__dict__()) + "\n")
+            return self.pin_to_core, final_stats.__dict__()
+        else:
+            return self.pin_to_core, None

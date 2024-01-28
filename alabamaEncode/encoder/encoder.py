@@ -9,6 +9,7 @@ from tqdm import tqdm
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
@@ -20,7 +21,7 @@ from alabamaEncode.metrics.vmaf.options import VmafOptions
 
 class Encoder(ABC):
     chunk = None
-    bitrate: int = None
+    bitrate = 2000
     crf: int = 23
     passes: int = 1
     video_filters: str = ""
@@ -257,9 +258,7 @@ class Encoder(ABC):
                 stats.vmaf_result = calculate_metric(
                     chunk=local_chunk,
                     video_filters=self.video_filters,
-                    vmaf_options=vmaf_params
-                    if vmaf_params is not None
-                    else VmafOptions(),
+                    options=vmaf_params if vmaf_params is not None else VmafOptions(),
                     threads=self.threads,
                 )
             except VmafException as e:
@@ -321,6 +320,16 @@ class Encoder(ABC):
     @abstractmethod
     def get_enum(self) -> EncodersEnum:
         pass
+
+    @abstractmethod
+    def get_codec(self) -> Codec:
+        pass
+
+    def get_crf_range(self) -> [int, int]:
+        """
+        to be overriden by encoders that support different crf ranges
+        """
+        return 0, 63
 
     def clone(self):
         return copy.deepcopy(self)

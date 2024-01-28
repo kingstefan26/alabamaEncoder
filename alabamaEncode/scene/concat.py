@@ -15,13 +15,14 @@ class VideoConcatenator:
         files: List[str] = None,
         output: str = None,
         file_with_audio: str = None,
-        audio_param_override="-c:a libopus -ac 2 -b:v 96k -vbr on",
+        audio_param_override="-c:a libopus -af aformat=channel_layouts=7.1|5.1|stereo -mapping_family 1",
         start_offset=-1,
         end_offset=-1,
         title="",
         encoder_name="TestHoeEncode",
         mux_audio=True,
         subs_file=None,
+        audio_only=False,
     ):
         self.files = files
         self.output = output
@@ -33,6 +34,7 @@ class VideoConcatenator:
         self.encoder_name = encoder_name
         self.mux_audio = mux_audio
         self.subs_file = subs_file
+        self.audio_only = audio_only
 
     def find_files_in_dir(self, folder_path, extension):
         """
@@ -91,6 +93,37 @@ class VideoConcatenator:
             if track["codec_type"] == "audio":
                 has_audio_track = True
                 break
+
+        if self.audio_only:
+            print("Encoding a audio track only")
+
+            if not has_audio_track:
+                print("No audio track found, not encoding")
+                return
+
+            start_offset_command = (
+                f"-ss {self.start_offset}" if self.start_offset != -1 else ""
+            )
+            end_offset_command = (
+                f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"
+                if self.end_offset != -1
+                else ""
+            )
+
+            print("Encoding a audio track")
+            print(self.audio_param_override)
+            encode_audio = (
+                f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} '
+                f'-i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} '
+                f'-map_metadata -1 "{self.output}"'
+            )
+            # print(f"running: {encode_audio}")
+            os.system(encode_audio)
+            if Ffmpeg.check_for_invalid(PathAlabama(self.output)):
+                print("Invalid file found, exiting")
+                return
+            os.remove(vid_output)
+            return
 
         if self.mux_audio and has_audio_track:
             print("Getting video length")
@@ -192,8 +225,10 @@ class VideoConcatenator:
             if not has_audio_track:
                 print("No audio track found, not encoding")
             print("Not muxing audio")
+            run_cli(
+                f"{get_binary('ffmpeg')} -y -stats -v error -i {vid_output} -c copy {self.output}"
+            )
             commands = [
-                f"mv {vid_output} {self.output}",
                 f"rm {concat_file_path} {vid_output}",
             ]
 

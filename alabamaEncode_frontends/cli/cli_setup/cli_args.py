@@ -115,6 +115,7 @@ def read_args(ctx):
             "vpx_9",
             "hevc_vaapi",
             "h264_vaapi",
+            "rav1e",
         ],
     )
 
@@ -395,13 +396,6 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--vmaf_targeting_model",
-        type=str,
-        default=ctx.vmaf_targeting_model,
-        help="optuna modelless primitive ternary binary",
-    )
-
-    parser.add_argument(
         "--vmaf_probe_count",
         type=int,
         default=ctx.vmaf_probe_count,
@@ -522,6 +516,20 @@ def read_args(ctx):
         help="Denoise the vmaf reference",
     )
 
+    parser.add_argument(
+        "--dont_calc_final_vmaf",
+        default=ctx.dont_calc_final_vmaf,
+        action="store_true",
+        help="Dont calculate final vmaf",
+    )
+
+    parser.add_argument(
+        "--multi_res_pipeline",
+        default=ctx.multi_res_pipeline,
+        action="store_true",
+        help="Create a optimised multi tier",
+    )
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -576,7 +584,6 @@ def read_args(ctx):
     ctx.vmaf_no_motion = args.vmaf_no_motion
     ctx.auto_accept_autocrop = args.auto_accept_autocrop
     ctx.resolution_preset = args.resolution_preset
-    ctx.vmaf_targeting_model = args.vmaf_targeting_model
     ctx.vmaf_probe_count = args.vmaf_probe_count
     ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
@@ -595,5 +602,7 @@ def read_args(ctx):
     ctx.scene_merge = args.scene_merge
     ctx.args_tune = args.tune
     ctx.denoise_vmaf_ref = args.denoise_vmaf_ref
+    ctx.multi_res_pipeline = args.multi_res_pipeline
+    ctx.dont_calc_final_vmaf = args.dont_calc_final_vmaf
 
     return ctx

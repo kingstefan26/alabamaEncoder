@@ -2,7 +2,7 @@ import os
 
 from tqdm import tqdm
 
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.final_encode_step import FinalEncodeStep
+from alabamaEncode.conent_analysis.chunk.final_encode_step import FinalEncodeStep
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution

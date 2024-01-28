@@ -7,7 +7,7 @@ import os
 from math import sqrt
 from statistics import mean
 
-from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
+from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.alabama import AlabamaContext

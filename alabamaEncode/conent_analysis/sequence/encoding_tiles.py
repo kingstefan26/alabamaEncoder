@@ -1,15 +1,15 @@
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.encoder.codec import Codec
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def setup_tiles(ctx, sequence):
+def setup_tiles(ctx: AlabamaContext, sequence: ChunkSequence):
     """
     Sets up the tiles based on the resolution
-    stolen from the one and only autocompressor.com's source code 🤑
+    stolen from the one and only autocompressor.com's source code.
+    🤑
     """
-    if (
-        ctx.prototype_encoder.get_enum() == EncodersEnum.SVT_AV1
-        or ctx.prototype_encoder.get_enum() == EncodersEnum.AOMENC
-    ):
+    if ctx.prototype_encoder.get_codec() == Codec.av1 and not ctx.multi_res_pipeline:
         if (
             ctx.prototype_encoder.tile_cols == -1
             and ctx.prototype_encoder.tile_rows == -1

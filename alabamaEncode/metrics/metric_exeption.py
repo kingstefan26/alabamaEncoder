@@ -5,12 +5,12 @@ class MetricException(Exception):
 
 
 class VmafException(MetricException):
-    """Exception raised for errors in the VMAF metric.
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
 
-    Attributes:
-        message -- explanation of the error
-    """
 
+class Ssimu2Exception(MetricException):
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)

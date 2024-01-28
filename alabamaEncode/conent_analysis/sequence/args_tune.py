@@ -1,7 +1,8 @@
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence):
+def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
     match ctx.args_tune:
         case "fidelity":
             print("Tuning for fidelity")

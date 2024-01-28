@@ -20,6 +20,12 @@ class AlabamaKv(object):
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
 
+    def get_global(self, key):
+        return self.get("kv", key)
+
+    def set_global(self, key, value):
+        return self.set("kv", key, value)
+
     def set(self, bucket, key, value):
         b = self._load(bucket)
         b[key] = value

@@ -7,6 +7,7 @@ from multiprocessing import Pool
 from statistics import mean
 from typing import List
 
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.impl.SvtAvif import AvifEncoderSvtenc
@@ -15,7 +16,7 @@ from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def setup_autograin(ctx, sequence):
+def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
     if (
         ctx.prototype_encoder.grain_synth == -1
         and ctx.prototype_encoder.supports_grain_synth()

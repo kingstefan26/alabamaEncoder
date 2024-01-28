@@ -1,28 +1,25 @@
-import json
 import os
 import re
 
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.metric_exeption import VmafException
-from alabamaEncode.metrics.vmaf.options import VmafOptions
-from alabamaEncode.metrics.vmaf.result import VmafResult
+from alabamaEncode.metrics.metric_exeption import Ssimu2Exception
+from alabamaEncode.metrics.ssimu2.ssimu2_options import Ssimu2Options
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-def calc_vmaf(
+def calc_ssimu2(
     chunk: ChunkObject,
     video_filters="",
     comparison_display_resolution: ComparisonDisplayResolution = None,
     threads=1,
-    vmaf_options: VmafOptions = None,
-    log_path="",
+    ssimu2_options: Ssimu2Options = None,
 ):
-    assert vmaf_options is not None
+    assert ssimu2_options is not None
 
     comparison_display_resolution = (
-        vmaf_options.ref
+        ssimu2_options.ref
         if comparison_display_resolution is None
         else comparison_display_resolution
     )
@@ -50,7 +47,7 @@ def calc_vmaf(
 
         dist_filter = f" -vf {comparison_scaling} "
 
-    if vmaf_options.denoise_reference:
+    if ssimu2_options.denoise_reference:
         # before scaling use the `vaguedenoiser` filter
         vf = video_filters.split(",")
         # add to the front of a list
@@ -71,10 +68,7 @@ def calc_vmaf(
         f"-pix_fmt yuv420p10le -an -sn -strict -1 {dist_filter} -f yuv4mpegpipe - > {pipe_dist_path}"
     )
 
-    if log_path == "":
-        log_path = f"/tmp/{os.path.basename(chunk.chunk_path)}.vmaflog"
-
-    # TOsDO: WINDOWS SUPPORT
+    # TODO: WINDOWS SUPPORT
     run_cli(f"mkfifo {pipe_ref_path}")
     run_cli(f"mkfifo {pipe_dist_path}")
 
@@ -82,18 +76,20 @@ def calc_vmaf(
     assert os.path.exists(pipe_ref_path)
     assert os.path.exists(pipe_dist_path)
 
-    vmaf_command = (
-        f'{get_binary("vmaf")} -q --json --output "{log_path}" --model {vmaf_options.get_model()} '
-        f"--reference {pipe_ref_path} "
-        f"--distorted {pipe_dist_path}"
-        # f" --threads {threads}"
+    main_command = (
+        f"{get_binary('ssimulacra2_rs')} video {pipe_ref_path} {pipe_dist_path} "
     )
+
+    print(first_pipe_command)
+    print(second_pipe_command)
+    print(main_command)
+    return None
 
     cli_results = run_cli_parallel(
         [
             first_pipe_command,
             second_pipe_command,
-            vmaf_command,
+            main_command,
         ]
     )
 
@@ -101,25 +97,8 @@ def calc_vmaf(
         try:
             c.verify()
         except RuntimeError as e:
-            raise VmafException(
-                f"Could not run vmaf command: {e}, {[c.output for c in cli_results]}"
+            raise Ssimu2Exception(
+                f"Could not run ssimu2 command: {e}, {[c.output for c in cli_results]}"
             )
 
-    os.remove(pipe_ref_path)
-    os.remove(pipe_dist_path)
-
-    try:
-        log_decoded = json.load(open(log_path))
-    except (json.decoder.JSONDecodeError, FileNotFoundError):
-        raise VmafException(
-            f"Could not decode vmaf log: {log_path}, {[c.output for c in cli_results]}"
-        )
-
-    os.remove(log_path)
-
-    result = VmafResult(
-        pooled_metrics=log_decoded["pooled_metrics"],
-        _frames=log_decoded["frames"],
-        fps=log_decoded["fps"],
-    )
-    return result
+    print(cli_results[2].output)

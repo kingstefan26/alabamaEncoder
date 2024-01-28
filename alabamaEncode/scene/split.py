@@ -19,10 +19,10 @@ def get_video_scene_list_skinny(
     override_bad_wrong_cache_path=False,
     static_length=False,
     scene_merge=False,
-    static_length_size=720,
+    static_length_size=30,
 ) -> ChunkSequence:
     """
-    :param static_length_size:  size of static length scenes
+    :param static_length_size:  size of static length scenes in seconds
     :param static_length: instead of detection, create static length scenes
     :param override_bad_wrong_cache_path:
     :param start_offset:
@@ -62,6 +62,8 @@ def get_video_scene_list_skinny(
     width: int = Ffmpeg.get_width(PathAlabama(input_file))
     height: int = Ffmpeg.get_height(PathAlabama(input_file))
 
+    static_length_size = int(static_length_size * framerate)
+
     if scene_list is None:
         if static_length:
             # create static length scenes
@@ -86,18 +88,18 @@ def get_video_scene_list_skinny(
         if cache_path_is_valid:
             pickle.dump(scene_list, open(untouched_scene_list, "wb"))
 
+    max_length_frames = int(max_scene_length * framerate)
     if scene_merge and not static_length:
         new_scene_list = copy.deepcopy(scene_list)
-        i = 0
-        while i < len(new_scene_list) - 1:
-            if i == 0:
-                i += 1
-                continue
+        i = 1
+        while i < len(new_scene_list):
             prev_start, prev_end = new_scene_list[i - 1]
-
             start, end = new_scene_list[i]
-            if end - prev_start < int(max_scene_length * framerate):
+            if end - prev_start < 2 * max_length_frames:
                 new_scene_list[i - 1] = (prev_start, end)
+                print(
+                    f"Merging scenes {i - 1} and {i} into {prev_start} - {end} ({end - prev_start} frames)"
+                )
                 del new_scene_list[i]
             else:
                 i += 1

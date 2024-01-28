@@ -2,7 +2,9 @@ import os
 import shutil
 from multiprocessing import Pool
 
+from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.impl.X264 import EncoderX264
+from alabamaEncode.scene.sequence import ChunkSequence
 
 
 def run_tune(a):
@@ -14,10 +16,10 @@ def run_tune(a):
     return tune, stats.vmaf_result.harmonic_mean, stats.bitrate
 
 
-def get_ideal_x264_tune(ctx, sequence):
+def get_ideal_x264_tune(ctx: AlabamaContext, sequence: ChunkSequence):
     """
     Picks the ideal x264 tune for the sequence, based on the vmaf per bitrate
-    This approach might be flawed but it ~works
+    Very ad-hoc, but it ~works
     :param ctx:
     :param sequence:
     :return:
@@ -31,7 +33,7 @@ def get_ideal_x264_tune(ctx, sequence):
             tunes = ["animation", "film", "grain"]
             enc = ctx.get_encoder()
             enc.crf = 23
-            enc.speed = 5
+            enc.speed = 4
 
             path = os.path.join(ctx.temp_folder, "adapt", "x264_tune/")
 

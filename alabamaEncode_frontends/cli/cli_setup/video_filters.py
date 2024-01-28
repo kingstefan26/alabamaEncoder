@@ -18,22 +18,19 @@ def parse_video_filters(ctx):
     #     quit()
 
     if ctx.prototype_encoder.video_filters == "":
-        final = ""
+        vec = []
 
         if ctx.crop_string != "":
-            final += f"crop={ctx.crop_string}"
+            vec.append(f"crop={ctx.crop_string}")
 
         if ctx.scale_string != "":
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += f"scale={ctx.scale_string}:flags=lanczos"
+            vec.append(f"scale={ctx.scale_string}:flags=lanczos")
 
         if ctx.prototype_encoder.hdr is False and Ffmpeg.is_hdr(
             PathAlabama(ctx.input_file)
         ):
-            if final != "" and final[-1] != ",":
-                final += ","
-            final += Ffmpeg.get_tonemap_vf()
+            print("Input file is HDR, Tonemapping")
+            vec.append(Ffmpeg.get_tonemap_vf())
 
-        ctx.prototype_encoder.video_filters = final
+        ctx.prototype_encoder.video_filters = ",".join(vec)
     return ctx

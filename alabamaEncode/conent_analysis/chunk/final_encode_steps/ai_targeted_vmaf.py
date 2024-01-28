@@ -1,4 +1,4 @@
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.final_encode_step import (
+from alabamaEncode.conent_analysis.chunk.final_encode_step import (
     FinalEncodeStep,
 )
 from alabamaEncode.core.alabama import AlabamaContext

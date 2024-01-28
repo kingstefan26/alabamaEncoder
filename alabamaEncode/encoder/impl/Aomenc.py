@@ -4,12 +4,16 @@ from typing import List
 
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderAom(Encoder):
+    def get_codec(self) -> Codec:
+        return Codec.av1
+
     def get_enum(self) -> EncodersEnum:
         return EncodersEnum.AOMENC
 
@@ -49,7 +53,7 @@ class EncoderAom(Encoder):
         encode_command += f"--cpu-used={self.speed} "
         encode_command += f"--bit-depth={self.bit_override} "
 
-        if self.override_flags == "":
+        if self.override_flags == "" or self.override_flags is None:
             # STOLEN FROM ROOTATKAI IN #BENCHMARKS CUZ HE SAID ITS GOOD OR WHATEVER --lag-in-frames=48
             # --tune-content=psy --tune=ssim --sb-size=dynamic --enable-qm=1 --qm-min=0 --qm-max=8 --row-mt=1
             # --disable-kf --kf-max-dist=9999 --kf-min-dist=1 --disable-trellis-quant=0 --arnr-maxframes=15

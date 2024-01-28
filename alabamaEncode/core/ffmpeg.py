@@ -68,15 +68,24 @@ class Ffmpeg:
         :return: float
         """
         path.check_video()
-        out = (
-            run_cli(
-                f"ffprobe -v error -show_entries format=duration {'-sexagesimal' if sexagesimal else ''}"
-                f" -of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
-            )
-            .verify(bad_output_hints=["N/A", "Invalid data found"])
-            .strip_mp4_warning()
-            .get_output()
+        cli_command = (
+            f"ffprobe -v error -show_entries format=duration {'-sexagesimal' if sexagesimal else ''}"
+            f" -of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
         )
+        try:
+            out = (
+                run_cli(cli_command)
+                .verify(
+                    bad_output_hints=["N/A", "Invalid data found"],
+                    fail_message=f"ffprobe failed, {cli_command}",
+                )
+                .strip_mp4_warning()
+                .get_output()
+            )
+        except RuntimeError:
+            frame_count = Ffmpeg.get_frame_count(path)
+            fps = Ffmpeg.get_video_frame_rate(path)
+            return frame_count / fps
 
         return out if sexagesimal else float(out)
 

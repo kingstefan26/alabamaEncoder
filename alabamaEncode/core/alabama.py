@@ -5,7 +5,7 @@ from typing import List
 
 from tqdm import tqdm
 
-from alabamaEncode.conent_analysis.chunk_analyse_pipeline_item import (
+from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.alamaba_kv import AlabamaKv
@@ -59,7 +59,6 @@ class AlabamaContext:
             "simple_denoise": self.simple_denoise,
             "vmaf": self.vmaf,
             "crf_model_weights": self.crf_model_weights,
-            "vmaf_targeting_model": self.vmaf_targeting_model,
             "vmaf_probe_count": self.vmaf_probe_count,
             "vmaf_reference_display": self.vmaf_reference_display,
             "crf_based_vmaf_targeting": self.crf_based_vmaf_targeting,
@@ -116,6 +115,7 @@ class AlabamaContext:
     print_analysis_logs = False
     dry_run: bool = False
     kv: [AlabamaKv | None] = None
+    multi_res_pipeline = False
 
     temp_folder: str = ""
     output_folder: str = ""
@@ -124,7 +124,7 @@ class AlabamaContext:
     raw_input_file: str = ""
     pin_to_cores = False
 
-    bitrate_string = ""
+    bitrate_string = None
     resolution_preset = ""
     crop_string = ""
     scale_string = ""
@@ -142,17 +142,17 @@ class AlabamaContext:
     crf_bitrate_mode: bool = False
     bitrate_undershoot: float = 0.90
     bitrate_overshoot: float = 2
-    bitrate_adjust_mode: str = "chunk"
+    bitrate_adjust_mode: str = ""
     cutoff_bitrate: int = -1
     max_bitrate: int = 0
     simple_denoise = False
     args_tune = "balanced"
+    dont_calc_final_vmaf = False
 
     vmaf: int = 96
     denoise_vmaf_ref = False
     crf_model_weights = "7,2,10,2,7"
-    vmaf_targeting_model = "binary"
-    vmaf_probe_count = 2
+    vmaf_probe_count = 3
     vmaf_reference_display = ""
     crf_based_vmaf_targeting = True
     vmaf_4k_model = False

@@ -1,6 +1,6 @@
 import os
 
-from alabamaEncode.conent_analysis.chunk.target_vmaf import TargetVmaf
+from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
@@ -49,7 +49,8 @@ if __name__ == "__main__":
             enc.video_filters = f"crop=3840:1920:0:120,scale={res}"
             scene.chunk_path = os.path.join(env, f"{res.split(':')[0]}p_{ctx.vmaf}.mkv")
             enc.chunk = scene
-            tar = TargetVmaf(alg_type="binary", probe_speed=enc.speed)
+            ctx.probe_speed = enc.speed
+            tar = TargetVmaf()
             tar.run(chunk=scene, ctx=ctx, enc=enc)
             print(f"res: {res}, target 95, computed crf: {enc.crf}")
 
