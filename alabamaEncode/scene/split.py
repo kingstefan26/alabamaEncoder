@@ -1,6 +1,6 @@
 import copy
+import json
 import os
-import pickle
 
 from scenedetect import detect, AdaptiveDetector
 
@@ -36,9 +36,10 @@ def get_video_scene_list_skinny(
     """
     cache_path_is_valid = cache_file_path is not None and cache_file_path != ""
 
+    seq = ChunkSequence([])
     if cache_path_is_valid and os.path.exists(cache_file_path):
         print("Found scene cache... loading")
-        seq: ChunkSequence = pickle.load(open(cache_file_path, "rb"))
+        seq.load_json(open(cache_file_path).read())
 
         # Ensure input file matches the cached sequence
         if seq.input_file != input_file and not override_bad_wrong_cache_path:
@@ -56,7 +57,8 @@ def get_video_scene_list_skinny(
     untouched_scene_list = cache_file_path + ".untouched"
     if cache_path_is_valid:
         if os.path.exists(untouched_scene_list):
-            scene_list = pickle.load(open(untouched_scene_list, "rb"))
+            print("Found untouched scene cache... loading")
+            scene_list = json.load(open(untouched_scene_list))
 
     framerate: float = Ffmpeg.get_video_frame_rate(PathAlabama(input_file))
     width: int = Ffmpeg.get_width(PathAlabama(input_file))
@@ -86,7 +88,7 @@ def get_video_scene_list_skinny(
             ]
 
         if cache_path_is_valid:
-            pickle.dump(scene_list, open(untouched_scene_list, "wb"))
+            json.dump(scene_list, open(untouched_scene_list, "w"))
 
     max_length_frames = int(max_scene_length * framerate)
     if scene_merge and not static_length:
@@ -106,7 +108,6 @@ def get_video_scene_list_skinny(
 
         scene_list = new_scene_list
 
-    seq = ChunkSequence([])
     seq.input_file = input_file
 
     seq.chunks = []
@@ -281,7 +282,7 @@ def get_video_scene_list_skinny(
     #     )
 
     if cache_path_is_valid:
-        pickle.dump(seq, open(cache_file_path, "wb"))
+        open(cache_file_path, "w").write(seq.dump_json())
 
     print(f"Computed {len(seq)} scenes")
     return seq
