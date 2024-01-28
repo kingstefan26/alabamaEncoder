@@ -8,6 +8,7 @@ from statistics import mean
 from typing import List
 
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.alamaba_kv import AlabamaKv
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.impl.SvtAvif import AvifEncoderSvtenc
@@ -25,9 +26,9 @@ def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
             "input_file": sequence.input_file,
             "scenes": sequence,
             "temp_folder": ctx.temp_folder,
-            "cache_filename": ctx.temp_folder + "/adapt/ideal_grain.pt",
             "scene_pick_seed": 2,
             "video_filters": ctx.prototype_encoder.video_filters,
+            "kv": ctx.get_kv(),
         }
         if ctx.crf_bitrate_mode:
             param["crf"] = ctx.prototype_encoder.crf
@@ -171,18 +172,22 @@ def wrapper(obj):
 
 
 def get_best_avg_grainsynth(
-    cache_filename: str,
     input_file: str,
     scenes: ChunkSequence,
     scene_pick_seed: int,
     temp_folder="./grain_test",
+    kv: AlabamaKv = None,
     random_pick=6,
     bitrate=-1,
     crf=20,
     video_filters: str = "",
 ) -> int:
-    if cache_filename is not None and os.path.exists(cache_filename):
-        return pickle.load(open(cache_filename, "rb"))
+    cache_key = "best_sequence_grain"
+
+    if kv is not None:
+        val = kv.get_global(cache_key)
+        if val is not None:
+            return int(val)
 
     if not os.path.exists(temp_folder):
         raise Exception(f"temp_folder {temp_folder} does not exist")
@@ -244,9 +249,8 @@ def get_best_avg_grainsynth(
         p.join()
 
     # get the results
-    print(
-        f"for {random_pick} random scenes, the average ideal grain is {int(mean(results))}"
-    )
-    if cache_filename is not None:
-        pickle.dump(int(mean(results)), open(cache_filename, "wb"))
-    return int(mean(results))
+    ideal_grain = int(mean(results))
+    print(f"for {random_pick} random scenes, the average ideal grain is {ideal_grain}")
+    if kv is not None:
+        kv.set_global(cache_key, ideal_grain)
+    return ideal_grain
