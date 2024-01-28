@@ -92,45 +92,43 @@ class AutoGrain:
         avif_enc = AvifEncoderSvtenc()
 
         if self.bitrate != -1:
-            avif_enc.update(bitrate=self.bitrate)
+            avif_enc.bitrate = self.bitrate
         else:
-            avif_enc.update(crf=self.crf)
-
-        avif_enc.update(bit_depth=10)
+            avif_enc.crf = self.crf
 
         # Create a reference png
         ref_png = self.encoded_scene_path + ".png"
         if not os.path.exists(ref_png):
-            cvmand = (
+            cmd = (
                 f'{get_binary("ffmpeg")} -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} '
                 f'{self.vf} -frames:v 1 "{ref_png}"'
             )
 
-            out = run_cli(cvmand)
+            out = run_cli(cmd)
             if not os.path.exists(ref_png):
-                print(cvmand)
+                print(cmd)
                 raise Exception(f"Could not create reference png: {out}")
 
-        avif_enc.update(in_path=ref_png)
+        avif_enc.in_path = ref_png
 
         results = []
 
         grain_probes = [0, 1, 4, 6, 11, 16, 21, 26]
         for grain in grain_probes:
-            avif_enc.update(
-                grain_synth=grain,
-                output_path=self.encoded_scene_path + ".grain" + str(grain) + ".avif",
+            avif_enc.grain_synth = grain
+            avif_enc.output_path = (
+                self.encoded_scene_path + ".grain" + str(grain) + ".avif"
             )
             avif_enc.run()
 
-            if not os.path.exists(avif_enc.get_params()["output_path"]):
+            if not os.path.exists(avif_enc.output_path):
                 raise Exception("Encoding of avif Failed")
 
-            decoded_test_png_path = avif_enc.get_params()["output_path"] + ".png"
+            decoded_test_png_path = avif_enc.output_path + ".png"
 
             # turn the avif into a png
             run_cli(
-                f'{get_binary("ffmpeg")} -y -i "{avif_enc.get_params()["output_path"]}" "{decoded_test_png_path}"'
+                f'{get_binary("ffmpeg")} -y -i "{avif_enc.output_path}" "{decoded_test_png_path}"'
             )
 
             if not os.path.exists(decoded_test_png_path):
@@ -144,7 +142,7 @@ class AutoGrain:
                 os.remove(decoded_test_png_path)
 
             if not self.keep_avifs:
-                os.remove(avif_enc.get_params()["output_path"])
+                os.remove(avif_enc.output_path)
 
             print(f"grain {grain} -> {rd.butter} butteraugli")
             results.append(rd)
