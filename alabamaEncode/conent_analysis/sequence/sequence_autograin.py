@@ -1,6 +1,5 @@
 import copy
 import os
-import pickle
 import random
 import time
 from multiprocessing.pool import ThreadPool
@@ -64,110 +63,79 @@ def find_lowest_x(x_list: List[float], y_list: List[float]) -> float:
     return x_min
 
 
-class AutoGrain:
-    def __init__(self, test_file_path, chunk, bitrate=-1, crf=13, vf=""):
-        self.encoded_scene_path = test_file_path
-        self.chunk = chunk
-        self.crf = crf
-        self.bitrate = bitrate
-        self.vf = vf
+def get_ideal_grain_butteraugli(encoded_scene_path, chunk, crf, bitrate, vf) -> int:
+    start = time.time()
 
-    keep_avifs = False  # keep the avif's after we're done measuring their stats
-    remove_files_after_use = True  # don't keep the png's since they can get big
+    if "vf" not in vf and vf != "":
+        vf = f"-vf {vf}"
 
-    def grain_probes(self) -> List[dict]:
-        test_cache_filename = self.encoded_scene_path + ".grainButter.pt"
-        if os.path.exists(test_cache_filename):
-            # read the file and return
-            return pickle.load(open(test_cache_filename, "rb"))
+    avif_enc = AvifEncoderSvtenc()
 
-        if "vf" not in self.vf and self.vf != "":
-            self.vf = f"-vf {self.vf}"
+    if bitrate != -1:
+        avif_enc.bitrate = bitrate
+    else:
+        avif_enc.crf = crf
 
-        avif_enc = AvifEncoderSvtenc()
-
-        if self.bitrate != -1:
-            avif_enc.bitrate = self.bitrate
-        else:
-            avif_enc.crf = self.crf
-
-        # Create a reference png
-        ref_png = self.encoded_scene_path + ".png"
-        if not os.path.exists(ref_png):
-            cmd = (
-                f'{get_binary("ffmpeg")} -hide_banner -y {self.chunk.get_ss_ffmpeg_command_pair()} '
-                f'{self.vf} -frames:v 1 "{ref_png}"'
-            )
-
-            out = run_cli(cmd)
-            if not os.path.exists(ref_png):
-                print(cmd)
-                raise Exception(f"Could not create reference png: {out}")
-
-        avif_enc.in_path = ref_png
-
-        results = []
-
-        grain_probes = [0, 1, 4, 6, 11, 16, 21, 26]
-        for grain in grain_probes:
-            avif_enc.grain_synth = grain
-            avif_enc.output_path = (
-                self.encoded_scene_path + ".grain" + str(grain) + ".avif"
-            )
-            avif_enc.run()
-
-            if not os.path.exists(avif_enc.output_path):
-                raise Exception("Encoding of avif Failed")
-
-            decoded_test_png_path = avif_enc.output_path + ".png"
-
-            # turn the avif into a png
-            run_cli(
-                f'{get_binary("ffmpeg")} -y -i "{avif_enc.output_path}" "{decoded_test_png_path}"'
-            )
-
-            if not os.path.exists(decoded_test_png_path):
-                raise Exception("Could not create decoded png")
-
-            rd = {
-                "grain": grain,
-                "butter": ImageMetrics.butteraugli_score(
-                    ref_png, decoded_test_png_path
-                ),
-            }
-
-            if self.remove_files_after_use:
-                os.remove(decoded_test_png_path)
-
-            if not self.keep_avifs:
-                os.remove(avif_enc.output_path)
-
-            print(f"grain {rd['grain']} -> {rd['butter']} butteraugli")
-            results.append(rd)
-
-        if self.remove_files_after_use:
-            os.remove(ref_png)
-
-        pickle.dump(results, open(test_cache_filename, "wb"))
-        return results
-
-    def get_ideal_grain_butteraugli(self) -> int:
-        print("getting ideal grain using butteraugli")
-        start = time.time()
-
-        runs: List[dict] = self.grain_probes()
-
-        # find the film-grain value that corresponds to the lowest butteraugli score
-        ideal_grain = find_lowest_x(
-            [point["grain"] for point in runs], [point["butter"] for point in runs]
+    # Create a reference png
+    ref_png = encoded_scene_path + ".png"
+    if not os.path.exists(ref_png):
+        cmd = (
+            f'{get_binary("ffmpeg")} -hide_banner -y {chunk.get_ss_ffmpeg_command_pair()} '
+            f'{vf} -frames:v 1 "{ref_png}"'
         )
 
-        print(f"ideal grain is {ideal_grain}, in {int(time.time() - start)} seconds")
-        return int(ideal_grain)
+        out = run_cli(cmd)
+        if not os.path.exists(ref_png):
+            print(cmd)
+            raise Exception(f"Could not create reference png: {out}")
+
+    avif_enc.in_path = ref_png
+
+    runs = []
+
+    grain_probes = [0, 1, 4, 6, 11, 16, 21, 26]
+    for grain in grain_probes:
+        avif_enc.grain_synth = grain
+        avif_enc.output_path = encoded_scene_path + ".grain" + str(grain) + ".avif"
+        avif_enc.run()
+
+        if not os.path.exists(avif_enc.output_path):
+            raise Exception("Encoding of avif Failed")
+
+        decoded_test_png_path = avif_enc.output_path + ".png"
+
+        # turn the avif into a png
+        run_cli(
+            f'{get_binary("ffmpeg")} -y -i "{avif_enc.output_path}" "{decoded_test_png_path}"'
+        )
+
+        if not os.path.exists(decoded_test_png_path):
+            raise Exception("Could not create decoded png")
+
+        rd = {
+            "grain": grain,
+            "butter": ImageMetrics.butteraugli_score(ref_png, decoded_test_png_path),
+        }
+
+        os.remove(decoded_test_png_path)
+        os.remove(avif_enc.output_path)
+
+        print(f"{chunk.log_prefix()} grain {rd['grain']} -> {rd['butter']} butteraugli")
+        runs.append(rd)
+
+    os.remove(ref_png)
+
+    # find the film-grain value that corresponds to the lowest butteraugli score
+    ideal_grain = find_lowest_x(
+        [point["grain"] for point in runs], [point["butter"] for point in runs]
+    )
+
+    print(f"ideal grain is {ideal_grain}, in {int(time.time() - start)} seconds")
+    return int(ideal_grain)
 
 
 def wrapper(obj):
-    return obj.get_ideal_grain_butteraugli()
+    return get_ideal_grain_butteraugli(**obj)
 
 
 def get_best_avg_grainsynth(
@@ -215,20 +183,20 @@ def get_best_avg_grainsynth(
 
     chunks_for_processing = scenes.chunks[:random_pick]
 
-    workers = [
-        AutoGrain(
-            chunk=chunk,
-            test_file_path=f"{temp_folder}/adapt/grain/{chunk.chunk_index}",
-            crf=crf,
-            bitrate=bitrate,
-            vf=video_filters,
-        )
+    jobs = [
+        {
+            "chunk": chunk,
+            "encoded_scene_path": f"{temp_folder}/adapt/grain/{chunk.chunk_index}",
+            "crf": crf,
+            "bitrate": bitrate,
+            "vf": video_filters,
+        }
         for chunk in chunks_for_processing
     ]
 
     # parallelize the butteraugli tests
     with ThreadPool() as p:
-        results = p.map(wrapper, workers)
+        results = p.map(wrapper, jobs)
         p.close()
         p.join()
 
