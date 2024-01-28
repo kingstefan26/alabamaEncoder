@@ -271,7 +271,7 @@ class AlabamaEncodingJob:
             self.update_current_step_name("Running scene detection")
             sequence: ChunkSequence = get_video_scene_list_skinny(
                 input_file=self.ctx.input_file,
-                cache_file_path=self.ctx.temp_folder + "sceneCache.pt",
+                cache_file_path=self.ctx.temp_folder + "scene_cache.json",
                 max_scene_length=self.ctx.max_scene_length,
                 start_offset=self.ctx.start_offset,
                 end_offset=self.ctx.end_offset,
