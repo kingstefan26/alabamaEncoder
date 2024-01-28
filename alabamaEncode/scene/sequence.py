@@ -39,6 +39,29 @@ class ChunkSequence:
     def __getitem__(self, index):
         return self.chunks[index]
 
+    def dump_json(self) -> str:
+        """
+        Dumps the sequence to json
+        :return: string
+        """
+        import json
+
+        d = {"chunks": [c.__dict__ for c in self.chunks], "input_file": self.input_file}
+        return json.dumps(d)
+
+    def load_json(self, json_load: str) -> "ChunkSequence":
+        """
+        Loads the sequence from json
+        :param json_load: path to the json file to load
+        :return: self
+        """
+        import json
+
+        d = json.loads(json_load)
+        self.chunks = [ChunkObject.from_json(c) for c in d["chunks"]]
+        self.input_file = d["input_file"]
+        return self
+
     def setup_paths(self, temp_folder: str, extension: str):
         """
         sets up the paths for the chunks, in the appropriate temp folder, and with the appropriate extension
