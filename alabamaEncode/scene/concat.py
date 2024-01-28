@@ -75,14 +75,11 @@ class VideoConcatenator:
                 f.write(f"file '{file}'\n")
 
         vid_output = self.output + ".videoonly.mkv"
-        concat_command = (
+        print("Concating Video")
+        os.system(
             f'{get_binary("ffmpeg")} -y -stats -v error -f concat '
             f'-safe 0 -i "{concat_file_path}" -c:v copy -map_metadata -1 -vsync cfr "{vid_output}"'
         )
-
-        print("Concating Video")
-        # print(f"running: {concat_command}")
-        os.system(concat_command)
         if Ffmpeg.check_for_invalid(PathAlabama(vid_output)):
             print("Invalid file found, exiting")
             return
@@ -138,14 +135,15 @@ class VideoConcatenator:
             print("Encoding a audio track")
             audio_output = self.output + ".audioonly.mkv"
 
-            start_offset_command = (
-                f"-ss {self.start_offset}" if self.start_offset != -1 else ""
-            )
-            end_offset_command = (
-                f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"
-                if self.end_offset != -1
-                else ""
-            )
+            start_offset_command = ""
+            if self.start_offset != -1:
+                start_offset_command = f"-ss {self.start_offset}"
+
+            end_offset_command = ""
+            if self.end_offset != -1:
+                end_offset_command = (
+                    f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"
+                )
 
             vec = [
                 get_binary("ffmpeg"),
@@ -186,15 +184,39 @@ class VideoConcatenator:
                 title_bit += f' -metadata title="{self.title}"'
 
             if self.subs_file is None:
-                sub_hack = ""
+                vec = [
+                    get_binary("ffmpeg"),
+                    "-y",
+                    "-stats",
+                    "-v error",
+                    f'-i "{vid_output}"',
+                    f'-i "{audio_output}"',
+                    start_offset_command,
+                    f'-i "{self.file_with_audio}"',
+                    end_offset_command,
+                ]
+
+                vec += [f' -metadata description="encoded by {self.encoder_name}"']
+
+                if self.title:
+                    vec += [f' -metadata title="{self.title}"']
+
+                vec += ["-map 0:v", "-map 1:a"]
+
                 if "mp4" in self.output:
-                    sub_hack = " -c:s mov_text "
-                final_command = (
-                    f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
-                    f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} {title_bit} '
-                    f'-map 0:v -map 1:a {sub_hack} -map "2:s?" -movflags +faststart -map_chapters -1 '
-                    f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
-                )
+                    vec += ["-c:s mov_text"]
+
+                vec += [
+                    "-map 2:s?",
+                    "-movflags +faststart",
+                    "-map_chapters -1",
+                    "-c:v copy",
+                    "-c:a copy",
+                    "-vsync cfr",
+                    f'"{self.output}"',
+                ]
+
+                final_command = " ".join(vec)
                 # print(f"running: {final_command}")
                 out = run_cli(final_command).verify().get_output()
                 if (
@@ -202,13 +224,11 @@ class VideoConcatenator:
                     in str(out)
                 ):
                     print("Subtitle encoding failed, trying again")
+                    for a in vec:
+                        if "mov_text" in a or "map 2:s?" in a:
+                            vec.remove(a)
+                    final_command = " ".join(vec)
                     # print(f"running: {final_command}")
-                    final_command = (
-                        f'{get_binary("ffmpeg")} -y -stats -v error -i "{vid_output}" -i "{audio_output}" '
-                        f'{start_offset_command} -i "{self.file_with_audio}" {end_offset_command} '
-                        f"{title_bit} -map 0:v -map 1:a -movflags +faststart -map_chapters -1 "
-                        f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
-                    )
                     run_cli(final_command).verify()
             else:
                 subs_i = ""
@@ -239,34 +259,23 @@ class VideoConcatenator:
                     f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
                 )
                 # print(f"running: {final_command}")
-                run_cli(final_command)
+                os.system(final_command)
 
-            if not os.path.exists(self.output) or os.path.getsize(self.output) < 1000:
-                if os.path.exists(self.output):
-                    os.remove(self.output)
-                raise Exception("VIDEO CONCAT FAILED")
-
-            remove_command = f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"'
-            # print(f"running: {remove_command}")
-            os.system(remove_command)
-
-            return
+            os.system(f'rm "{concat_file_path}" "{vid_output}" "{audio_output}"')
         else:
             if not has_audio_track:
                 print("No audio track found, not encoding")
             print("Not muxing audio")
-            run_cli(
+            os.system(
                 f"{get_binary('ffmpeg')} -y -stats -v error -i {vid_output} -c copy {self.output}"
             )
-            commands = [
+            os.system(
                 f"rm {concat_file_path} {vid_output}",
-            ]
+            )
 
-        for command in commands:
-            # print("Running: " + command)
-
-            os.system(command)
-        if not os.path.exists(self.output) or os.path.getsize(self.output) < 100:
+        if not os.path.exists(self.output) or os.path.getsize(self.output) < 1000:
+            if os.path.exists(self.output):
+                os.remove(self.output)
             raise Exception("VIDEO CONCAT FAILED")
 
 
