@@ -58,7 +58,11 @@ class ChunkSequence:
         import json
 
         d = json.loads(json_load)
-        self.chunks = [ChunkObject.from_json(c) for c in d["chunks"]]
+
+        self.chunks = [ChunkObject() for _ in d["chunks"]]
+        for i, c in enumerate(d["chunks"]):
+            self.chunks[i].__dict__ = c
+
         self.input_file = d["input_file"]
         return self
 
