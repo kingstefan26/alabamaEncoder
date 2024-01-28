@@ -39,11 +39,6 @@ def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
     return ctx
 
 
-class RdPoint:
-    butter: float
-    grain: int
-
-
 def find_lowest_x(x_list: List[float], y_list: List[float]) -> float:
     # Check that x_list and y_list are the same length
     if len(x_list) != len(y_list):
@@ -80,7 +75,7 @@ class AutoGrain:
     keep_avifs = False  # keep the avif's after we're done measuring their stats
     remove_files_after_use = True  # don't keep the png's since they can get big
 
-    def grain_probes(self) -> List[RdPoint]:
+    def grain_probes(self) -> List[dict]:
         test_cache_filename = self.encoded_scene_path + ".grainButter.pt"
         if os.path.exists(test_cache_filename):
             # read the file and return
@@ -134,9 +129,12 @@ class AutoGrain:
             if not os.path.exists(decoded_test_png_path):
                 raise Exception("Could not create decoded png")
 
-            rd = RdPoint()
-            rd.grain = grain
-            rd.butter = ImageMetrics.butteraugli_score(ref_png, decoded_test_png_path)
+            rd = {
+                "grain": grain,
+                "butter": ImageMetrics.butteraugli_score(
+                    ref_png, decoded_test_png_path
+                ),
+            }
 
             if self.remove_files_after_use:
                 os.remove(decoded_test_png_path)
@@ -144,7 +142,7 @@ class AutoGrain:
             if not self.keep_avifs:
                 os.remove(avif_enc.output_path)
 
-            print(f"grain {grain} -> {rd.butter} butteraugli")
+            print(f"grain {rd['grain']} -> {rd['butter']} butteraugli")
             results.append(rd)
 
         if self.remove_files_after_use:
@@ -157,11 +155,11 @@ class AutoGrain:
         print("getting ideal grain using butteraugli")
         start = time.time()
 
-        runs: List[RdPoint] = self.grain_probes()
+        runs: List[dict] = self.grain_probes()
 
         # find the film-grain value that corresponds to the lowest butteraugli score
         ideal_grain = find_lowest_x(
-            [point.grain for point in runs], [point.butter for point in runs]
+            [point["grain"] for point in runs], [point["butter"] for point in runs]
         )
 
         print(f"ideal grain is {ideal_grain}, in {int(time.time() - start)} seconds")
