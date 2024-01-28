@@ -135,7 +135,9 @@ class VideoConcatenator:
             return
 
         if self.mux_audio and has_audio_track:
-            print("Getting video length")
+            print("Encoding a audio track")
+            audio_output = self.output + ".audioonly.mkv"
+
             start_offset_command = (
                 f"-ss {self.start_offset}" if self.start_offset != -1 else ""
             )
@@ -145,14 +147,31 @@ class VideoConcatenator:
                 else ""
             )
 
-            print("Encoding a audio track")
-            audio_output = self.output + ".audioonly.mkv"
-            encode_audio = (
-                f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} '
-                f'-i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} '
-                f'-map_metadata -1 "{audio_output}"'
-            )
-            # print(f"running: {encode_audio}")
+            vec = [
+                get_binary("ffmpeg"),
+                "-y",
+                "-stats",
+                "-v error",
+            ]
+
+            if self.start_offset != -1:
+                vec += [start_offset_command]
+
+            vec += [f'-i "{self.file_with_audio}"']
+
+            if self.end_offset != -1:
+                vec += [end_offset_command]
+
+            vec += [
+                "-map",
+                "0:a:0",
+                self.audio_param_override,
+                "-map_metadata -1",
+                f'"{audio_output}"',
+            ]
+
+            encode_audio = " ".join(vec)
+
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(audio_output)):
                 print("Invalid file found, exiting")
