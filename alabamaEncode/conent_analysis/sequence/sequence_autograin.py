@@ -3,7 +3,7 @@ import os
 import pickle
 import random
 import time
-from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
 from statistics import mean
 from typing import List
 
@@ -13,7 +13,6 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.impl.SvtAvif import AvifEncoderSvtenc
 from alabamaEncode.metrics.image_metrics import ImageMetrics
-from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
@@ -211,40 +210,25 @@ def get_best_avg_grainsynth(
         # bases on length, remove every x scene from the list so its shorter
         scenes.chunks = scenes.chunks[:: int(len(scenes.chunks) / 10)]
 
-    # pick random x scenes from the list
     random.seed(scene_pick_seed)
-
     random.shuffle(scenes.chunks)
 
-    # how many random scenes to pick and do the test on
-    chunks_for_processing: List[ChunkObject] = scenes.chunks[:random_pick]
+    chunks_for_processing = scenes.chunks[:random_pick]
 
-    # create the autograin objects
-    if bitrate == -1:
-        autograin_objects = [
-            AutoGrain(
-                chunk=chunk,
-                test_file_path=f"{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}",
-                crf=crf,
-                vf=video_filters,
-            )
-            for chunk in chunks_for_processing
-        ]
-    else:
-        autograin_objects = [
-            AutoGrain(
-                chunk=chunk,
-                test_file_path=f"{temp_folder}/adapt/grain/{chunks_for_processing.index(chunk)}",
-                bitrate=bitrate,
-                vf=video_filters,
-            )
-            for chunk in chunks_for_processing
-        ]
+    workers = [
+        AutoGrain(
+            chunk=chunk,
+            test_file_path=f"{temp_folder}/adapt/grain/{chunk.chunk_index}",
+            crf=crf,
+            bitrate=bitrate,
+            vf=video_filters,
+        )
+        for chunk in chunks_for_processing
+    ]
 
-    # using multiprocessing to do the experiments on all the scenes
-    with Pool() as p:
-        results = p.map(wrapper, autograin_objects)
-        # and close the pool
+    # parallelize the butteraugli tests
+    with ThreadPool() as p:
+        results = p.map(wrapper, workers)
         p.close()
         p.join()
 
