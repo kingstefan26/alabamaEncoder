@@ -57,6 +57,37 @@ class ChunkObject:
     def __str__(self):
         return f"ChunkObject({self.first_frame_index}, {self.last_frame_index}, {self.path}, {self.framerate})"
 
+    def dict(self) -> dict:
+        return {
+            "first_frame_index": self.first_frame_index,
+            "last_frame_index": self.last_frame_index,
+            "path": self.path,
+            "framerate": self.framerate,
+            "width": self.width,
+            "height": self.height,
+            "complexity": self.complexity,
+            "length": self.length,
+            "end_override": self.end_override,
+            "chunk_index": self.chunk_index,
+            "chunk_path": self.chunk_path,
+            "chunk_done": self.chunk_done,
+            "ideal_bitrate": self.ideal_bitrate,
+            "size_kB": self.size_kB,
+        }
+
+    def to_json(self) -> str:
+        import json
+
+        return json.dumps(self.dict())
+
+    @staticmethod
+    def from_json(json_str: str):
+        import json
+
+        c = ChunkObject()
+        c.__dict__ = json.loads(json_str)
+        return c
+
     def get_frame_count(self) -> int:
         return self.last_frame_index - self.first_frame_index
 
