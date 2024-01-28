@@ -101,23 +101,32 @@ class VideoConcatenator:
                 print("No audio track found, not encoding")
                 return
 
-            start_offset_command = (
-                f"-ss {self.start_offset}" if self.start_offset != -1 else ""
-            )
-            end_offset_command = (
-                f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"
-                if self.end_offset != -1
-                else ""
-            )
-
             print("Encoding a audio track")
-            print(self.audio_param_override)
-            encode_audio = (
-                f'{get_binary("ffmpeg")} -y -stats -v error {start_offset_command} '
-                f'-i "{self.file_with_audio}" {end_offset_command} -map 0:a:0 {self.audio_param_override} '
-                f'-map_metadata -1 "{self.output}"'
-            )
-            # print(f"running: {encode_audio}")
+
+            vec = [
+                get_binary("ffmpeg"),
+                "-y",
+                "-stats",
+                "-v error",
+            ]
+
+            if self.start_offset != -1:
+                vec += [f"-ss {self.start_offset}"]
+
+            vec += ["-i", f'"{self.file_with_audio}"']
+
+            if self.end_offset != -1:
+                vec += [f"-t {Ffmpeg.get_video_length(PathAlabama(vid_output))}"]
+
+            vec += [
+                "-map",
+                "0:a:0",
+                self.audio_param_override,
+                "-map_metadata -1",
+                f'"{self.output}"',
+            ]
+
+            encode_audio = " ".join(vec)
             os.system(encode_audio)
             if Ffmpeg.check_for_invalid(PathAlabama(self.output)):
                 print("Invalid file found, exiting")
