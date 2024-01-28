@@ -20,20 +20,15 @@ def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
         ctx.prototype_encoder.grain_synth == -1
         and ctx.prototype_encoder.supports_grain_synth()
     ):
-        param = {
-            "input_file": sequence.input_file,
-            "scenes": sequence,
-            "temp_folder": ctx.temp_folder,
-            "scene_pick_seed": 2,
-            "video_filters": ctx.prototype_encoder.video_filters,
-            "kv": ctx.get_kv(),
-        }
-        if ctx.crf_bitrate_mode:
-            param["crf"] = ctx.prototype_encoder.crf
-        else:
-            param["bitrate"] = ctx.prototype_encoder.bitrate
-
-        ctx.prototype_encoder.grain_synth = get_best_avg_grainsynth(**param)
+        ctx.prototype_encoder.grain_synth = get_best_avg_grainsynth(
+            input_file=sequence.input_file,
+            scenes=sequence,
+            temp_folder=ctx.temp_folder,
+            scene_pick_seed=2,
+            video_filters=ctx.prototype_encoder.video_filters,
+            kv=ctx.get_kv(),
+            crf=ctx.prototype_encoder.crf,
+        )
 
     return ctx
 
