@@ -160,8 +160,6 @@ class VideoConcatenator:
             if self.end_offset != -1:
                 vec += [end_offset_command]
 
-            vec += ["-map 0:m:language:eng"]
-
             vec += [
                 "-map",
                 "0:a:0",
