@@ -225,7 +225,9 @@ class AlabamaContext:
         """
         cache = self.get_kv().get_global("output_res")
         if cache is not None:
-            self.output_width, self.output_height = cache.split(",")
+            width_str, height_str = cache.split(",")
+            self.output_width = int(width_str)
+            self.output_height = int(height_str)
             return [self.output_width, self.output_height]
         enc = self.get_encoder()
         enc.chunk = ChunkObject(
