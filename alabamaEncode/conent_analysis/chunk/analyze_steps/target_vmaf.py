@@ -43,6 +43,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 override_if_exists=False,
             )
 
+            # TODO: offset the faster preset by metric amount
             return get_metric_from_stats(
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
