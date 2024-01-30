@@ -21,7 +21,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         original = copy.deepcopy(enc)
 
-        target_vmaf = ctx.vmaf
+        metric, target_metric = ctx.get_metric_target()
 
         probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
@@ -46,6 +46,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             return get_metric_from_stats(
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
+                metric=metric,
             ) + get_vmaf_probe_offset(enc)
 
         probes = ctx.vmaf_probe_count
@@ -69,9 +70,9 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 category="probe",
             )
 
-            if abs(statistical_representation - target_vmaf) <= epsilon:
+            if abs(statistical_representation - target_metric) <= epsilon:
                 break
-            elif statistical_representation > target_vmaf:
+            elif statistical_representation > target_metric:
                 low_crf = mid_crf + 1
             else:
                 high_crf = mid_crf - 1
@@ -82,16 +83,16 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         # via linear interpolation, try to find the crf that is closest to target vmaf
         if len(trys) > 1:
             # sort by vmaf difference from target
-            points = sorted(trys, key=lambda _x: abs(_x[1] - target_vmaf))
+            points = sorted(trys, key=lambda _x: abs(_x[1] - target_metric))
 
             # get the two closest points
-            crf_low, vmaf_low = points[0]
-            crf_high, vmaf_high = points[1]
+            crf_low, metric_low = points[0]
+            crf_high, metric_high = points[1]
 
             # means multiple probes got the same score, aka all back screens etc
-            if not vmaf_high - vmaf_low == 0:
+            if not metric_high - metric_low == 0:
                 interpolated_crf = crf_low + (crf_high - crf_low) * (
-                    (target_vmaf - vmaf_low) / (vmaf_high - vmaf_low)
+                    (target_metric - metric_low) / (metric_high - metric_low)
                 )
 
                 # if 28-37 are crf points closes to target,
