@@ -11,7 +11,6 @@ from alabamaEncode.conent_analysis.opinionated_vmaf import (
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
 from alabamaEncode.scene.chunk import ChunkObject
@@ -19,26 +18,26 @@ from alabamaEncode.scene.chunk import ChunkObject
 
 class TargetVmaf(ChunkAnalyzePipelineItem):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
-        original = copy.deepcopy(enc)
+        enc_copy = copy.deepcopy(enc)
 
         metric, target_metric = ctx.get_metric_target()
 
         probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         def get_score(_crf):
-            enc.crf = _crf
-            enc.output_path = os.path.join(
+            enc_copy.crf = _crf
+            enc_copy.output_path = os.path.join(
                 probe_file_base,
-                f"probe.{_crf}{enc.get_chunk_file_extension()}",
+                f"probe.{_crf}{enc_copy.get_chunk_file_extension()}",
             )
-            enc.speed = get_vmaf_probe_speed(enc)
-            enc.passes = 1
-            enc.threads = 1
-            enc.grain_synth = 0
-            enc.svt_tune = 0
-            enc.override_flags = None
+            enc_copy.speed = get_vmaf_probe_speed(enc_copy)
+            enc_copy.passes = 1
+            enc_copy.threads = 1
+            enc_copy.grain_synth = 0
+            enc_copy.svt_tune = 0
+            enc_copy.override_flags = None
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
-            stats: EncodeStats = enc.run(
+            stats: EncodeStats = enc_copy.run(
                 calculate_vmaf=True,
                 vmaf_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
@@ -48,11 +47,11 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
                 metric=metric,
-            ) + get_vmaf_probe_offset(enc)
+            ) + get_vmaf_probe_offset(enc_copy)
 
         probes = ctx.vmaf_probe_count
         trys = []
-        low_crf, high_crf = get_crf_limits(enc.get_codec())
+        low_crf, high_crf = get_crf_limits(enc_copy.get_codec())
         depth = 0
         mid_crf = 0
         while low_crf <= high_crf and depth < probes:
@@ -74,13 +73,14 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 low_crf = mid_crf + 1
             else:
                 high_crf = mid_crf - 1
+
             trys.append((mid_crf, statistical_representation))
             depth += 1
 
         # if we didn't get it right on the first,
-        # via linear interpolation, try to find the crf that is closest to target vmaf
+        # via linear interpolation, try to find the crf that is closest to target metric
         if len(trys) > 1:
-            # sort by vmaf difference from target
+            # sort by metric difference from target
             points = sorted(trys, key=lambda _x: abs(_x[1] - target_metric))
 
             # get the two closest points
@@ -93,10 +93,10 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                     (target_metric - metric_low) / (metric_high - metric_low)
                 )
 
-                if not enc.supports_float_crfs():
+                if not enc_copy.supports_float_crfs():
                     crf = int(crf)
 
-                crf_min, crf_max = get_crf_limits(enc.get_codec())
+                crf_min, crf_max = get_crf_limits(enc_copy.get_codec())
 
                 crf = max(min(crf, crf_max), crf_min)
             else:
@@ -106,15 +106,6 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
 
         ctx.log(f"{chunk.log_prefix()}Decided on crf: {crf}", category="probe")
 
-        enc.passes = 1
-        enc.svt_tune = 0
-        enc.svt_overlay = 0
-        enc.rate_distribution = EncoderRateDistribution.CQ
         enc.crf = crf
-
-        enc.output_path = chunk.chunk_path
-        enc.override_flags = original.override_flags
-        enc.speed = original.speed
-        enc.grain_synth = original.grain_synth
 
         return enc
