@@ -60,7 +60,7 @@ class AlabamaContext:
             "simple_denoise": self.simple_denoise,
             "vmaf": self.vmaf,
             "crf_model_weights": self.crf_model_weights,
-            "vmaf_probe_count": self.vmaf_probe_count,
+            "probe_count": self.probe_count,
             "vmaf_reference_display": self.vmaf_reference_display,
             "crf_based_vmaf_targeting": self.crf_based_vmaf_targeting,
             "vmaf_4k_model": self.vmaf_4k_model,
@@ -153,7 +153,7 @@ class AlabamaContext:
     vmaf: int = 96
     denoise_vmaf_ref = False
     crf_model_weights = "7,2,10,2,7"
-    vmaf_probe_count = 3
+    probe_count = 3
     vmaf_reference_display = ""
     crf_based_vmaf_targeting = True
     vmaf_4k_model = False

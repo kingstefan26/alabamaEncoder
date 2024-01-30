@@ -396,10 +396,10 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--vmaf_probe_count",
+        "--probe_count",
         type=int,
-        default=ctx.vmaf_probe_count,
-        help="Number of frames to probe for vmaf, higher is more accurate but slower",
+        default=ctx.probe_count,
+        help="Max number of probes for metric targeting, higher is more accurate but slower",
     )
 
     parser.add_argument(
@@ -584,7 +584,7 @@ def read_args(ctx):
     ctx.vmaf_no_motion = args.vmaf_no_motion
     ctx.auto_accept_autocrop = args.auto_accept_autocrop
     ctx.resolution_preset = args.resolution_preset
-    ctx.vmaf_probe_count = args.vmaf_probe_count
+    ctx.probe_count = args.probe_count
     ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
     ctx.crf_map = args.flag4

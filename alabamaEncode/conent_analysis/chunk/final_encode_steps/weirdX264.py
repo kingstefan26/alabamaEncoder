@@ -82,7 +82,7 @@ class TargetX264(FinalEncodeStep):
                     )
             return statistical_representation
 
-        probes = ctx.vmaf_probe_count
+        probes = ctx.probe_count
         trys = []
         low_crf = 20 if isinstance(enc, EncoderSvt) else 10
         high_crf = 55 if target_vmaf > 90 else 63

@@ -50,7 +50,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 metric=metric,
             ) + get_vmaf_probe_offset(enc_copy)
 
-        probes = ctx.vmaf_probe_count
+        probes = ctx.probe_count
         trys = []
         low_crf, high_crf = get_crf_limits(enc_copy.get_codec())
         depth = 0
