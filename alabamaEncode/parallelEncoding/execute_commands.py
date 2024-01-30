@@ -157,7 +157,7 @@ async def execute_commands(
 
             for future in done:
                 rslt = await future
-                if are_commands_adaptive_commands:
+                if are_commands_adaptive_commands and rslt is not None:
                     pined_core: int = rslt[0]
                     stats = rslt[1]
                     if not command_objects[0].supports_encoded_a_frame_callback():
