@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from typing import List
+from typing import List, Tuple
 
 from tqdm import tqdm
 
@@ -15,6 +15,7 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
@@ -218,6 +219,13 @@ class AlabamaContext:
             no_motion=self.vmaf_no_motion,
             denoise_refrence=self.denoise_vmaf_ref,
         )
+
+    def get_metric_target(self) -> Tuple[Metrics, float]:
+        """
+        Return what metric and to what degree to target based on config
+        TO BE FILLED
+        """
+        return Metrics.VMAF, self.vmaf
 
     def get_output_res(self) -> List[int]:
         """
