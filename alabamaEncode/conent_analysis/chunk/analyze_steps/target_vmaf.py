@@ -29,7 +29,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             enc.crf = _crf
             enc.output_path = os.path.join(
                 probe_file_base,
-                f"convexhull.{_crf}{enc.get_chunk_file_extension()}",
+                f"probe.{_crf}{enc.get_chunk_file_extension()}",
             )
             enc.speed = get_vmaf_probe_speed(enc)
             enc.passes = 1
@@ -37,6 +37,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             enc.grain_synth = 0
             enc.svt_tune = 0
             enc.override_flags = None
+            # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
                 vmaf_params=ctx.get_vmaf_options(),
@@ -52,7 +53,6 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         probes = ctx.vmaf_probe_count
         trys = []
         low_crf, high_crf = get_crf_limits(enc.get_codec())
-        epsilon = 0.1
         depth = 0
         mid_crf = 0
         while low_crf <= high_crf and depth < probes:
@@ -65,14 +65,12 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             statistical_representation = get_score(mid_crf)
 
             ctx.log(
-                f"{chunk.log_prefix()} crf: {mid_crf} vmaf: {statistical_representation} "
+                f"{chunk.log_prefix()} crf: {mid_crf} {metric.name}: {statistical_representation} "
                 f"attempt {depth + 1}/{probes}",
                 category="probe",
             )
 
-            if abs(statistical_representation - target_metric) <= epsilon:
-                break
-            elif statistical_representation > target_metric:
+            if statistical_representation > target_metric:
                 low_crf = mid_crf + 1
             else:
                 high_crf = mid_crf - 1
@@ -91,20 +89,12 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
 
             # means multiple probes got the same score, aka all back screens etc
             if not metric_high - metric_low == 0:
-                interpolated_crf = crf_low + (crf_high - crf_low) * (
+                crf = crf_low + (crf_high - crf_low) * (
                     (target_metric - metric_low) / (metric_high - metric_low)
                 )
 
-                # if 28-37 are crf points closes to target,
-                # we clamp the interpolated crf to 18-41
-                clamp_low = min(crf_low, crf_high) - 10
-                clamp_high = max(crf_low, crf_high) + 4
-                interpolated_crf = max(min(interpolated_crf, clamp_high), clamp_low)
-
-                if enc.supports_float_crfs():
-                    crf = interpolated_crf
-                else:
-                    crf = int(interpolated_crf)
+                if not enc.supports_float_crfs():
+                    crf = int(crf)
 
                 crf_min, crf_max = get_crf_limits(enc.get_codec())
 
