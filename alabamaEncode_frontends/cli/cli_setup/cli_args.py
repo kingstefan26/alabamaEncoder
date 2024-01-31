@@ -116,6 +116,7 @@ def read_args(ctx):
             "hevc_vaapi",
             "h264_vaapi",
             "rav1e",
+            "h264_nvenc",
         ],
     )
 
