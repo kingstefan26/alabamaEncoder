@@ -120,12 +120,14 @@ def _run_command(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-    output = ""
-    for line in iter(lambda: process.stdout.read(1), b""):
-        # if stream_to_stdout:
-        # sys.stdout.write(line.decode("utf-8", errors="ignore"))
-        # print(line.decode("utf-8", errors="ignore"), end="")
-        output += str(line)
+    # output = ""
+    # for line in iter(lambda: process.stdout.read(1), b""):
+    #     # if stream_to_stdout:
+    #     # sys.stdout.write(line.decode("utf-8", errors="ignore"))
+    #     # print(line.decode("utf-8", errors="ignore"), end="")
+    #     output += str(line)
+
+    output = process.stdout.read().decode(errors="ignore")
 
     process.wait()
     result_queue.put(CliResult(process.returncode, output))
