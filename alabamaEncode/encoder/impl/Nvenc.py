@@ -54,7 +54,7 @@ class EncoderNVENCH264(Encoder):
         return [" ".join(vec)]
 
     def get_chunk_file_extension(self) -> str:
-        return ".avi"
+        return ".mkv"
 
     def get_version(self) -> str:
         return "N/A"
