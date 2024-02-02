@@ -12,8 +12,8 @@ def run_tune(a):
     enc.x264_tune = tune
     enc.output_path = os.path.join(path, f"{tune}{enc.get_chunk_file_extension()}")
     stats = enc.run(calculate_vmaf=True)
-    print(f"{tune}: {stats.bitrate}kb/s {stats.vmaf_result.harmonic_mean}vmaf")
-    return tune, stats.vmaf_result.harmonic_mean, stats.bitrate
+    print(f"{tune}: {stats.bitrate}kb/s {stats.metric_results.harmonic_mean}vmaf")
+    return tune, stats.metric_results.harmonic_mean, stats.bitrate
 
 
 def get_ideal_x264_tune(ctx: AlabamaContext, sequence: ChunkSequence):

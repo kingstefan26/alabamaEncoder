@@ -1,7 +1,9 @@
 from statistics import mean
 
+from alabamaEncode.metrics.metric_result import MetricResult
 
-class VmafResult:
+
+class VmafResult(MetricResult):
     def __init__(self, _frames=None, pooled_metrics=None, fps=None):
         if pooled_metrics is None:
             pooled_metrics = {}

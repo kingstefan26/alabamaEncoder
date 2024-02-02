@@ -255,7 +255,7 @@ class Encoder(ABC):
             local_chunk.chunk_path = self.output_path
 
             try:
-                stats.vmaf_result = calculate_metric(
+                stats.metric_results = calculate_metric(
                     chunk=local_chunk,
                     video_filters=self.video_filters,
                     options=vmaf_params if vmaf_params is not None else VmafOptions(),

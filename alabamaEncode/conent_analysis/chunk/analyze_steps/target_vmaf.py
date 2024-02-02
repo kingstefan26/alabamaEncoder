@@ -47,7 +47,6 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             return get_metric_from_stats(
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
-                metric=metric,
             ) + get_vmaf_probe_offset(enc_copy)
 
         probes = ctx.probe_count

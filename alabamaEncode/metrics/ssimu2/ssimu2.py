@@ -8,6 +8,7 @@ from alabamaEncode.metrics.calc import calculate_metric
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.metric_exeption import Ssimu2Exception
+from alabamaEncode.metrics.metric_result import MetricResult
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -112,7 +113,7 @@ def calc_ssimu2(
     return Ssimu2Result(cli_results[2].output)
 
 
-class Ssimu2Result:
+class Ssimu2Result(MetricResult):
     def __init__(self, cli_out: str):
         self.fps = -1
         self.percentile_50 = -1

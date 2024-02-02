@@ -14,7 +14,7 @@ def calculate_metric(
     video_filters="",
     comparison_display: ComparisonDisplayResolution = None,
     threads=1,
-    options = None,
+    options=None,
     metric: Metrics = Metrics.VMAF,
 ):
     if chunk is None:
@@ -52,32 +52,28 @@ def calculate_metric(
 def get_metric_from_stats(
     stats: EncodeStats,
     statistical_representation: str = "mean",
-    metric: Metrics = Metrics.VMAF,
 ) -> float:
-    if metric != Metrics.VMAF:
-        raise NotImplementedError(f"Metric {metric} not implemented")
-        # TODO: implement other metrics
     match statistical_representation:
         case "mean":
-            return stats.vmaf_result.mean
+            return stats.metric_results.mean
         case "harmonic_mean":
-            return stats.vmaf_result.harmonic_mean
+            return stats.metric_results.harmonic_mean
         case "max":
-            return stats.vmaf_result.max
+            return stats.metric_results.max
         case "min":
-            return stats.vmaf_result.min
+            return stats.metric_results.min
         case "median":
-            return stats.vmaf_result.percentile_50
+            return stats.metric_results.percentile_50
         case "percentile_1":
-            return stats.vmaf_result.percentile_1
+            return stats.metric_results.percentile_1
         case "percentile_5":
-            return stats.vmaf_result.percentile_5
+            return stats.metric_results.percentile_5
         case "percentile_10":
-            return stats.vmaf_result.percentile_10
+            return stats.metric_results.percentile_10
         case "percentile_25":
-            return stats.vmaf_result.percentile_25
+            return stats.metric_results.percentile_25
         case "percentile_50":
-            return stats.vmaf_result.percentile_50
+            return stats.metric_results.percentile_50
         case _:
             raise Exception(
                 f"Unknown statistical_representation {statistical_representation}"

@@ -57,25 +57,25 @@ class TargetX264(FinalEncodeStep):
             )
             match ctx.vmaf_target_representation:
                 case "mean":
-                    statistical_representation = stats.vmaf_result.mean
+                    statistical_representation = stats.metric_results.mean
                 case "harmonic_mean":
-                    statistical_representation = stats.vmaf_result.harmonic_mean
+                    statistical_representation = stats.metric_results.harmonic_mean
                 case "max":
-                    statistical_representation = stats.vmaf_result.max
+                    statistical_representation = stats.metric_results.max
                 case "min":
-                    statistical_representation = stats.vmaf_result.min
+                    statistical_representation = stats.metric_results.min
                 case "median":
-                    statistical_representation = stats.vmaf_result.percentile_50
+                    statistical_representation = stats.metric_results.percentile_50
                 case "percentile_1":
-                    statistical_representation = stats.vmaf_result.percentile_1
+                    statistical_representation = stats.metric_results.percentile_1
                 case "percentile_5":
-                    statistical_representation = stats.vmaf_result.percentile_5
+                    statistical_representation = stats.metric_results.percentile_5
                 case "percentile_10":
-                    statistical_representation = stats.vmaf_result.percentile_10
+                    statistical_representation = stats.metric_results.percentile_10
                 case "percentile_25":
-                    statistical_representation = stats.vmaf_result.percentile_25
+                    statistical_representation = stats.metric_results.percentile_25
                 case "percentile_50":
-                    statistical_representation = stats.vmaf_result.percentile_50
+                    statistical_representation = stats.metric_results.percentile_50
                 case _:
                     raise Exception(
                         f"Unknown vmaf_target_representation {ctx.vmaf_target_representation}"

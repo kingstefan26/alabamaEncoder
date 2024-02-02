@@ -1,6 +1,6 @@
 import json
 
-from alabamaEncode.metrics.vmaf.result import VmafResult
+from alabamaEncode.metrics.metric_result import MetricResult
 
 
 class EncodeStats:
@@ -22,7 +22,7 @@ class EncodeStats:
         chunk_index: int = -1,
         basename: str = "",
         version: str = "",
-        vmaf_result: VmafResult = None,
+        metric_result: MetricResult = None,
         length_frames: int = -1,
     ):
         self.time_encoding = time_encoding
@@ -37,7 +37,7 @@ class EncodeStats:
         self.chunk_index = chunk_index
         self.basename = basename
         self.version = version
-        self.vmaf_result = vmaf_result or VmafResult()
+        self.metric_results = metric_result or MetricResult()
         self.length_frames = length_frames
 
     def __dict__(self):
@@ -46,19 +46,20 @@ class EncodeStats:
             "bitrate": self.bitrate,
             "chunk_index": self.chunk_index,
             "length_frames": self.length_frames,
-            "vmaf": self.vmaf_result.mean,
+            "metric": self.metric_results.mean,
+            "metric_class": self.metric_results.__class__.__name__,
             "ssim": self.ssim,
             "ssim_db": self.ssim_db,
             "size": self.size,
             "total_fps": self.total_fps,
             "target_miss_proc": self.target_miss_proc,
             "rate_search_time": self.rate_search_time,
-            "vmaf_percentile_1": self.vmaf_result.percentile_1,
-            "vmaf_percentile_5": self.vmaf_result.percentile_5,
-            "vmaf_percentile_10": self.vmaf_result.percentile_10,
-            "vmaf_percentile_25": self.vmaf_result.percentile_25,
-            "vmaf_percentile_50": self.vmaf_result.percentile_50,
-            "vmaf_avg": self.vmaf_result.mean,
+            "metric_percentile_1": self.metric_results.percentile_1,
+            "metric_percentile_5": self.metric_results.percentile_5,
+            "metric_percentile_10": self.metric_results.percentile_10,
+            "metric_percentile_25": self.metric_results.percentile_25,
+            "metric_percentile_50": self.metric_results.percentile_50,
+            "metric_avg": self.metric_results.mean,
             "basename": self.basename,
             "version": self.version,
         }
