@@ -52,7 +52,7 @@ class TargetX264(FinalEncodeStep):
 
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=ctx.get_vmaf_options(),
+                metric_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
             match ctx.vmaf_target_representation:
@@ -166,7 +166,7 @@ class TargetX264(FinalEncodeStep):
 
         return enc.run(
             calculate_vmaf=True,
-            vmaf_params=ctx.get_vmaf_options(),
+            metric_params=ctx.get_vmaf_options(),
             on_frame_encoded=encoded_a_frame,
         )
 

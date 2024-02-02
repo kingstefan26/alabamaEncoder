@@ -39,7 +39,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc_copy.run(
                 calculate_vmaf=True,
-                vmaf_params=ctx.get_vmaf_options(),
+                metric_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
 

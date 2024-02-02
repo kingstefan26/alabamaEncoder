@@ -72,7 +72,7 @@ class EncodeMultiResCandidates(ChunkAnalyzePipelineItem):
                     continue
 
                 stats: EncodeStats = enc.run(
-                    calculate_vmaf=True, vmaf_params=vmaf_options
+                    calculate_vmaf=True, metric_params=vmaf_options
                 )
 
                 vmaf = get_metric_from_stats(

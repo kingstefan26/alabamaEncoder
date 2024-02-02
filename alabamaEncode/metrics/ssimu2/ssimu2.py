@@ -9,17 +9,13 @@ from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.metric_exeption import Ssimu2Exception
 from alabamaEncode.metrics.metric_result import MetricResult
+from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
-class Ssimu2Options:
-    def __init__(
-        self,
-        ref: ComparisonDisplayResolution = None,
-        denoise_refrence=False,
-    ):
-        self.ref = ref
-        self.denoise_reference = denoise_refrence
+class Ssimu2Options(MetricOptions):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 
 def calc_ssimu2(

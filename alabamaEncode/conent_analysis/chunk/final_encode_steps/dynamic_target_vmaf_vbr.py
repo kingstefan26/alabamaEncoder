@@ -49,7 +49,7 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
             )
             stats: EncodeStats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=vmaf_options,
+                metric_params=vmaf_options,
                 override_if_exists=False,
             )
             nonlocal total_encodes

@@ -13,7 +13,7 @@ class PlainFinalEncode(FinalEncodeStep):
     ) -> EncodeStats:
         return enc.run(
             calculate_vmaf=not ctx.dont_calc_final_vmaf,
-            vmaf_params=ctx.get_vmaf_options(),
+            metric_params=ctx.get_vmaf_options(),
             on_frame_encoded=encoded_a_frame,
         )
 

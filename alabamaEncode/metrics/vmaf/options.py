@@ -1,23 +1,21 @@
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.metrics.vmaf.models import get_models
 
 
-class VmafOptions:
+class VmafOptions(MetricOptions):
     def __init__(
         self,
         phone=False,
         uhd=False,
         neg=False,
-        ref: ComparisonDisplayResolution = None,
         no_motion=False,
-        denoise_refrence=False,
+        **kwargs,
     ):
         self.phone = phone
         self.uhd = uhd
         self.neg = neg
-        self.ref = ref
         self.no_motion = no_motion
-        self.denoise_reference = denoise_refrence
+        super().__init__(**kwargs)
 
     def get_model(self) -> str:
         models = get_models()

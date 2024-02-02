@@ -15,6 +15,7 @@ from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
 from alabamaEncode.metrics.metric_exeption import VmafException
+from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.metrics.ssim.calc import get_video_ssim
 from alabamaEncode.metrics.vmaf.options import VmafOptions
 
@@ -110,13 +111,13 @@ class Encoder(ABC):
         timeout_value=-1,
         calculate_vmaf=False,
         calcualte_ssim=False,
-        vmaf_params: VmafOptions = None,
+        metric_params: MetricOptions = None,
         on_frame_encoded: callable = None,
     ) -> EncodeStats:
         """
         :param calcualte_ssim: self-explanatory
         :param calculate_vmaf: self-explanatory
-        :param vmaf_params: dict of vmaf params
+        :param metric_params: dict of vmaf params
         :param override_if_exists: if false and file already exist don't do anything
         :param timeout_value: how much (in seconds) before giving up
         :param on_frame_encoded: callback function that gets called when a frame is encoded,
@@ -258,7 +259,9 @@ class Encoder(ABC):
                 stats.metric_results = calculate_metric(
                     chunk=local_chunk,
                     video_filters=self.video_filters,
-                    options=vmaf_params if vmaf_params is not None else VmafOptions(),
+                    options=metric_params
+                    if metric_params is not None
+                    else VmafOptions(),
                     threads=self.threads,
                 )
             except VmafException as e:

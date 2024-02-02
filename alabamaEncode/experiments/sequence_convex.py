@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
             stats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=VmafOptions(ref=ref_display),
+                metric_params=VmafOptions(ref=ref_display),
             )
             print(
                 f"target 95, res: {res}, final vmaf: {stats.vmaf} crf: {enc.crf} bitrate: {stats.bitrate}"

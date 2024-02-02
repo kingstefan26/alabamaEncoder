@@ -42,7 +42,7 @@ def best_bitrate_single(ctx, chunk: ChunkObject) -> int:
         enc.bitrate = mid_bitrate
         mid_vmaf = enc.run(
             calculate_vmaf=True,
-            vmaf_params=VmafOptions(uhd=True, neg=True),
+            metric_params=VmafOptions(uhd=True, neg=True),
         ).metric_results.mean
 
         tqdm.write(f"{chunk.log_prefix()}{mid_bitrate} kbps -> {mid_vmaf} vmaf")

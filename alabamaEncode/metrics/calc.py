@@ -2,8 +2,8 @@ from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.ssimu2.ssimu2 import calc_ssimu2
-from alabamaEncode.metrics.vmaf.vmaf import calc_vmaf
+
+
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -30,6 +30,8 @@ def calculate_metric(
 
     match metric:
         case Metrics.VMAF:
+            from alabamaEncode.metrics.vmaf.vmaf import calc_vmaf
+
             return calc_vmaf(
                 chunk=_chunk,
                 video_filters=video_filters,
@@ -38,6 +40,8 @@ def calculate_metric(
                 vmaf_options=options,
             )
         case Metrics.SSIMULACRA2:
+            from alabamaEncode.metrics.ssimu2.ssimu2 import calc_ssimu2
+
             return calc_ssimu2(
                 chunk=_chunk,
                 video_filters=video_filters,

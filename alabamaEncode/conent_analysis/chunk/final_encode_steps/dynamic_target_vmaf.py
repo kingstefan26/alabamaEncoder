@@ -124,7 +124,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
             nonlocal stats
             stats = enc.run(
                 calculate_vmaf=True,
-                vmaf_params=ctx.get_vmaf_options(),
+                metric_params=ctx.get_vmaf_options(),
             )
             _metric = get_metric_from_stats(
                 stats, statistical_representation=ctx.vmaf_target_representation
