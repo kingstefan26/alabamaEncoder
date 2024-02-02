@@ -59,7 +59,6 @@ class AlabamaContext:
             "max_bitrate": self.max_bitrate,
             "simple_denoise": self.simple_denoise,
             "vmaf": self.vmaf,
-            "crf_model_weights": self.crf_model_weights,
             "probe_count": self.probe_count,
             "vmaf_reference_display": self.vmaf_reference_display,
             "crf_based_vmaf_targeting": self.crf_based_vmaf_targeting,
@@ -153,7 +152,6 @@ class AlabamaContext:
     metric_to_target = "vmaf"
     vmaf: int = 96
     denoise_vmaf_ref = False
-    crf_model_weights = "7,2,10,2,7"
     probe_count = 3
     vmaf_reference_display = ""
     crf_based_vmaf_targeting = True

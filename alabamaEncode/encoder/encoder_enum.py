@@ -17,6 +17,13 @@ class EncodersEnum(Enum):
         return self.name
 
     @staticmethod
+    def get_all_encoder_strings():
+        a = []
+        for encoder in EncodersEnum:
+            a.append(str(encoder))
+        return a
+
+    @staticmethod
     def from_str(encoder_name: str):
         """
 

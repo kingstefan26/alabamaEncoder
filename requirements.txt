@@ -6,3 +6,5 @@ psutil
 opencv-python
 setuptools
 torf
+argparse-range
+requests
