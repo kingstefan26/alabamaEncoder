@@ -14,20 +14,20 @@ this is my attempt at encoding in a multi pc setup, currently supports svtav1
 
 # CLI
 
+for local only/celery main:
+
+````
+alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
+````
+
 if running celery the celery broker ip should be under `REDIS_HOST` env var,
 eg `REDIS_HOST=192.168.1.10 alabamaEncoder worker 10`  
 otherwise assumed to be `localhost`
 
-for workers:
+for celery workers:
 
 ````
 alabamaEncoder worker [# of worker processes] 
-````
-
-for general:
-
-````
-alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
 ````
 
 note: multiple files will be created in the output file's folder
@@ -41,14 +41,14 @@ To clear the celery queue: `alabamaEncoder clear`
 | --audio_params                | str   | "-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1 | params for audio, eg `-c:v libopus -ac 6`                                                                                                          |
 | --celery                      | flag  | False                                                                     | run encode on celery cluster                                                                                                                       |
 | --autocrop                    | Flag  | False                                                                     | automatically detect black bars and crop them                                                                                                      |
-| --video_filters               | str   | ""                                                                        | override ffmpeg vf params, put your `-vf crop=...` or even a filter_graph, mutually exclusive with scale & crop strings                            |
+| --video_filters               | str   | ""                                                                        | override ffmpeg vf params, put your `-vf crop=...` here, mutually exclusive with: scale & crop strings, autocrop, autotonemap                      |
 | --bitrate                     | int   | 2000                                                                      | video bitrate, eg `--bitrate 1000` for 1000kb/s, use `auto` for auto bitrate picking                                                               |
 | --vbr_perchunk_optimisation   | Flag  | True                                                                      | auto adjust a chunks vbr bitrate to hit ssim target                                                                                                |
 | --crf                         | int   | -1                                                                        | crf to use in crf encode mode                                                                                                                      |
-| --encoder                     | str   | SVT_AV1                                                                   | pick a encoder, options are "svt_av1", "x265", "aomenc", "x264"                                                                                    |
-| --grain                       | int   | -1                                                                        | grain synth, `-1` for auto, `-2` for auto per chunk, only supported in aomenc, svtav1encapp                                                        |
-| --vmaf_target                 | float | 96                                                                        | what vmaf to target with auto ladder                                                                                                               |
-| --max_scene_length            | int   | 10                                                                        | dont allow scenes longer than this, in seconds                                                                                                     |
+| --encoder                     | str   | SVT_AV1                                                                   | pick a encoder, possible options in `alabamaEncode --help`                                                                                         |
+| --grain                       | int   | -1                                                                        | grain synth value, `-1` for auto, `-2` for auto per chunk                                                                                          |
+| --vmaf_target                 | float | 96                                                                        | what vmaf/metric to target                                                                                                                         |
+| --max_scene_length            | int   | 10                                                                        | dont allow scenes longer than this, in seconds; if using --scene_merge, this will indicate the maxium lenght to merge scenes to                    |
 | --crf_based_vmaf_targeting    | flag  | True                                                                      | Target vmaf by adjusting vmaf and calculation score                                                                                                |
 | --auto_crf                    | flag  | False                                                                     | Find a crf that hits target vmaf, calculate a peak bitrate cap, and encode using CRF VBV                                                           |
 | --chunk_order                 | str   | sequential                                                                | Encode order of scenes: `random`, `sequential`, `length_desc`, `length_asc`, `sequential_reverse`                                                  |
@@ -70,7 +70,6 @@ To clear the celery queue: `alabamaEncoder clear`
 | --chroma-sample-position      | int   | 0                                                                         | HDR10 related metadata                                                                                                                             |
 | --multiprocess_workers        | int   | -1                                                                        | when not using celery, how many encode processes to run at once, `-1` for auto scale                                                               |
 | --sub_file                    | str   | ""                                                                        | subs file, eg /home/user/subs.vvt                                                                                                                  |
-| --crf_model_weights           | str   | "7,2,10,2,7"                                                              | weights of: vmaf bellow target, vmaf above target, bitrate, diffrence bettwen vmaf and 5%tile vmaf, vmaf 5%tile diff from target                   |
 | --vmaf_phone_model            | flag  | False                                                                     | Use vmaf's phone model                                                                                                                             |
 | --vmaf_4k_model               | flag  | False                                                                     | Use vmaf's uhd model                                                                                                                               |
 | --auto_accept_autocrop        | flag  | False                                                                     | Automatically accept autocrop                                                                                                                      |
