@@ -9,6 +9,7 @@ from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -51,7 +52,7 @@ class TargetX264(FinalEncodeStep):
             enc.rate_distribution = EncoderRateDistribution.CQ
 
             stats: EncodeStats = enc.run(
-                calculate_vmaf=True,
+                metric_to_calculate=Metrics.VMAF,
                 metric_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
@@ -165,7 +166,7 @@ class TargetX264(FinalEncodeStep):
         enc.bitrate = stats.bitrate
 
         return enc.run(
-            calculate_vmaf=True,
+            metric_to_calculate=Metrics.VMAF,
             metric_params=ctx.get_vmaf_options(),
             on_frame_encoded=encoded_a_frame,
         )

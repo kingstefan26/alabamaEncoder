@@ -14,10 +14,10 @@ from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
-from alabamaEncode.metrics.metric_exeption import VmafException
+from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric_exeption import MetricException
 from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.metrics.ssim.calc import get_video_ssim
-from alabamaEncode.metrics.vmaf.options import VmafOptions
 
 
 class Encoder(ABC):
@@ -109,14 +109,14 @@ class Encoder(ABC):
         self,
         override_if_exists=True,
         timeout_value=-1,
-        calculate_vmaf=False,
         calcualte_ssim=False,
+        metric_to_calculate: Metrics = None,
         metric_params: MetricOptions = None,
         on_frame_encoded: callable = None,
     ) -> EncodeStats:
         """
+        :param metric_to_calculate: the metric to calculate
         :param calcualte_ssim: self-explanatory
-        :param calculate_vmaf: self-explanatory
         :param metric_params: dict of vmaf params
         :param override_if_exists: if false and file already exist don't do anything
         :param timeout_value: how much (in seconds) before giving up
@@ -248,7 +248,7 @@ class Encoder(ABC):
                     print(c)
                 raise e
 
-        if calculate_vmaf:
+        if metric_to_calculate is not None:
             local_chunk = copy.deepcopy(
                 self.chunk
             )  # we need seeking variables from the chunk but the path from the
@@ -261,11 +261,14 @@ class Encoder(ABC):
                     video_filters=self.video_filters,
                     options=metric_params
                     if metric_params is not None
-                    else VmafOptions(),
+                    else MetricOptions(),
+                    metric=metric_to_calculate,
                     threads=self.threads,
                 )
-            except VmafException as e:
-                raise Exception(f"VMAF calculation in encoder failed: {e.message}")
+            except MetricException as e:
+                raise Exception(
+                    f"{metric_to_calculate} calculation in encoder failed: {e}"
+                )
 
         if calcualte_ssim:
             ssim, ssim_db = get_video_ssim(

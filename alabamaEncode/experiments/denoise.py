@@ -5,6 +5,7 @@ from alabamaEncode.core.timer import Timer
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.split import get_video_scene_list_skinny
@@ -107,7 +108,7 @@ if __name__ == "__main__":
             enc.crf = mid_crf
             enc.output_path = os.path.join(env, f"{chunk_probes}/{mid_crf}.mkv")
             timer.start(f"crf_{mid_crf}")
-            stats: EncodeStats = enc.run(calculate_vmaf=True)
+            stats: EncodeStats = enc.run(metric_to_calculate=Metrics.VMAF)
             timer.stop(f"crf_{mid_crf}")
             stats.version = mid_crf
             stats.basename = enc.output_path

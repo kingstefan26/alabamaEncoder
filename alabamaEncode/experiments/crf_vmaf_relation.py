@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.metric import Metrics
 
 print(tf.__version__)
 
@@ -78,7 +79,7 @@ def generate_stat_from_chunk(current_chunk: ChunkObject):
         )
         if os.path.exists(enc.output_path):
             os.remove(enc.output_path)
-        stat = enc.run(calculate_vmaf=True)
+        stat = enc.run(metric_to_calculate=Metrics.VMAF)
         stat.basename = [crf, motion, complexity]
         print(
             f"{current_chunk.log_prefix()}VMAF: {stat.vmaf}, motion: {motion}, complexity: {complexity} crf: {crf}"

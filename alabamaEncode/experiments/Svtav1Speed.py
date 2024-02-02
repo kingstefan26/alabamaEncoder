@@ -66,7 +66,7 @@ if __name__ == "__main__":
             print(svtenc.get_encode_commands())
             quit()
             stats = alabamaEncode.core.run(
-                override_if_exists=False, calculate_vmaf=True
+                override_if_exists=False, metric_to_calculate=Metrics.VMAF
             )
 
             curr_db_rate = stats.size_kB / stats.vmaf

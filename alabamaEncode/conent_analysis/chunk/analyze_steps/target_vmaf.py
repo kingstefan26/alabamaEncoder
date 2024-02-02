@@ -13,6 +13,7 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
+from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -38,7 +39,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             enc_copy.override_flags = None
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc_copy.run(
-                calculate_vmaf=True,
+                metric_to_calculate=Metrics.VMAF,
                 metric_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
