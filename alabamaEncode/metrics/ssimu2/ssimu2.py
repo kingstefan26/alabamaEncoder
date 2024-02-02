@@ -85,7 +85,7 @@ def calc_ssimu2(
     assert os.path.exists(pipe_ref_path)
     assert os.path.exists(pipe_dist_path)
 
-    main_command = f"{get_binary('ssimulacra2_rs')} video --frame-threads {threads} {pipe_ref_path} {pipe_dist_path} "
+    main_command = f"{get_binary('ssimulacra2_rs')} video --frame-threads 4 {pipe_ref_path} {pipe_dist_path} "
 
     cli_results = run_cli_parallel(
         [
