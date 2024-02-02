@@ -1,12 +1,24 @@
 import os
 import re
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.bin_utils import get_binary, register_bin
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
+from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.metrics.calc import calculate_metric
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.metric_exeption import Ssimu2Exception
-from alabamaEncode.metrics.ssimu2.ssimu2_options import Ssimu2Options
 from alabamaEncode.scene.chunk import ChunkObject
+
+
+class Ssimu2Options:
+    def __init__(
+        self,
+        ref: ComparisonDisplayResolution = None,
+        denoise_refrence=False,
+    ):
+        self.ref = ref
+        self.denoise_reference = denoise_refrence
 
 
 def calc_ssimu2(
@@ -76,14 +88,7 @@ def calc_ssimu2(
     assert os.path.exists(pipe_ref_path)
     assert os.path.exists(pipe_dist_path)
 
-    main_command = (
-        f"{get_binary('ssimulacra2_rs')} video {pipe_ref_path} {pipe_dist_path} "
-    )
-
-    print(first_pipe_command)
-    print(second_pipe_command)
-    print(main_command)
-    return None
+    main_command = f"{get_binary('ssimulacra2_rs')} video --frame-threads {threads} {pipe_ref_path} {pipe_dist_path} "
 
     cli_results = run_cli_parallel(
         [
@@ -93,6 +98,9 @@ def calc_ssimu2(
         ]
     )
 
+    os.remove(pipe_ref_path)
+    os.remove(pipe_dist_path)
+
     for c in cli_results:
         try:
             c.verify()
@@ -101,4 +109,70 @@ def calc_ssimu2(
                 f"Could not run ssimu2 command: {e}, {[c.output for c in cli_results]}"
             )
 
-    print(cli_results[2].output)
+    return Ssimu2Result(cli_results[2].output)
+
+
+class Ssimu2Result:
+    def __init__(self, cli_out: str):
+        self.fps = -1
+        self.percentile_50 = -1
+        self.percentile_25 = -1
+        self.percentile_10 = -1
+        self.percentile_5 = -1
+        self.percentile_1 = -1
+        self.max = -1
+        self.min = -1
+        self.mean = -1
+        self.harmonic_mean = -1
+        self.std_dev = -1
+
+        # example cli output:
+        # Mean: 61.61176129
+        # Median: 61.06329560
+        # Std Dev: 4.19601857
+        # 5th Percentile: 56.16474208
+        # 95th Percentile: 69.57570546
+
+        for line in cli_out.split("\n"):
+            if "Mean" in line:
+                self.mean = float(line.split(":")[1])
+            if "Median" in line:
+                self.percentile_50 = float(line.split(":")[1])
+            if "Std Dev" in line:
+                self.std_dev = float(line.split(":")[1])
+            if "5th Percentile" in line:
+                self.percentile_5 = float(line.split(":")[1])
+            if "95th Percentile" in line:
+                self.percentile_95 = float(line.split(":")[1])
+
+    def __str__(self):
+        return f"{self.mean}"
+
+    def __repr__(self):
+        return (
+            f"Ssimu2Result(mean={self.mean},"
+            f" prct_95={self.percentile_95},"
+            f" prct_5={self.percentile_5},"
+            f" std_dev={self.std_dev})"
+        )
+
+
+# test
+if __name__ == "__main__":
+    print("calcing ssimu2")
+    register_bin(
+        "ssimulacra2_rs",
+        "/home/kokoniara/.local/opt/ssimulacra2_rs",
+    )
+    result: Ssimu2Result = calculate_metric(
+        reference_path=PathAlabama("/mnt/data/objective-1-fast/MINECRAFT_60f_420.y4m"),
+        distorted_path=PathAlabama(
+            "/mnt/data/objective-1-fast/minecruft_test_encode_h264.mkv"
+        ),
+        options=Ssimu2Options(),
+        threads=10,
+        metric=Metrics.SSIMULACRA2,
+    )
+    print(result.mean)
+    print(result.percentile_1)
+    print(result.__repr__())
