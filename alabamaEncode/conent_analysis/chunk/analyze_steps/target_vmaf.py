@@ -51,6 +51,12 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             ) + get_vmaf_probe_offset(enc_copy)
 
         probes = ctx.probe_count
+        if probes > 3:
+            ctx.log(
+                f"probe count in TargetVmaf is set to {probes}, this is too high, <=3",
+                level=1,
+            )
+
         trys = []
         low_crf, high_crf = get_crf_limits(enc_copy.get_codec())
         depth = 0
