@@ -64,6 +64,23 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         while low_crf <= high_crf and depth < probes:
             mid_crf = (low_crf + high_crf) // 2
 
+            if depth == 2 and ctx.probe_count == 3:
+                ll, lh = get_crf_limits(enc_copy.get_codec())
+                m = (ll + lh) // 2
+                # if closer to edge, then the middle, use that edge
+                if abs(mid_crf - ll) < abs(mid_crf - m):
+                    mid_crf = ll
+                    ctx.log(
+                        f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
+                        category="probe",
+                    )
+                elif abs(mid_crf - lh) < abs(mid_crf - m):
+                    mid_crf = lh
+                    ctx.log(
+                        f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
+                        category="probe",
+                    )
+
             # don't try the same crf twice
             if mid_crf in [t[0] for t in trys]:
                 break
@@ -84,14 +101,10 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             trys.append((mid_crf, statistical_representation))
             depth += 1
 
-        # to limit the overhead we do only 3/2 binary search probes,
-        # it's too shallow to get a good result on its own
-        # that's why we can pick two close points and interpolate between them,
-        # this improves prediction by a lot while only needing at ~3 probes
-        # the only problem is:
-        # (diagram of an example 3 probe binary search)
-        # left edge | --|3probe|-- ||2probe|| --|3probe|-- |||first probe||| --|3probe|-- ||2probe|| --|3probe|-- | right edge
-        # when the ideal crf is bettwen 3probe and edge, then the interpolation will usually lead to a extreme
+        # To limit the overhead, we do only 2-3 binary search probes.
+        # It's too shallow to get a good result on its own,
+        # that's why we can pick two close points and interpolate between them.
+        # This improves prediction by a lot while only needing at ~3 probes
         if len(trys) > 1:
             # sort by metric difference from target
             points = sorted(trys, key=lambda _x: abs(_x[1] - target_metric))
