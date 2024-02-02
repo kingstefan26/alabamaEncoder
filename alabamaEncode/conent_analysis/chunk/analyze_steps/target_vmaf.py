@@ -78,8 +78,14 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             trys.append((mid_crf, statistical_representation))
             depth += 1
 
-        # if we didn't get it right on the first,
-        # via linear interpolation, try to find the crf that is closest to target metric
+        # to limit the overhead we do only 3/2 binary search probes,
+        # it's too shallow to get a good result on its own
+        # that's why we can pick two close points and interpolate between them,
+        # this improves prediction by a lot while only needing at ~3 probes
+        # the only problem is:
+        # (diagram of an example 3 probe binary search)
+        # left edge | --|3probe|-- ||2probe|| --|3probe|-- |||first probe||| --|3probe|-- ||2probe|| --|3probe|-- | right edge
+        # when the ideal crf is bettwen 3probe and edge, then the interpolation will usually lead to a extreme
         if len(trys) > 1:
             # sort by metric difference from target
             points = sorted(trys, key=lambda _x: abs(_x[1] - target_metric))
