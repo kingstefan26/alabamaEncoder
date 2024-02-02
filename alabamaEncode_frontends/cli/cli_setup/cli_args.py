@@ -18,10 +18,9 @@ def read_args(ctx):
     parser.add_argument("output", type=str, help="Output video file")
 
     parser.add_argument(
-        "--encode_audio",
+        "--dont-encode_audio",
         help="Mux audio",
-        action=argparse.BooleanOptionalAction,
-        default=ctx.encode_audio,
+        action="store_false",
         dest="encode_audio",
     )
 
@@ -84,8 +83,7 @@ def read_args(ctx):
     parser.add_argument(
         "--vbr_perchunk_optimisation",
         help="Enable automatic bitrate optimisation per chunk",
-        action=argparse.BooleanOptionalAction,
-        default=ctx.vbr_perchunk_optimisation,
+        action="store_true",
         dest="vbr_perchunk_optimisation",
     )
 
@@ -581,7 +579,7 @@ def read_args(ctx):
     ctx.vmaf = args.vmaf_target
     ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
     ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
-    ctx.use_celery = args.celery
+    ctx.use_celery = args.use_celery
     ctx.flag1 = args.flag1
     ctx.flag2 = args.flag2
     ctx.flag3 = args.flag3
@@ -589,8 +587,8 @@ def read_args(ctx):
     ctx.prototype_encoder.speed = args.encoder_speed_override
     ctx.multiprocess_workers = args.multiprocess_workers
     ctx.bitrate_adjust_mode = args.bitrate_adjust_mode
-    ctx.bitrate_undershoot = args.undershoot
-    ctx.bitrate_overshoot = args.overshoot
+    ctx.bitrate_undershoot = args.bitrate_undershoot
+    ctx.bitrate_overshoot = args.bitrate_overshoot
     ctx.crf_bitrate_mode = args.crf_bitrate_mode
     ctx.prototype_encoder.crf = args.crf
     ctx.prototype_encoder.hdr = args.hdr
@@ -613,7 +611,7 @@ def read_args(ctx):
     ctx.prototype_encoder.maximum_frame_average_light_level = args.frame_average_light
     ctx.prototype_encoder.chroma_sample_position = args.chroma_sample_position
     ctx.prototype_encoder.video_filters = args.video_filters
-    ctx.auto_crop = args.autocrop
+    ctx.auto_crop = args.auto_crop
     ctx.bitrate_string = args.bitrate
     ctx.vmaf_phone_model = args.vmaf_phone_model
     ctx.vmaf_4k_model = args.vmaf_4k_model

@@ -71,10 +71,12 @@ def get_target_ssimdb(bitrate: int, ctx, chunk_sequence) -> float:
 
 
 def setup_ssimdb_target(ctx: AlabamaContext, sequence: ChunkSequence):
-    if (
-        not ctx.flag1
-        and ctx.crf_based_vmaf_targeting is False
-        and ctx.vbr_perchunk_optimisation
+    if all(
+        [
+            not ctx.flag1,
+            ctx.crf_based_vmaf_targeting is False,
+            ctx.vbr_perchunk_optimisation,
+        ]
     ):
         if ctx.prototype_encoder.bitrate is None:
             print("No bitrate set, cannot set SSIMDB target, set --bitrate")
