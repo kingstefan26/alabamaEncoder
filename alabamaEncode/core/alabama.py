@@ -150,6 +150,7 @@ class AlabamaContext:
     args_tune = "balanced"
     dont_calc_final_vmaf = False
 
+    metric_to_target = "vmaf"
     vmaf: int = 96
     denoise_vmaf_ref = False
     crf_model_weights = "7,2,10,2,7"
@@ -225,6 +226,8 @@ class AlabamaContext:
         Return what metric and to what degree to target based on config
         TO BE FILLED
         """
+        if self.metric_to_target == "ssimu2":
+            return Metrics.SSIMULACRA2, self.vmaf
         return Metrics.VMAF, self.vmaf
 
     def get_output_res(self) -> List[int]:

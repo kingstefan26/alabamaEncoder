@@ -39,16 +39,20 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             enc_copy.override_flags = None
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc_copy.run(
-                metric_to_calculate=Metrics.VMAF,
+                metric_to_calculate=metric,
                 metric_params=ctx.get_vmaf_options(),
                 override_if_exists=False,
             )
 
             # TODO: offset the faster preset by metric amount
-            return get_metric_from_stats(
+            result = get_metric_from_stats(
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
-            ) + get_vmaf_probe_offset(enc_copy)
+            )
+            if metric == Metrics.VMAF:
+                result += +get_vmaf_probe_offset(enc_copy)
+
+            return result
 
         probes = ctx.probe_count
         if probes > 3:

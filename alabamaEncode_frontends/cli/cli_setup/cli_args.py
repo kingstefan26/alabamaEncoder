@@ -490,6 +490,13 @@ def read_args(ctx):
     )
 
     parser.add_argument(
+        "--metric_to_target",
+        default=ctx.metric_to_target,
+        choices=["vmaf", "ssimu2"],
+        help="Uses all the vmaf target logic but a different metric",
+    )
+
+    parser.add_argument(
         "--dynamic_vmaf_target",
         default=ctx.dynamic_vmaf_target,
         action="store_true",
@@ -605,5 +612,6 @@ def read_args(ctx):
     ctx.denoise_vmaf_ref = args.denoise_vmaf_ref
     ctx.multi_res_pipeline = args.multi_res_pipeline
     ctx.dont_calc_final_vmaf = args.dont_calc_final_vmaf
+    ctx.metric_to_target = args.metric_to_target
 
     return ctx
