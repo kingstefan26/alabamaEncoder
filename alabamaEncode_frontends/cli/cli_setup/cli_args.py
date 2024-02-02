@@ -164,9 +164,9 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--crf_based_vmaf_targeting",
+        "--no_crf_based_vmaf_targeting",
         help="per chunk, find a crf that hits target quality and encode using that",
-        action="store_true",
+        action="store_false",
         dest="crf_based_vmaf_targeting",
     )
 
