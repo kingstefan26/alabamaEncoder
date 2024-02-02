@@ -84,7 +84,10 @@ class BinaryNotFound(Exception):
         self.name = name
 
     def __str__(self):
-        return f"Binary {self.name} not found"
+        return (
+            f"Binary {self.name} not found,"
+            f" set the {self.name.upper()}_CLI_PATH environment variable to the path of the binary."
+        )
 
 
 def register_bin(name, cli):
