@@ -335,7 +335,9 @@ class AlabamaEncodingJob:
 
                     threads = os.cpu_count()
                     if len(command_objects) < threads:
-                        ctx.prototype_encoder.threads = threads / len(command_objects)
+                        ctx.prototype_encoder.threads = int(
+                            threads / len(command_objects)
+                        )
 
                     # order chunks based on order
                     if ctx.chunk_order == "random":
