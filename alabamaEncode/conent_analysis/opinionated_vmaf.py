@@ -49,7 +49,7 @@ def convexhull_get_resolutions(codec: Codec) -> list[str]:
 def get_crf_limits(codec: Codec) -> tuple[int, int]:
     match codec:
         case Codec.av1:
-            return 18, 55
+            return 17, 40
         case _:
             return 12, 50
 
