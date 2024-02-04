@@ -14,10 +14,10 @@ from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.impl.ssim import get_video_ssim
 from alabamaEncode.metrics.metric import Metrics
 from alabamaEncode.metrics.metric_exeption import MetricException
 from alabamaEncode.metrics.options import MetricOptions
-from alabamaEncode.metrics.ssim.calc import get_video_ssim
 
 
 class Encoder(ABC):

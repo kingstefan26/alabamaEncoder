@@ -8,7 +8,7 @@ from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
-from alabamaEncode.metrics.ssim.calc import get_video_ssim
+from alabamaEncode.metrics.impl.ssim import get_video_ssim
 from alabamaEncode.scene.chunk import ChunkObject
 
 
