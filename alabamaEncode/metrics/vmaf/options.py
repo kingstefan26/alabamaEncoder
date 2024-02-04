@@ -37,7 +37,9 @@ class VmafOptions(MetricOptions):
             else:
                 return f'path={models["normal"]}'
 
-
-if __name__ == "__main__":
-    print(VmafOptions().get_model())
-    assert VmafOptions(uhd=True).get_model() != VmafOptions().get_model()
+    @staticmethod
+    def test():
+        print(VmafOptions().get_model())
+        assert VmafOptions(uhd=True).get_model() != VmafOptions().get_model()
+        assert VmafOptions(phone=True).get_model() != VmafOptions().get_model()
+        assert VmafOptions(neg=True).get_model() != VmafOptions().get_model()
