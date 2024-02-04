@@ -111,25 +111,6 @@ def calc_ssimu2(
 
 class Ssimu2Result(MetricResult):
     def __init__(self, cli_out: str):
-        self.fps = -1
-        self.percentile_50 = -1
-        self.percentile_25 = -1
-        self.percentile_10 = -1
-        self.percentile_5 = -1
-        self.percentile_1 = -1
-        self.max = -1
-        self.min = -1
-        self.mean = -1
-        self.harmonic_mean = -1
-        self.std_dev = -1
-
-        # example cli output:
-        # Mean: 61.61176129
-        # Median: 61.06329560
-        # Std Dev: 4.19601857
-        # 5th Percentile: 56.16474208
-        # 95th Percentile: 69.57570546
-
         for line in cli_out.split("\n"):
             if "Mean" in line:
                 self.mean = float(line.split(":")[1])

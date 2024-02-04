@@ -8,18 +8,7 @@ class VmafResult(MetricResult):
         if pooled_metrics is None:
             pooled_metrics = {}
 
-        self.pooled_metrics = pooled_metrics
         self.fps = fps
-        self.percentile_50 = -1
-        self.percentile_25 = -1
-        self.percentile_10 = -1
-        self.percentile_5 = -1
-        self.percentile_1 = -1
-        self.max = -1
-        self.min = -1
-        self.mean = -1
-        self.harmonic_mean = -1
-        self.std_dev = -1
 
         if _frames is not None:
             frames = []
@@ -38,10 +27,9 @@ class VmafResult(MetricResult):
             self.percentile_25 = vmaf_scores[int(len(vmaf_scores) * 0.25)]
             self.percentile_50 = vmaf_scores[int(len(vmaf_scores) * 0.5)]
 
-            # check if pooled metrics are present
-            if "vmaf" in self.pooled_metrics:
-                self.mean = self.pooled_metrics["vmaf"]["mean"]
-                self.harmonic_mean = self.pooled_metrics["vmaf"]["harmonic_mean"]
+            if "vmaf" in pooled_metrics:
+                self.mean = pooled_metrics["vmaf"]["mean"]
+                self.harmonic_mean = pooled_metrics["vmaf"]["harmonic_mean"]
             else:
                 self.mean = mean([x[1] for x in frames])
                 self.harmonic_mean = 1 / mean([1 / x[1] for x in frames if x[1] != 0])
