@@ -10,7 +10,7 @@ from tqdm import tqdm
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.metrics.vmaf.vmaf import VmafOptions
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject

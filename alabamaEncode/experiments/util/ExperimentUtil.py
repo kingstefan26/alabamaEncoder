@@ -11,7 +11,7 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.metrics.vmaf.vmaf import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 only_one = False

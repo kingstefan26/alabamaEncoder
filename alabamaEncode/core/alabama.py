@@ -16,7 +16,7 @@ from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.metrics.vmaf.vmaf import VmafOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 

@@ -6,7 +6,7 @@ from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
 from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.vmaf.options import VmafOptions
+from alabamaEncode.metrics.vmaf.vmaf import VmafOptions
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
 
