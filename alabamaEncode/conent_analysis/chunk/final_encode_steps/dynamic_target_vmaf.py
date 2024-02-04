@@ -21,7 +21,7 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -124,7 +124,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
             )
             nonlocal stats
             stats = enc.run(
-                metric_to_calculate=Metrics.VMAF,
+                metric_to_calculate=Metric.VMAF,
                 metric_params=ctx.get_vmaf_options(),
             )
             _metric = get_metric_from_stats(

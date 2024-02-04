@@ -14,9 +14,9 @@ from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.exception import MetricException
 from alabamaEncode.metrics.impl.ssim import get_video_ssim
-from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.metric_exeption import MetricException
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
 
 
@@ -110,7 +110,7 @@ class Encoder(ABC):
         override_if_exists=True,
         timeout_value=-1,
         calcualte_ssim=False,
-        metric_to_calculate: Metrics = None,
+        metric_to_calculate: Metric = None,
         metric_params: MetricOptions = None,
         on_frame_encoded: callable = None,
     ) -> EncodeStats:

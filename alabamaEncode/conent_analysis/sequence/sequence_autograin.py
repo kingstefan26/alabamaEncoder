@@ -11,7 +11,7 @@ from alabamaEncode.core.alamaba_kv import AlabamaKv
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.impl.SvtAvif import AvifEncoderSvtenc
-from alabamaEncode.metrics.image_metrics import ImageMetrics
+from alabamaEncode.metrics.image import ImageMetrics
 from alabamaEncode.scene.sequence import ChunkSequence
 
 

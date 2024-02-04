@@ -14,9 +14,9 @@ from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -219,14 +219,14 @@ class AlabamaContext:
             denoise_refrence=self.denoise_vmaf_ref,
         )
 
-    def get_metric_target(self) -> Tuple[Metrics, float]:
+    def get_metric_target(self) -> Tuple[Metric, float]:
         """
         Return what metric and to what degree to target based on config
         TO BE FILLED
         """
         if self.metric_to_target == "ssimu2":
-            return Metrics.SSIMULACRA2, self.vmaf
-        return Metrics.VMAF, self.vmaf
+            return Metric.SSIMULACRA2, self.vmaf
+        return Metric.VMAF, self.vmaf
 
     def get_output_res(self) -> List[int]:
         """

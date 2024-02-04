@@ -5,11 +5,11 @@ from alabamaEncode.core.bin_utils import get_binary, register_bin
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.metrics.calc import calculate_metric
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.metric_exeption import Ssimu2Exception
-from alabamaEncode.metrics.metric_result import MetricResult
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
+from alabamaEncode.metrics.exception import Ssimu2Exception
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
+from alabamaEncode.metrics.result import MetricResult
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         ),
         options=Ssimu2Options(),
         threads=10,
-        metric=Metrics.SSIMULACRA2,
+        metric=Metric.SSIMULACRA2,
     )
     print(result.mean)
     print(result.percentile_1)

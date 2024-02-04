@@ -4,9 +4,9 @@ from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import Target
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
             print(f"res: {res}, target 95, computed crf: {enc.crf}")
 
             stats = enc.run(
-                metric_to_calculate=Metrics.VMAF,
+                metric_to_calculate=Metric.VMAF,
                 metric_params=VmafOptions(ref=ref_display),
             )
             print(

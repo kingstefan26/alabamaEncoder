@@ -10,7 +10,7 @@ from tqdm import tqdm
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.chunk import ChunkObject
@@ -42,7 +42,7 @@ def best_bitrate_single(ctx, chunk: ChunkObject) -> int:
         mid_bitrate = (left + right) // 2
         enc.bitrate = mid_bitrate
         mid_vmaf = enc.run(
-            metric_to_calculate=Metrics.VMAF,
+            metric_to_calculate=Metric.VMAF,
             metric_params=VmafOptions(uhd=True, neg=True),
         ).metric_results.mean
 

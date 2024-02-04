@@ -1,6 +1,6 @@
 import json
 
-from alabamaEncode.metrics.metric_result import MetricResult
+from alabamaEncode.metrics.result import MetricResult
 
 
 class EncodeStats:

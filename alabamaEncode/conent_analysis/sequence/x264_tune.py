@@ -4,7 +4,7 @@ from multiprocessing import Pool
 
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.impl.X264 import EncoderX264
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
@@ -12,7 +12,7 @@ def run_tune(a):
     tune, enc, path = a
     enc.x264_tune = tune
     enc.output_path = os.path.join(path, f"{tune}{enc.get_chunk_file_extension()}")
-    stats = enc.run(metric_to_calculate=Metrics.VMAF)
+    stats = enc.run(metric_to_calculate=Metric.VMAF)
     print(f"{tune}: {stats.bitrate}kb/s {stats.metric_results.harmonic_mean}vmaf")
     return tune, stats.metric_results.harmonic_mean, stats.bitrate
 

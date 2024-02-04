@@ -13,7 +13,7 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -49,7 +49,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 stats=stats,
                 statistical_representation=ctx.vmaf_target_representation,
             )
-            if metric == Metrics.VMAF:
+            if metric == Metric.VMAF:
                 result += +get_vmaf_probe_offset(enc_copy)
 
             return result

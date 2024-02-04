@@ -1,7 +1,7 @@
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
+from alabamaEncode.metrics.metric import Metric
 
 
 from alabamaEncode.scene.chunk import ChunkObject
@@ -15,7 +15,7 @@ def calculate_metric(
     comparison_display: ComparisonDisplayResolution = None,
     threads=1,
     options=None,
-    metric: Metrics = Metrics.VMAF,
+    metric: Metric = Metric.VMAF,
 ):
     if chunk is None:
         _chunk = ChunkObject()
@@ -29,7 +29,7 @@ def calculate_metric(
         _chunk = chunk
 
     match metric:
-        case Metrics.VMAF:
+        case Metric.VMAF:
             from alabamaEncode.metrics.impl.vmaf import calc_vmaf
 
             return calc_vmaf(
@@ -39,7 +39,7 @@ def calculate_metric(
                 threads=threads,
                 vmaf_options=options,
             )
-        case Metrics.SSIMULACRA2:
+        case Metric.SSIMULACRA2:
             from alabamaEncode.metrics.impl.ssimu2 import calc_ssimu2
 
             return calc_ssimu2(

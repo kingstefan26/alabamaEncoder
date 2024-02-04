@@ -10,7 +10,7 @@ from alabamaEncode.conent_analysis.opinionated_vmaf import (
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -73,7 +73,7 @@ class EncodeMultiResCandidates(ChunkAnalyzePipelineItem):
                     continue
 
                 stats: EncodeStats = enc.run(
-                    metric_params=vmaf_options, metric_to_calculate=Metrics.VMAF
+                    metric_params=vmaf_options, metric_to_calculate=Metric.VMAF
                 )
 
                 vmaf = get_metric_from_stats(

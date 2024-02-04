@@ -8,11 +8,11 @@ from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.metrics.calc import calculate_metric
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
-from alabamaEncode.metrics.metric import Metrics
-from alabamaEncode.metrics.metric_exeption import VmafException
-from alabamaEncode.metrics.metric_result import MetricResult
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
+from alabamaEncode.metrics.exception import VmafException
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
+from alabamaEncode.metrics.result import MetricResult
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         comparison_display=ComparisonDisplayResolution.FHD,
         options=VmafOptions(phone=True),
         threads=10,
-        metric=Metrics.VMAF,
+        metric=Metric.VMAF,
     )
     print(result.mean)
     print(result.harmonic_mean)
@@ -257,7 +257,7 @@ if __name__ == "__main__":
         comparison_display=ComparisonDisplayResolution.FHD,
         options=VmafOptions(),
         threads=10,
-        metric=Metrics.VMAF,
+        metric=Metric.VMAF,
     )
     print(a.__repr__())
 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         comparison_display=ComparisonDisplayResolution.UHD,
         options=VmafOptions(uhd=True),
         threads=10,
-        metric=Metrics.VMAF,
+        metric=Metric.VMAF,
     )
     print(a.__repr__())
 
@@ -280,7 +280,7 @@ if __name__ == "__main__":
         comparison_display=ComparisonDisplayResolution.HD,
         options=VmafOptions(phone=True),
         threads=10,
-        metric=Metrics.VMAF,
+        metric=Metric.VMAF,
     )
     print(a.__repr__())
 

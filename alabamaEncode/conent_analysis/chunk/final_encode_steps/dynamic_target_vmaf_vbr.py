@@ -8,7 +8,7 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calc import get_metric_from_stats
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 
@@ -49,7 +49,7 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
                 f"{chunk.chunk_index}.{_bitrate}{enc.get_chunk_file_extension()}",
             )
             stats: EncodeStats = enc.run(
-                metric_to_calculate=Metrics.VMAF,
+                metric_to_calculate=Metric.VMAF,
                 metric_params=vmaf_options,
                 override_if_exists=False,
             )

@@ -11,7 +11,7 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
-from alabamaEncode.metrics.metric import Metrics
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 
 only_one = False
@@ -68,7 +68,7 @@ def run_test(
     enc.threads = threads
     stats = enc.run(
         override_if_exists=False,
-        metric_to_calculate=Metrics.VMAF,
+        metric_to_calculate=Metric.VMAF,
         calcualte_ssim=True,
         metric_params=VmafOptions(neg=True, threads=threads),
     )

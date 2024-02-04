@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Metrics(Enum):
+class Metric(Enum):
     VMAF = 1
     PSNR = 2
     SSIM = 3

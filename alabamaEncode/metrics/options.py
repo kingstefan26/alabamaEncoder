@@ -1,6 +1,6 @@
 from abc import ABC
 
-from alabamaEncode.metrics.comp_dis import ComparisonDisplayResolution
+from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 
 
 class MetricOptions(ABC):
