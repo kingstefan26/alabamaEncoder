@@ -15,7 +15,7 @@ from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.calculate import calculate_metric
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands

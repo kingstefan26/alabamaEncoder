@@ -4,7 +4,7 @@ import re
 from alabamaEncode.core.bin_utils import get_binary, register_bin
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
-from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.calculate import calculate_metric
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.exception import Ssimu2Exception
 from alabamaEncode.metrics.metric import Metric

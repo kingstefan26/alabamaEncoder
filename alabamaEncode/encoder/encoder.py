@@ -13,7 +13,7 @@ from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.metrics.calc import calculate_metric
+from alabamaEncode.metrics.calculate import calculate_metric
 from alabamaEncode.metrics.exception import MetricException
 from alabamaEncode.metrics.impl.ssim import get_video_ssim
 from alabamaEncode.metrics.metric import Metric
