@@ -6,3 +6,4 @@ class Metrics(Enum):
     PSNR = 2
     SSIM = 3
     SSIMULACRA2 = 4
+    XPSNR = 5
