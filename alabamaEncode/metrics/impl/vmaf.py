@@ -63,18 +63,12 @@ class VmafOptions(MetricOptions):
 
 def calc_vmaf(
     chunk: ChunkObject,
-    video_filters="",
-    threads=1,
-    vmaf_options: VmafOptions = None,
+    vmaf_options: VmafOptions,
     log_path="",
 ):
     assert vmaf_options is not None
 
-    owo = get_input_pipes(
-        chunk=chunk,
-        options=vmaf_options,
-        video_filters=video_filters,
-    )
+    owo = get_input_pipes(chunk=chunk, options=vmaf_options)
 
     ref_pipe = owo["ref_pipe"]
     dist_pipe = owo["dist_pipe"]
@@ -85,7 +79,7 @@ def calc_vmaf(
         f'{get_binary("vmaf")} -q --json --output "{log_path}" --model {vmaf_options.get_model()} '
         f"--reference {ref_pipe} "
         f"--distorted {dist_pipe}"
-        f" --threads {threads}"
+        f" --threads {vmaf_options.threads}"
     )
 
     cli_results = run_cli_parallel(
@@ -189,8 +183,7 @@ if __name__ == "__main__":
     result: VmafResult = calculate_metric(
         reference_path=reference_path,
         distorted_path=distorted_path,
-        options=VmafOptions(phone=True),
-        threads=10,
+        options=VmafOptions(phone=True, threads=10),
         metric=Metric.VMAF,
     )
     print(result.mean)
@@ -203,8 +196,7 @@ if __name__ == "__main__":
     a = calculate_metric(
         reference_path=reference_path,
         distorted_path=distorted_path,
-        options=VmafOptions(),
-        threads=10,
+        options=VmafOptions(threads=10),
         metric=Metric.VMAF,
     )
     print(a.__repr__())
@@ -213,8 +205,7 @@ if __name__ == "__main__":
     a = calculate_metric(
         reference_path=reference_path,
         distorted_path=distorted_path,
-        options=VmafOptions(uhd=True),
-        threads=10,
+        options=VmafOptions(uhd=True, threads=10),
         metric=Metric.VMAF,
     )
     print(a.__repr__())
@@ -224,8 +215,7 @@ if __name__ == "__main__":
     chunk.chunk_path = distorted_path.path
     a = calculate_metric(
         chunk=chunk,
-        options=VmafOptions(phone=True),
-        threads=10,
+        options=VmafOptions(phone=True, threads=10),
         metric=Metric.VMAF,
     )
     print(a.__repr__())

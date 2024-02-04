@@ -176,10 +176,8 @@ def best_crf_single(chunk: ChunkObject, ctx, max_crf) -> int:
 
         mid_vmaf = calculate_metric(
             chunk=chunk,
-            video_filters=ctx.prototype_encoder.video_filters,
             options=VmafOptions(
-                uhd=True,
-                neg=True,
+                uhd=True, neg=True, video_filters=ctx.prototype_encoder.video_filters
             ),
         ).mean
 

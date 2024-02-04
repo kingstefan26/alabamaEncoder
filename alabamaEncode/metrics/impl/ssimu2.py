@@ -20,17 +20,11 @@ class Ssimu2Options(MetricOptions):
 
 def calc_ssimu2(
     chunk: ChunkObject,
-    video_filters="",
-    threads=1,
-    ssimu2_options: Ssimu2Options = None,
+    ssimu2_options: Ssimu2Options,
 ):
     assert ssimu2_options is not None
 
-    owo = get_input_pipes(
-        chunk=chunk,
-        options=ssimu2_options,
-        video_filters=video_filters,
-    )
+    owo = get_input_pipes(chunk=chunk, options=ssimu2_options)
 
     ref_pipe = owo["ref_pipe"]
     dist_pipe = owo["dist_pipe"]
@@ -98,8 +92,7 @@ if __name__ == "__main__":
         distorted_path=PathAlabama(
             "/mnt/data/objective-1-fast/minecruft_test_encode_h264.mkv"
         ),
-        options=Ssimu2Options(),
-        threads=10,
+        options=Ssimu2Options(threads=10),
         metric=Metric.SSIMULACRA2,
     )
     print(result.mean)

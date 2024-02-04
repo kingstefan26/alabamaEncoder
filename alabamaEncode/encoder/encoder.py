@@ -254,16 +254,17 @@ class Encoder(ABC):
             )  # we need seeking variables from the chunk but the path from the
             # encoder, since the encoder object might have changed the path
             local_chunk.chunk_path = self.output_path
+            metric_params = (
+                metric_params if metric_params is not None else MetricOptions()
+            )
+            metric_params.threads = self.threads
+            metric_params.video_filters = self.video_filters
 
             try:
                 stats.metric_results = calculate_metric(
                     chunk=local_chunk,
-                    video_filters=self.video_filters,
-                    options=metric_params
-                    if metric_params is not None
-                    else MetricOptions(),
+                    options=metric_params,
                     metric=metric_to_calculate,
-                    threads=self.threads,
                 )
             except MetricException as e:
                 raise Exception(

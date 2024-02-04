@@ -5,18 +5,18 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.stats import EncodeStats
+from alabamaEncode.metrics.impl.ssimu2 import Ssimu2Options
+from alabamaEncode.metrics.impl.vmaf import VmafOptions
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.scene.chunk import ChunkObject
 
 
 def calculate_metric(
+    options=None,
     distorted_path: PathAlabama = None,
     reference_path: PathAlabama = None,
     chunk: ChunkObject = None,
-    video_filters="",
-    threads=1,
-    options: MetricOptions = None,
     metric: Metric = Metric.VMAF,
 ):
     if chunk is None:
@@ -36,18 +36,14 @@ def calculate_metric(
 
             return calc_vmaf(
                 chunk=_chunk,
-                video_filters=video_filters,
-                threads=threads,
-                vmaf_options=options,
+                vmaf_options=options if options is not None else VmafOptions(),
             )
         case Metric.SSIMULACRA2:
             from alabamaEncode.metrics.impl.ssimu2 import calc_ssimu2
 
             return calc_ssimu2(
                 chunk=_chunk,
-                video_filters=video_filters,
-                threads=threads,
-                ssimu2_options=options,
+                ssimu2_options=options if options is not None else Ssimu2Options(),
             )
         case _:
             raise NotImplementedError(f"Metric {metric} not implemented")
@@ -60,13 +56,13 @@ def cleanup_input_pipes(output: dict):
         os.remove(output["dist_pipe"])
 
 
-def get_input_pipes(
-    chunk: ChunkObject, options: MetricOptions, video_filters: str
-) -> dict:
+def get_input_pipes(chunk: ChunkObject, options: MetricOptions) -> dict:
     """
     Create two named pipes that will output distorted and reference yuv frames,
     return the pipe paths and the commands that will feed them
     """
+
+    video_filters = options.video_filters
 
     assert os.path.exists(chunk.path)
     assert os.path.exists(chunk.chunk_path)
