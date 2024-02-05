@@ -13,6 +13,7 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
                     )
             ctx.prototype_encoder.qm_enabled = 0
             ctx.prototype_encoder.svt_tune = 2
+            ctx.prototype_encoder.svt_tf = 0
         case "appeal":
             print("Tuning for appeal")
             ctx.prototype_encoder.qm_enabled = 1
