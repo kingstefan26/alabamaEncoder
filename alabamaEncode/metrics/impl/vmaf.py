@@ -72,6 +72,9 @@ def calc_vmaf(
     ref_command = owo["ref_command"]
     dist_command = owo["dist_command"]
 
+    if log_path == "":
+        log_path = f"/tmp/{os.path.basename(chunk.chunk_path)}.vmaflog"
+
     vmaf_command = (
         f'{get_binary("vmaf")} -q --json --output "{log_path}" --model {vmaf_options.get_model()} '
         f"--reference {ref_pipe} "
