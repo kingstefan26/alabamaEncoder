@@ -6,11 +6,6 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.bin_utils import register_bin
 from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
-from alabamaEncode.metrics.calculate import (
-    calculate_metric,
-    get_input_pipes,
-    cleanup_input_pipes,
-)
 from alabamaEncode.metrics.exception import VmafException
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
@@ -68,6 +63,8 @@ def calc_vmaf(
 ):
     assert vmaf_options is not None
 
+    from alabamaEncode.metrics.calculate import get_input_pipes
+
     owo = get_input_pipes(chunk=chunk, options=vmaf_options)
 
     ref_pipe = owo["ref_pipe"]
@@ -89,6 +86,8 @@ def calc_vmaf(
             vmaf_command,
         ]
     )
+
+    from alabamaEncode.metrics.calculate import cleanup_input_pipes
 
     cleanup_input_pipes(owo)
 
@@ -172,6 +171,8 @@ class VmafResult(MetricResult):
 
 
 if __name__ == "__main__":
+    from alabamaEncode.metrics.calculate import calculate_metric
+
     register_bin("vmaf", "/home/kokoniara/.local/opt/vmaf")
 
     reference_path = PathAlabama("/mnt/data/objective-1-fast/MINECRAFT_60f_420.y4m")

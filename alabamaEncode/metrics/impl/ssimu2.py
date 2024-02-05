@@ -1,11 +1,8 @@
 from alabamaEncode.core.bin_utils import get_binary, register_bin
 from alabamaEncode.core.cli_executor import run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
-from alabamaEncode.metrics.calculate import (
-    calculate_metric,
-    get_input_pipes,
-    cleanup_input_pipes,
-)
+
+
 from alabamaEncode.metrics.exception import Ssimu2Exception
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
@@ -24,6 +21,8 @@ def calc_ssimu2(
 ):
     assert ssimu2_options is not None
 
+    from alabamaEncode.metrics.calculate import get_input_pipes
+
     owo = get_input_pipes(chunk=chunk, options=ssimu2_options)
 
     ref_pipe = owo["ref_pipe"]
@@ -40,6 +39,8 @@ def calc_ssimu2(
             main_command,
         ]
     )
+
+    from alabamaEncode.metrics.calculate import cleanup_input_pipes
 
     cleanup_input_pipes(owo)
 
@@ -87,6 +88,8 @@ if __name__ == "__main__":
         "ssimulacra2_rs",
         "/home/kokoniara/.local/opt/ssimulacra2_rs",
     )
+    from alabamaEncode.metrics.calculate import calculate_metric
+
     result: Ssimu2Result = calculate_metric(
         reference_path=PathAlabama("/mnt/data/objective-1-fast/MINECRAFT_60f_420.y4m"),
         distorted_path=PathAlabama(
