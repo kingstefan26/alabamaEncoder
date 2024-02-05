@@ -31,7 +31,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 probe_file_base,
                 f"probe.{_crf}{enc_copy.get_chunk_file_extension()}",
             )
-            enc_copy.speed = get_vmaf_probe_speed(enc_copy)
+            enc_copy.speed = max(get_vmaf_probe_speed(enc_copy), enc.speed)
             enc_copy.passes = 1
             enc_copy.threads = 1
             enc_copy.grain_synth = 0
