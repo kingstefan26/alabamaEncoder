@@ -46,10 +46,14 @@ def convexhull_get_resolutions(codec: Codec) -> list[str]:
             return ["1920:-2", "1280:-2", "960:-2", "854:-2", "768:-2", "480:-2"]
 
 
-def get_crf_limits(codec: Codec) -> tuple[int, int]:
-    match codec:
+def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
+    match encoder.get_codec():
         case Codec.av1:
-            return 17, 40
+            match encoder.get_enum():
+                case EncodersEnum.SVT_AV1:
+                    return 22, 38
+                case _:
+                    return 18, 40
         case _:
             return 12, 50
 

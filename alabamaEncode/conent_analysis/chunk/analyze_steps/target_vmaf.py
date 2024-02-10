@@ -62,14 +62,14 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             )
 
         trys = []
-        low_crf, high_crf = get_crf_limits(enc_copy.get_codec())
+        low_crf, high_crf = get_crf_limits(enc_copy)
         depth = 0
         mid_crf = 0
         while low_crf <= high_crf and depth < probes:
             mid_crf = (low_crf + high_crf) // 2
 
             if depth == 2 and ctx.probe_count == 3:
-                ll, lh = get_crf_limits(enc_copy.get_codec())
+                ll, lh = get_crf_limits(enc_copy)
                 m = (ll + lh) // 2
                 # if closer to edge, then the middle, use that edge
                 if abs(mid_crf - ll) < abs(mid_crf - m):
@@ -126,7 +126,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 if not enc_copy.supports_float_crfs():
                     crf = int(crf)
 
-                crf_min, crf_max = get_crf_limits(enc_copy.get_codec())
+                crf_min, crf_max = get_crf_limits(enc_copy)
 
                 crf = max(min(crf, crf_max), crf_min)
             else:

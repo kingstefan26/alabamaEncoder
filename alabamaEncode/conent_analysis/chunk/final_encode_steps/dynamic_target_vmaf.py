@@ -172,7 +172,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
         enc.passes = 1
         enc.rate_distribution = EncoderRateDistribution.CQ
 
-        low_crf, high_crf = get_crf_limits(enc.get_codec())
+        low_crf, high_crf = get_crf_limits(enc)
         max_score_error = 0.7
 
         tol = 0.10 if enc.supports_float_crfs() else 1
