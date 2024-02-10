@@ -51,7 +51,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 statistical_representation=ctx.vmaf_target_representation,
             )
             if metric == Metric.VMAF:
-                result += +get_vmaf_probe_offset(enc_copy)
+                result += get_vmaf_probe_offset(enc_copy)
 
             return result
 
