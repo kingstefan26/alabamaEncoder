@@ -22,11 +22,26 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
         enc_copy = copy.deepcopy(enc)
 
+        kv = ctx.get_kv()
+
+        crf_from_kv = kv.get(bucket="target_vmaf", key=str(chunk.chunk_index))
+        if crf_from_kv is not None:
+            if enc.supports_float_crfs():
+                enc.crf = float(crf_from_kv)
+            else:
+                enc.crf = int(crf_from_kv)
+            return enc
+
         metric, target_metric = ctx.get_metric_target()
 
         probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         def get_score(_crf):
+            kv_key = f"{chunk.chunk_index}_{_crf}"
+            result_from_kv = kv.get(bucket="target_vmaf_probes", key=kv_key)
+            if result_from_kv is not None:
+                return float(result_from_kv)
+
             enc_copy.crf = _crf
             enc_copy.output_path = os.path.join(
                 probe_file_base,
@@ -53,6 +68,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             if metric == Metric.VMAF:
                 result += get_vmaf_probe_offset(enc_copy)
 
+            kv.set(bucket="target_vmaf_probes", key=kv_key, value=result)
             return result
 
         probes = ctx.probe_count
@@ -136,6 +152,8 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             crf = mid_crf
 
         ctx.log(f"{chunk.log_prefix()}Decided on crf: {crf}", category="probe")
+
+        kv.set(bucket="target_vmaf", key=str(chunk.chunk_index), value=crf)
 
         # clean up probe folder
         if os.path.exists(probe_file_base):
