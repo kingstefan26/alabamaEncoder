@@ -152,7 +152,7 @@ async def execute_commands(
                 future = loop.run_in_executor(executor, command.run)
                 futures.append(future)
 
-            done, pending = await asyncio.wait(futures, timeout=5)
+            done, pending = await asyncio.wait(futures, timeout=7)
             futures = [f for f in futures if not f.done()]
 
             for future in done:
@@ -192,8 +192,8 @@ async def execute_commands(
             if auto_scale and len(futures) > 0:
                 concurrent_jobs_limit += (
                     1
-                    if cpu_utilization < target_cpu_utilization
-                    and mem_usage < max_mem_usage
+                    if cpu_utilization <= target_cpu_utilization
+                    and mem_usage <= max_mem_usage
                     else -1
                 )
                 concurrent_jobs_limit = max(1, min(concurrent_jobs_limit, max_limit))
