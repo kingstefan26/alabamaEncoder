@@ -1,5 +1,6 @@
 import copy
 import os
+import shutil
 
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
@@ -135,6 +136,10 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             crf = mid_crf
 
         ctx.log(f"{chunk.log_prefix()}Decided on crf: {crf}", category="probe")
+
+        # clean up probe folder
+        if os.path.exists(probe_file_base):
+            shutil.rmtree(probe_file_base)
 
         enc.crf = crf
 
