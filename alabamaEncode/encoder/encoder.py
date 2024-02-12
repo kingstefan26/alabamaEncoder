@@ -71,6 +71,9 @@ class Encoder(ABC):
     svt_tf = 1  # temporally filtered ALT-REF frames
     svt_overlay = 0  # enable overlays
     svt_aq_mode = 2  # 0: off, 1: flat, 2: adaptive
+    svt_variance_boost_strength = 2
+    svt_new_variance_octile = 6
+    svt_sharpness = 2
     film_grain_denoise: (0 | 1) = 0
 
     x264_tune = "film"

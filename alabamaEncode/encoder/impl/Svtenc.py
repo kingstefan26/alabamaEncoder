@@ -133,6 +133,14 @@ class EncoderSvt(Encoder):
                 kommand += " --enable-qm 0"
 
             kommand += f" --enable-tf {self.svt_tf}"
+
+            if self.is_psy():
+                kommand += (
+                    f" --variance-boost-strength {self.svt_variance_boost_strength}"
+                )
+                kommand += f" --new-variance-octile {self.svt_new_variance_octile}"
+                kommand += f" --sharpness {self.svt_sharpness}"
+
         else:
             kommand += self.override_flags
 
@@ -168,8 +176,11 @@ class EncoderSvt(Encoder):
     def get_version(self) -> str:
         # Svt[info]: -------------------------------------------
         # Svt[info]: SVT [version]:	SVT-AV1 Encoder Lib v1.7.0-2-g09df835
-        o = run_cli(get_binary("SvtAv1EncApp")).get_output()
-        return o.split("\n")[1].split(" ")[-1]
+        o = run_cli(f"{get_binary('SvtAv1EncApp')} --version").get_output()
+        return " ".join(o.split(" ")[:-1])
+
+    def is_psy(self) -> bool:
+        return "PSY" in self.get_version()
 
     def parse_output_for_output(self, buffer) -> List[str]:
         if buffer is None:

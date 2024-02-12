@@ -1,4 +1,5 @@
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
@@ -28,5 +29,9 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
             ctx.prototype_encoder.svt_tune = 0
         case _:
             raise RuntimeError(f"Invalid args_tune: {ctx.args_tune}")
+
+    if isinstance(ctx.prototype_encoder, EncoderSvt) and ctx.prototype_encoder.is_psy():
+        print("Found svt psy, using tune 3")
+        ctx.prototype_encoder.svt_tune = 3
 
     return ctx
