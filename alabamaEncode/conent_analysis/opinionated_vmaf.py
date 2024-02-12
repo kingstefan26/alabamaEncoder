@@ -1,6 +1,7 @@
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.impl.Aomenc import EncoderAom
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 
 
 def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
@@ -21,8 +22,8 @@ def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
 
 
 def get_vmaf_probe_speed(encoder: Encoder) -> int:
-    match encoder.get_enum():
-        case EncodersEnum.SVT_AV1:
+    match encoder:
+        case EncoderSvt():
             return 6
         case _:
             # TODO: pick other values
@@ -30,8 +31,8 @@ def get_vmaf_probe_speed(encoder: Encoder) -> int:
 
 
 def get_vmaf_probe_offset(enc: Encoder) -> int:
-    match enc.get_enum():
-        case EncodersEnum.SVT_AV1:
+    match enc:
+        case EncoderSvt():
             return 1
         case _:
             # TODO: pick other values
@@ -49,13 +50,21 @@ def convexhull_get_resolutions(codec: Codec) -> list[str]:
 def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
     match encoder.get_codec():
         case Codec.av1:
-            match encoder.get_enum():
-                case EncodersEnum.SVT_AV1:
+            match encoder:
+                case EncoderSvt():
                     return 22, 38
                 case _:
                     return 18, 40
         case _:
             return 12, 50
+
+
+if __name__ == "__main__":
+    my_enc = EncoderSvt()
+    my_aom_enc = EncoderAom()
+
+    assert get_crf_limits(my_enc), [22, 38]
+    assert get_crf_limits(my_aom_enc), [18, 40]
 
 
 def get_vmaf_list(codec: Codec) -> list[int]:
