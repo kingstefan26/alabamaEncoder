@@ -4,11 +4,13 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderRav1e(Encoder):
+    def get_pretty_name(self) -> str:
+        return "RAV1E"
+
     def get_encode_commands(self) -> List[str]:
         vec = [
             self.get_ffmpeg_pipe_command(),
@@ -53,8 +55,6 @@ class EncoderRav1e(Encoder):
         o = run_cli(get_binary("rav1e") + " --version").get_output()
         return o.split("\n")[0].replace("rav1e ", "")
 
-    def get_enum(self) -> EncodersEnum:
-        return EncodersEnum.RAV1E
 
     def get_codec(self) -> Codec:
         return Codec.av1

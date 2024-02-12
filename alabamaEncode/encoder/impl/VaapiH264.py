@@ -3,14 +3,16 @@ from typing import List
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderVaapiH264(Encoder):
+    def get_pretty_name(self) -> str:
+        return "VAAPI_H264"
 
     def get_codec(self) -> Codec:
         return Codec.h264
+
     def get_encode_commands(self) -> List[str]:
         self.bit_override = 8  # TODO: check vaapi profile support
         vec = []
@@ -63,5 +65,3 @@ class EncoderVaapiH264(Encoder):
     def get_version(self) -> str:
         return "N/A"
 
-    def get_enum(self) -> EncodersEnum:
-        return EncodersEnum.VAAPI_H264

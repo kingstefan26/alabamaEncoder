@@ -9,7 +9,7 @@ from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf 
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.timer import Timer
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
@@ -33,7 +33,7 @@ class ChunkEncoder(BaseCommandObject):
 
     def supports_encoded_a_frame_callback(self):
         return (
-            self.ctx.prototype_encoder.get_enum() == EncodersEnum.SVT_AV1
+            isinstance(self.ctx.prototype_encoder, EncoderSvt)
             and not isinstance(self.ctx.chunk_encode_class, DynamicTargetVmaf)
         )
 

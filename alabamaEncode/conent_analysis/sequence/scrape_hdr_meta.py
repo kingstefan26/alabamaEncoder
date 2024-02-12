@@ -4,7 +4,8 @@ import os
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
+from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
@@ -13,8 +14,8 @@ def scrape_hdr_metadata(ctx: AlabamaContext, sequence: ChunkSequence):
     Scrapes HDR metadata from the input file
     """
     if ctx.prototype_encoder.hdr and (
-        ctx.prototype_encoder.get_enum() == EncodersEnum.SVT_AV1
-        or ctx.prototype_encoder.get_enum() == EncodersEnum.X264
+        isinstance(ctx.prototype_encoder, EncoderSvt)
+        or isinstance(ctx.prototype_encoder, EncoderX264)
     ):
         if not Ffmpeg.is_hdr(PathAlabama(ctx.raw_input_file)):
             print("Input file is not HDR, disabling HDR mode")

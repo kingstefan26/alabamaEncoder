@@ -256,7 +256,7 @@ class AlabamaEncodingJob:
             print(f"Number of available workers: {len(num_workers)}")
         else:
             print(
-                f"Using {self.ctx.prototype_encoder.get_enum()} version: {self.ctx.prototype_encoder.get_version()}"
+                f"Using {self.ctx.prototype_encoder.get_pretty_name()} version: {self.ctx.prototype_encoder.get_version()}"
             )
 
         def encode_finished():

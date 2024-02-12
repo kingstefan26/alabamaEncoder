@@ -6,13 +6,12 @@ from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderX264(Encoder):
-    def get_enum(self) -> EncodersEnum:
-        return EncodersEnum.X264
+    def get_pretty_name(self) -> str:
+        return "X264"
 
     def get_codec(self) -> Codec:
         return Codec.h264

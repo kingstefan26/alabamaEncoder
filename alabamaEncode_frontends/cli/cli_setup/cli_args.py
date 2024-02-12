@@ -2,7 +2,11 @@ import argparse
 
 from argparse_range import range_action
 
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
+from alabamaEncode.encoder.encoder_factory import (
+    get_all_encoder_strings,
+    get_encoder_from_string,
+)
+from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 
 
 def read_args(ctx):
@@ -117,8 +121,8 @@ def read_args(ctx):
         "--encoder",
         help="What encoder to use",
         type=str,
-        default=str(EncodersEnum.SVT_AV1),
-        choices=EncodersEnum.get_all_encoder_strings(),
+        default=EncoderSvt().get_pretty_name(),
+        choices=get_all_encoder_strings(),
         dest="encoder",
     )
 
@@ -570,7 +574,7 @@ def read_args(ctx):
     ctx.output_file = args.output
     ctx.output_folder = ctx.output_file
     ctx.raw_input_file = args.input
-    ctx.prototype_encoder = EncodersEnum.from_str(args.encoder).get_encoder()
+    ctx.prototype_encoder = get_encoder_from_string(args.encoder)
     ctx.prototype_encoder.grain_synth = args.grain
     ctx.log_level = args.log_level
     ctx.dry_run = args.dry_run

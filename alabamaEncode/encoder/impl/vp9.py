@@ -5,7 +5,6 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
@@ -13,11 +12,12 @@ class EncoderVPX(Encoder):
     def get_codec(self) -> Codec:
         return Codec.vp9
 
-    def get_enum(self) -> EncodersEnum:
+    def get_pretty_name(self) -> str:
         if self.codec == "vp9":
-            return EncodersEnum.VP9
+            return "VPX_VP9"
         elif self.codec == "vp8":
-            return EncodersEnum.VP8
+            return "VPX_VP8"
+
 
     def __init__(self, codec):
         super().__init__()

@@ -6,16 +6,15 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderAom(Encoder):
+    def get_pretty_name(self) -> str:
+        return "AOMENC"
+
     def get_codec(self) -> Codec:
         return Codec.av1
-
-    def get_enum(self) -> EncodersEnum:
-        return EncodersEnum.AOMENC
 
     def supports_grain_synth(self) -> bool:
         return True

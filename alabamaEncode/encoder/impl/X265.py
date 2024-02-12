@@ -4,13 +4,13 @@ from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 
 
 class EncoderX265(Encoder):
-    def get_enum(self) -> EncodersEnum:
-        return EncodersEnum.X265
+
+    def get_pretty_name(self) -> str:
+        return "X265"
 
     def get_codec(self) -> Codec:
         return Codec.h265

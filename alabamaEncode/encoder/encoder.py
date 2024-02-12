@@ -10,7 +10,6 @@ from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.encoder.codec import Codec
-from alabamaEncode.encoder.encoder_enum import EncodersEnum
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calculate import calculate_metric
@@ -104,6 +103,10 @@ class Encoder(ABC):
 
     def supports_float_crfs(self) -> bool:
         return False
+
+    @abstractmethod
+    def get_pretty_name(self) -> str:
+        pass
 
     def run(
         self,
@@ -323,10 +326,6 @@ class Encoder(ABC):
         :return: a list of [frame, bitrate, fps], [] if no output is found, None if not implemented
         """
         return None
-
-    @abstractmethod
-    def get_enum(self) -> EncodersEnum:
-        pass
 
     @abstractmethod
     def get_codec(self) -> Codec:
