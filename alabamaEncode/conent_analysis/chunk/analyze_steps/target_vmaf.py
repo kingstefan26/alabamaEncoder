@@ -48,10 +48,6 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 f"probe.{_crf}{enc_copy.get_chunk_file_extension()}",
             )
             enc_copy.speed = max(get_vmaf_probe_speed(enc_copy), enc.speed)
-            enc_copy.passes = 1
-            enc_copy.threads = 1
-            enc_copy.grain_synth = 0
-            enc_copy.svt_tune = 0
             enc_copy.override_flags = None
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc_copy.run(
