@@ -52,7 +52,7 @@ def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
         case Codec.av1:
             match encoder:
                 case EncoderSvt():
-                    return 22, 38
+                    return 20, 35
                 case _:
                     return 18, 40
         case _:
