@@ -62,7 +62,7 @@ def verify_ffmpeg_library(lib_name: [str | List[str]]) -> None:
         lib_name = [lib_name]
     for lib in lib_name:
         if not check_ffmpeg_libraries(lib):
-            raise FFmpegNotCompiledWithLibrary(lib_name)
+            raise FFmpegNotCompiledWithLibrary(lib)
 
 
 def check_for_ffmpeg_libraries(lib_name: [str | List[str]]) -> bool:
