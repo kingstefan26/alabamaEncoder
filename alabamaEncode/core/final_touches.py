@@ -4,7 +4,7 @@ import random
 from torf import Torrent
 from tqdm import tqdm
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.bin_utils import get_binary, register_bin
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
@@ -99,9 +99,7 @@ def print_stats(
     lines.append("ALABAMAENCODES © 2024\n")
 
 
-def generate_previews(
-    input_file: str, output_folder: str, num_previews: int = 4, preview_length: int = 5
-):
+def generate_previews(input_file: str, output_folder: str):
     total_length = Ffmpeg.get_video_length(PathAlabama(input_file))  # lenght in seconds
 
     # one preview every 5 minutes, min 1 max 4
@@ -115,16 +113,29 @@ def generate_previews(
     is_av1 = Ffmpeg.get_codec(PathAlabama(input_file)) == "av1"
 
     for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
+        # create additional avif stream copy previews
         if is_av1:
             run_cli(
-                f'{get_binary("ffmpeg")} -y -ss {offset} -i "{input_file}" -t {preview_length} '
+                f'{get_binary("ffmpeg")} -y -ss {offset} -i "{input_file}" -t 5 '
                 f'-c copy "{output_folder}/preview_{i}.avif"'
             )
-        else:
-            run_cli(
-                f'{get_binary("ffmpeg")} -y -ss {offset}'
-                f' -i "{input_file}" -v:frames 1 "{output_folder}/preview_{i}.png"'
-            )
+        png_preview_path = f"{output_folder}/preview_{i}.png"
+        run_cli(
+            f'{get_binary("ffmpeg")} -y -ss {offset}'
+            f' -i "{input_file}" -v:frames 1 -pix_fmt rgb24 "{png_preview_path}"'
+        )
+        run_cli(
+            f'cat {png_preview_path} | {get_binary("cjpeg")} -q 95 -tune-psnr -optimize -progressive > "{png_preview_path.replace(".png", ".jpg")}"'
+        )
+        run_cli(f'{get_binary("ect")} "{png_preview_path}"')
+
+
+if __name__ == "__main__":
+    register_bin("ect", "/home/kokoniara/.local/opt/ect")
+    generate_previews(
+        "/home/kokoniara/dev/VideoSplit/test_codes/lessons_in_meth_fast13_slow4/out.mp4",
+        "/home/kokoniara/dev/VideoSplit/test_codes/lessons_in_meth_fast13_slow4/",
+    )
 
 
 def create_torrent_file(video: str, encoder_name: str, output_folder: str):
