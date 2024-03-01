@@ -4,7 +4,7 @@ import random
 from torf import Torrent
 from tqdm import tqdm
 
-from alabamaEncode.core.bin_utils import get_binary, register_bin
+from alabamaEncode.core.bin_utils import get_binary, register_bin, BinaryNotFound
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
@@ -124,10 +124,14 @@ def generate_previews(input_file: str, output_folder: str):
             f'{get_binary("ffmpeg")} -y -ss {offset}'
             f' -i "{input_file}" -v:frames 1 -pix_fmt rgb24 "{png_preview_path}"'
         )
-        run_cli(
-            f'cat {png_preview_path} | {get_binary("cjpeg")} -q 95 -tune-psnr -optimize -progressive > "{png_preview_path.replace(".png", ".jpg")}"'
-        )
-        run_cli(f'{get_binary("ect")} "{png_preview_path}"')
+        try:
+            run_cli(
+                f'cat {png_preview_path} | {get_binary("cjpeg")} -q 95 -tune-psnr -optimize -progressive >'
+                f' "{png_preview_path.replace(".png", ".jpg")}"'
+            )
+            run_cli(f'{get_binary("ect")} "{png_preview_path}"')
+        except BinaryNotFound:
+            print("cjpeg or ect not found, skipping jpeg preview/png optimization")
 
 
 if __name__ == "__main__":
