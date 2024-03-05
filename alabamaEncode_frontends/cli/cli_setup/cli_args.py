@@ -233,9 +233,10 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--dont_generate_previews",
+        "--generate_previews",
+        "-previews",
         help="Dont generate previews for encoded file",
-        action="store_false",
+        action="store_true",
         dest="generate_previews",
     )
 
