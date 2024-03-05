@@ -36,10 +36,7 @@ class VideoConcatenator:
         self.mux_audio = mux_audio
         self.subs_file = subs_file
         self.audio_only = audio_only
-        if temp_dir == "":
-            self.temp_dir = os.path.dirname(output) + "/"
-        else:
-            self.temp_dir = temp_dir
+        self.temp_dir = temp_dir
 
     def find_files_in_dir(self, folder_path, extension):
         """
@@ -68,6 +65,9 @@ class VideoConcatenator:
         if not self.output:
             print("If muxing please provide an output path")
             return
+
+        if self.temp_dir == "":
+            self.temp_dir = os.path.dirname(self.output) + "/"
 
         if os.path.exists(self.output):
             print(f"File {self.output} already exists")
