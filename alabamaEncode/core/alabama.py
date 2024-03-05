@@ -296,3 +296,8 @@ class AlabamaContext:
 
         # new file base
         return probe_folder_path
+
+    def get_title(self):
+        if self.title == "":
+            return os.path.basename(self.output_file)
+        return self.title

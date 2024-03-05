@@ -34,7 +34,7 @@ async def main():
         job = AlabamaEncodingJob.load_from_file(serialised_job)
         if queue.qsize() > 0:
             job.update_current_step_name("Queued")
-        print(f"Found and loaded encoding job for {job.ctx.title}")
+        print(f"Found and loaded encoding job for {job.ctx.get_title()}")
         queue.put_nowait(job)
 
     # async version of the server:
@@ -57,7 +57,7 @@ async def main():
             return aiohttp.web.Response(status=400)
         if queue.qsize() > 0:
             job.update_current_step_name("Queued")
-        print(f"Received encoding job for {_job.ctx.title}")
+        print(f"Received encoding job for {_job.ctx.get_title()}")
         queue.put_nowait(_job)
         return aiohttp.web.Response(status=200)
 

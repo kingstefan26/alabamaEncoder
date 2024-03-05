@@ -34,7 +34,7 @@ class MutliResPackage(RefineStep):
             file_with_audio=ctx.input_file,
             start_offset=ctx.start_offset,
             end_offset=ctx.end_offset,
-            title=ctx.title,
+            title=ctx.get_title(),
             encoder_name=ctx.encoder_name,
             mux_audio=False,
             subs_file=[],

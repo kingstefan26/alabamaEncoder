@@ -49,13 +49,7 @@ class AlabamaEncodingJob:
         self.current_step_name = "idle"
         self.serialise_folder = self.get_serialise_folder()
         sha1 = hashlib.sha1()
-        sha1.update(
-            str.encode(
-                self.ctx.title
-                if self.ctx.title != ""
-                else os.path.basename(self.ctx.output_file)
-            )
-        )
+        sha1.update(str.encode(self.ctx.get_title()))
         hash_as_hex = sha1.hexdigest()
         # convert the hex back to int and restrict it to the relevant int range
         title_hash = int(hash_as_hex, 16) % sys.maxsize
@@ -117,10 +111,6 @@ class AlabamaEncodingJob:
                 print("Url is set, but token is not, not updating status api")
                 return
 
-            if self.ctx.title == "":
-                print("Url is set, but title is not, not updating status api")
-                return
-
             should_update_api = False
 
             if time.time() - self.update_proc_throttle > self.update_max_freq_sec:
@@ -136,7 +126,7 @@ class AlabamaEncodingJob:
                 "data": {
                     "img": self.ctx.poster_url,
                     "status": round(self.proc_done, 1),  # rounded
-                    "title": self.ctx.title,
+                    "title": self.ctx.get_title(),
                     "phase": self.current_step_name,
                 },
             }
@@ -166,7 +156,7 @@ class AlabamaEncodingJob:
                 "action": "update",
                 "data": {
                     "id": (socket.gethostname()),
-                    "status": f"Working on {self.ctx.title}",
+                    "status": f"Working on {self.ctx.get_title()}",
                     "utilization": int(psutil.cpu_percent()),
                     "ws_ip": self.ws_server.ip if self.ws_server is not None else "",
                 },
@@ -214,7 +204,7 @@ class AlabamaEncodingJob:
                 "type": "worker",
                 "data": {
                     "id": (socket.gethostname()),
-                    "status": f"Working on {self.ctx.title}",
+                    "status": f"Working on {self.ctx.get_title()}",
                     "utilization": int(psutil.cpu_percent()),
                     "ws_ip": self.ws_server.ip if self.ws_server is not None else "",
                 },
@@ -224,7 +214,7 @@ class AlabamaEncodingJob:
                 "data": {
                     "img": self.ctx.poster_url,
                     "status": round(self.proc_done, 1),  # rounded
-                    "title": self.ctx.title,
+                    "title": self.ctx.get_title(),
                     "phase": self.current_step_name,
                 },
             }
@@ -410,7 +400,7 @@ class AlabamaEncodingJob:
                         audio_param_override=self.ctx.audio_params,
                         start_offset=self.ctx.start_offset,
                         end_offset=self.ctx.end_offset,
-                        title=self.ctx.title,
+                        title=self.ctx.get_title(),
                         encoder_name=self.ctx.encoder_name,
                         mux_audio=self.ctx.encode_audio,
                         subs_file=[self.ctx.sub_file],
@@ -434,7 +424,7 @@ class AlabamaEncodingJob:
                 output=self.ctx.output_file,
                 input_file=self.ctx.raw_input_file,
                 grain_synth=self.ctx.prototype_encoder.grain_synth,
-                title=self.ctx.title,
+                title=self.ctx.get_title(),
                 cut_intro=(True if self.ctx.start_offset > 0 else False),
                 cut_credits=(True if self.ctx.end_offset > 0 else False),
                 croped=(True if self.ctx.crop_string != "" else False),

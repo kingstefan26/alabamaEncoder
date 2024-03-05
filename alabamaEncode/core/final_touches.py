@@ -45,8 +45,6 @@ def print_stats(
             num /= 1024.0
         return f"{num:.1f}Yi{suffix}"
 
-    if title == "":
-        title = os.path.basename(output)
     print_and_save(f"## {title}")
 
     lines = []
