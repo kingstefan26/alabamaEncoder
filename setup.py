@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="alabamaEncoder",
-    version="0.1",
+    version="0.3",
     packages=find_packages(),
     install_requires=[
         "scenedetect",
@@ -11,6 +11,10 @@ setup(
         "redis",
         "psutil",
         "opencv-python",
+        "requests",
+        "torf",
+        "websockets",
+        "argparse_range",
     ],
     entry_points="""
       [console_scripts]
