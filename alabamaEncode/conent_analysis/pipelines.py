@@ -39,9 +39,7 @@ def setup_chunk_analyze_chain(ctx, sequence):
         ctx.chunk_analyze_chain.append(GrainSynth())
 
     # setting up rate control, adaptive or not
-    if ctx.weird_x264:
-        ctx.chunk_analyze_chain.append(PlainCrf())
-    elif ctx.bitrate_adjust_mode == "chunk":
+    if ctx.bitrate_adjust_mode == "chunk":
         ctx.chunk_analyze_chain.append(VbrPerChunkOptimised())
     elif ctx.dynamic_vmaf_target:
         print("Using dynamic vmaf targeting")
@@ -90,17 +88,11 @@ def setup_chunk_encoder(ctx, sequence):
         PlainFinalEncode,
     )
 
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.weirdX264 import (
-        TargetX264,
-    )
-
     from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf_vbr import (
         DynamicTargetVmafVBR,
     )
 
-    if ctx.weird_x264:
-        ctx.chunk_encode_class = TargetX264()
-    elif ctx.flag1:
+    if ctx.flag1:
         ctx.chunk_encode_class = WeridCapedCrfFinalEncode()
     elif ctx.ai_vmaf_targeting:
         ctx.chunk_encode_class = AiTargetedVmafFinalEncode()

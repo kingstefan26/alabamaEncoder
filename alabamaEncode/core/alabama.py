@@ -68,7 +68,6 @@ class AlabamaContext:
             "probe_speed_override": self.probe_speed_override,
             "ai_vmaf_targeting": self.ai_vmaf_targeting,
             "vmaf_target_representation": self.vmaf_target_representation,
-            "weird_x264": self.weird_x264,
             "flag1": self.flag1,
             "flag2": self.flag2,
             "flag3": self.flag3,
@@ -162,7 +161,6 @@ class AlabamaContext:
     probe_speed_override = prototype_encoder.speed
     ai_vmaf_targeting = False
     vmaf_target_representation = "mean"
-    weird_x264 = False
     dynamic_vmaf_target = False
     dynamic_vmaf_target_vbr = False
     best_crfs = []
