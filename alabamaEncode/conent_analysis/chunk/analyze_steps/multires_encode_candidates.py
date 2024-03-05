@@ -54,6 +54,8 @@ class EncodeMultiResCandidates(ChunkAnalyzePipelineItem):
             if scale_str not in ",".join(vf):
                 vf.append(scale_str)
 
+            vf = [f for f in vf if f != ""]
+
             enc.video_filters = ",".join(vf)
 
             for crf in crf_range:

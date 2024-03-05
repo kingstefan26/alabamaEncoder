@@ -45,6 +45,8 @@ class EncodeMultiResFinals(FinalEncodeStep):
             if scale_str not in ",".join(vf):
                 vf.append(scale_str)
 
+            vf = [f for f in vf if f != ""]
+
             enc.video_filters = ",".join(vf)
 
             enc.output_path = f"{ctx.temp_folder}{chunk.chunk_index}_{vmaf}{enc.get_chunk_file_extension()}"
