@@ -322,7 +322,7 @@ def read_args(ctx):
     parser.add_argument(
         "--flag3",
         action="store_true",
-        help="Find best bitrate using the top 5% of most complex chunks",
+        help="Find best bitrate using the top 5%% of most complex chunks",
         dest="flag3",
     )
 
