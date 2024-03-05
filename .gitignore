@@ -27,3 +27,4 @@ venv/**
 
 alabamaEncode/ai_vmaf/train
 /alabamaEncode/experiments/crf_vmaf_relation/
+/alabamaEncoder.egg-info/
