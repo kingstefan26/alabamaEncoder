@@ -23,6 +23,7 @@ class VideoConcatenator:
         mux_audio=True,
         subs_file=None,
         audio_only=False,
+        temp_dir="",
     ):
         self.files = files
         self.output = output
@@ -35,6 +36,10 @@ class VideoConcatenator:
         self.mux_audio = mux_audio
         self.subs_file = subs_file
         self.audio_only = audio_only
+        if temp_dir == "":
+            self.temp_dir = os.path.dirname(output) + "/"
+        else:
+            self.temp_dir = temp_dir
 
     def find_files_in_dir(self, folder_path, extension):
         """
@@ -68,13 +73,13 @@ class VideoConcatenator:
             print(f"File {self.output} already exists")
             return
 
-        concat_file_path = "lovelyconcat"
+        concat_file_path = self.temp_dir + "concat.txt"
 
         with open(concat_file_path, "w") as f:
             for file in self.files:
                 f.write(f"file '{file}'\n")
 
-        vid_output = self.output + ".videoonly.mkv"
+        vid_output = f"{self.temp_dir}vid.mkv"
         print("Concating Video")
         os.system(
             f'{get_binary("ffmpeg")} -y -stats -v error -f concat '
@@ -133,7 +138,7 @@ class VideoConcatenator:
 
         if self.mux_audio and has_audio_track:
             print("Encoding a audio track")
-            audio_output = self.output + ".audioonly.mkv"
+            audio_output = f"{self.temp_dir}audio.mkv"
 
             start_offset_command = ""
             if self.start_offset != -1:

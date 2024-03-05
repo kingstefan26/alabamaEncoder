@@ -404,6 +404,7 @@ class AlabamaEncodingJob:
                         encoder_name=self.ctx.encoder_name,
                         mux_audio=self.ctx.encode_audio,
                         subs_file=[self.ctx.sub_file],
+                        temp_dir=self.ctx.temp_folder,
                     ).find_files_in_dir(
                         folder_path=self.ctx.temp_folder,
                         extension=self.ctx.get_encoder().get_chunk_file_extension(),
