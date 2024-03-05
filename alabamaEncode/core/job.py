@@ -428,23 +428,24 @@ class AlabamaEncodingJob:
         self.update_proc_done(99)
         self.update_current_step_name("Final touches")
 
-        print_stats(
-            output_folder=self.ctx.output_folder,
-            output=self.ctx.output_file,
-            input_file=self.ctx.raw_input_file,
-            grain_synth=self.ctx.prototype_encoder.grain_synth,
-            title=self.ctx.title,
-            cut_intro=(True if self.ctx.start_offset > 0 else False),
-            cut_credits=(True if self.ctx.end_offset > 0 else False),
-            croped=(True if self.ctx.crop_string != "" else False),
-            scaled=(True if self.ctx.scale_string != "" else False),
-            tonemaped=(
-                True
-                if not self.ctx.prototype_encoder.hdr
-                and Ffmpeg.is_hdr(PathAlabama(self.ctx.input_file))
-                else False
-            ),
-        )
+        if self.ctx.generate_stats:
+            print_stats(
+                output_folder=self.ctx.output_folder,
+                output=self.ctx.output_file,
+                input_file=self.ctx.raw_input_file,
+                grain_synth=self.ctx.prototype_encoder.grain_synth,
+                title=self.ctx.title,
+                cut_intro=(True if self.ctx.start_offset > 0 else False),
+                cut_credits=(True if self.ctx.end_offset > 0 else False),
+                croped=(True if self.ctx.crop_string != "" else False),
+                scaled=(True if self.ctx.scale_string != "" else False),
+                tonemaped=(
+                    True
+                    if not self.ctx.prototype_encoder.hdr
+                    and Ffmpeg.is_hdr(PathAlabama(self.ctx.input_file))
+                    else False
+                ),
+            )
         if self.ctx.generate_previews:
             generate_previews(
                 input_file=self.ctx.output_file, output_folder=self.ctx.output_folder

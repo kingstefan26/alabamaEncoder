@@ -240,6 +240,14 @@ def read_args(ctx):
     )
 
     parser.add_argument(
+        "--generate_stats",
+        "-stats",
+        help="Generate stats for encoded file",
+        action="store_true",
+        dest="generate_stats",
+    )
+
+    parser.add_argument(
         "--override_bad_wrong_cache_path",
         help="Override the check for input file path matching in scene cache loading",
         action="store_true",
@@ -605,7 +613,8 @@ def read_args(ctx):
     ctx.title = args.title
     ctx.chunk_order = args.chunk_order
     ctx.audio_params = args.audio_params
-    ctx.generate_previews = ctx.generate_previews
+    ctx.generate_previews = args.generate_previews
+    ctx.generate_stats = args.generate_stats
     ctx.encode_audio = args.encode_audio
     ctx.sub_file = args.sub_file
     ctx.prototype_encoder.color_primaries = args.color_primaries

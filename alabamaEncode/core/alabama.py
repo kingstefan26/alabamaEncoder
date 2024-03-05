@@ -82,6 +82,7 @@ class AlabamaContext:
             "chunk_order": self.chunk_order,
             "audio_params": self.audio_params,
             "generate_previews": self.generate_previews,
+            "generate_stats": self.generate_stats,
             "encoder_name": self.encoder_name,
             "encode_audio": self.encode_audio,
             "auto_crop": self.auto_crop,
@@ -184,7 +185,8 @@ class AlabamaContext:
         "-c:a libopus -ac 2 -b:v 96k -vbr on -lfe_mix_level 0.5 -mapping_family 1"
     )
     poster_url = ""
-    generate_previews = True
+    generate_previews = False
+    generate_stats = False
     encoder_name = "SouAV1R"
     encode_audio = True
     auto_crop = False
