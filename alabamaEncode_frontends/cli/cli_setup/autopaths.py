@@ -44,7 +44,7 @@ def auto_output_paths(ctx):
     if ctx.output_file == "auto":
         if ctx.title == "":
             print(
-                '`--title "Title (year) [SExx|Nothing for movies]"` must be set if output file is set to auto'
+                '`--title "Title (year) [S--E--|Nothing for movies]"` must be set if output file is set to auto'
             )
             quit()
         if not is_valid_title(ctx.title):
