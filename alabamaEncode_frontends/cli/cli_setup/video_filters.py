@@ -29,7 +29,7 @@ def parse_video_filters(ctx):
         if ctx.prototype_encoder.hdr is False and Ffmpeg.is_hdr(
             PathAlabama(ctx.input_file)
         ):
-            print("Input file is HDR, Tonemapping")
+            print("Input Video is HDR but requested a SDR encode, auto-tonemapping")
             vec.append(Ffmpeg.get_tonemap_vf())
 
         ctx.prototype_encoder.video_filters = ",".join(vec)
