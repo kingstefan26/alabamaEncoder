@@ -89,12 +89,6 @@ def print_stats(
     print_and_save("\n".join(lines))
 
     print_and_save("\n")
-    print_and_save(
-        f"https://autocompressor.net/av1?v=https://badidea.kokoniara.software/{os.path.basename(output)}&i= poster_url "
-        f"&w={Ffmpeg.get_width(PathAlabama(output))}&h={Ffmpeg.get_height(PathAlabama(output))}"
-    )
-    print_and_save("\n")
-    lines.append("ALABAMAENCODES © 2024\n")
 
 
 def generate_previews(input_file: str, output_folder: str):
