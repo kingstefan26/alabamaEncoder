@@ -15,6 +15,7 @@ from alabamaEncode_frontends.cli.cli_setup.paths import parse_paths
 from alabamaEncode_frontends.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode_frontends.cli.cli_setup.res_preset import parse_resolution_presets
 from alabamaEncode_frontends.cli.cli_setup.validate_codecs import validate_codecs
+from alabamaEncode_frontends.cli.cli_setup.validate_files import validate_input
 from alabamaEncode_frontends.cli.cli_setup.video_filters import parse_video_filters
 
 runtime = -1
@@ -33,6 +34,7 @@ def setup_context_for_standalone_usage() -> AlabamaContext:
 def run_pipeline(ctx):
     creation_pipeline = [
         read_args,
+        validate_input,
         auto_output_paths,
         parse_paths,
         parse_rd,
