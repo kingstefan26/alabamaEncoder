@@ -15,6 +15,12 @@ def validate_input(ctx):
             print("Cant find video track in input file")
             quit()
 
+        if video_track["codec_name"] == "vc1":
+            print(
+                "Input file is VC1, VC1 ffmpeg seeking is broken, you'll need encode a lossless proxy to fix this"
+            )
+            quit()
+
         hdr = True
         if (
             "bt709" in video_track["color_transfer"]

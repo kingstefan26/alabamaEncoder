@@ -14,7 +14,6 @@ from alabamaEncode_frontends.cli.cli_setup.cli_args import read_args
 from alabamaEncode_frontends.cli.cli_setup.paths import parse_paths
 from alabamaEncode_frontends.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode_frontends.cli.cli_setup.res_preset import parse_resolution_presets
-from alabamaEncode_frontends.cli.cli_setup.validate_codecs import validate_codecs
 from alabamaEncode_frontends.cli.cli_setup.validate_files import validate_input
 from alabamaEncode_frontends.cli.cli_setup.video_filters import parse_video_filters
 
@@ -40,7 +39,6 @@ def run_pipeline(ctx):
         parse_rd,
         parse_resolution_presets,
         parse_video_filters,
-        validate_codecs,
     ]
     for pipeline_item in creation_pipeline:
         ctx = pipeline_item(ctx)
