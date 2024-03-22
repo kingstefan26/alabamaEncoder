@@ -33,9 +33,9 @@ def setup_context_for_standalone_usage() -> AlabamaContext:
 def run_pipeline(ctx):
     creation_pipeline = [
         read_args,
-        validate_input,
         auto_output_paths,
         parse_paths,
+        validate_input,
         parse_rd,
         parse_resolution_presets,
         parse_video_filters,

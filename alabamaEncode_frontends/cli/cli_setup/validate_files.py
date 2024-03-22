@@ -30,11 +30,22 @@ def validate_input(ctx):
 
         dem, num = video_track["avg_frame_rate"].split("/")
         fps_rounded = "{:.2f}".format(float(dem) / float(num))
+        vid_bitrate = ctx.get_kv().get_global("video_bitrate_formatted")
+        if vid_bitrate is None:
+            vid_bitrate = "{:.2f}".format(
+                (
+                    Ffmpeg.get_source_bitrates(
+                        PathAlabama(ctx.raw_input_file), calculate_audio=False
+                    )[0]
+                    / 1000
+                )
+            )
+            ctx.get_kv().set_global("video_bitrate_formatted", vid_bitrate)
         print(
-            f"Input Video: {video_track['width']}x{video_track['height']} @ {fps_rounded} fps, {video_track['pix_fmt'].upper()}, {'HDR' if hdr else 'SDR'}"
+            f"Input Video: {video_track['width']}x{video_track['height']} @ {fps_rounded} fps, {video_track['pix_fmt'].upper()}, {'HDR' if hdr else 'SDR'}, {vid_bitrate} Kb/s"
         )
 
     except Exception as e:
-        print("Failed parsing input file, is it a valid video file?")
+        print(f'Input file parsing failed: "{e}", is it a valid video file?')
         quit()
     return ctx
