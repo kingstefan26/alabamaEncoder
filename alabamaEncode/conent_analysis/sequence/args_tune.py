@@ -13,7 +13,7 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
                         "YOU ARE USING SIMPLE DENOISE, THIS IS NOT RECOMMENDED FOR FIDELITY TUNING"
                     )
             ctx.prototype_encoder.qm_enabled = 0
-            ctx.prototype_encoder.svt_tune = 2
+            ctx.prototype_encoder.svt_tune = 1
             ctx.prototype_encoder.svt_tf = 0
         case "appeal":
             print("Tuning for appeal")
