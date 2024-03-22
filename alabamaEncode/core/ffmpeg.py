@@ -172,34 +172,35 @@ class Ffmpeg:
         )
 
     @staticmethod
-    def get_source_bitrates(path: PathAlabama, shutit=False) -> tuple[float, float]:
+    def get_source_bitrates(
+        path: PathAlabama, calculate_video=True, calculate_audio=True
+    ) -> tuple[float, float]:
         """
         stolen from the one and only autocompressor.com's source code 🤑
         Returns tuple of bitrates (firstVideoStream, firstAudioStream)
         Works via demux-to-null (container stats are considered false)
         """
         common = "-show_entries packet=size -of default=nokey=1:noprint_wrappers=1"
-
         command_v = f"ffprobe -v error -select_streams V:0 {common} {path.get_safe()}"
         command_a = f"ffprobe -v error -select_streams a:0 {common} {path.get_safe()}"
-
-        packets_v_arr = (
-            run_cli(command_v).verify().strip_mp4_warning().get_output().split("\n")
-        )
-        packets_a_arr = (
-            run_cli(command_a).verify().strip_mp4_warning().get_output().split("\n")
-        )
-
-        packets_v_bits = sum([int(i) * 8 for i in packets_v_arr if i.isdigit()])
-        packets_a_bits = sum([int(j) * 8 for j in packets_a_arr if j.isdigit()])
+        vid_bps = 0
+        aud_bps = 0
 
         real_duration = Ffmpeg.get_video_length(path)
 
-        vid_bps = round(packets_v_bits / real_duration)
-        aud_bps = round(packets_a_bits / real_duration)
-        if shutit is False:
-            print(f"Video is {vid_bps} bps")
-            print(f"Audio is {aud_bps} bps")
+        if calculate_video:
+            packets_v_arr = (
+                run_cli(command_v).verify().strip_mp4_warning().get_output().split("\n")
+            )
+            packets_v_bits = sum([int(i) * 8 for i in packets_v_arr if i.isdigit()])
+            vid_bps = round(packets_v_bits / real_duration)
+
+        if calculate_audio:
+            packets_a_arr = (
+                run_cli(command_a).verify().strip_mp4_warning().get_output().split("\n")
+            )
+            packets_a_bits = sum([int(j) * 8 for j in packets_a_arr if j.isdigit()])
+            aud_bps = round(packets_a_bits / real_duration)
 
         return vid_bps, aud_bps
 
