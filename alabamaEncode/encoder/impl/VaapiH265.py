@@ -57,7 +57,7 @@ class EncoderVaapiH265(Encoder):
             vec.append('-vf "format=nv12,hwupload"')
 
         # output
-        vec.append(f"{self.output_path}")
+        vec.append(f'"{self.output_path}"')
 
         return [" ".join(vec)]
 
@@ -66,4 +66,3 @@ class EncoderVaapiH265(Encoder):
 
     def get_version(self) -> str:
         return "N/A"
-
