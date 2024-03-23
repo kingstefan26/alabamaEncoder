@@ -12,20 +12,15 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
                     print(
                         "YOU ARE USING SIMPLE DENOISE, THIS IS NOT RECOMMENDED FOR FIDELITY TUNING"
                     )
-            ctx.prototype_encoder.qm_enabled = 0
             ctx.prototype_encoder.svt_tune = 1
             ctx.prototype_encoder.svt_tf = 0
         case "appeal":
             print("Tuning for appeal")
-            ctx.prototype_encoder.qm_enabled = 1
             ctx.prototype_encoder.qm_max = 8
             ctx.prototype_encoder.qm_min = 0
             ctx.prototype_encoder.svt_tune = 0
         case "balanced":
             print("Tuning for balanced appeal and fidelity")
-            ctx.prototype_encoder.qm_enabled = 1
-            ctx.prototype_encoder.qm_max = 15
-            ctx.prototype_encoder.qm_min = 8
             ctx.prototype_encoder.svt_tune = 0
         case _:
             raise RuntimeError(f"Invalid args_tune: {ctx.args_tune}")
