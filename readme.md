@@ -1,16 +1,18 @@
 # My vadeio encoda
 
-this is my attempt at encoding in a multi pc setup, currently supports svtav1
+this is my attempt at encoding in a multi pc setup, currently supports svtav1 aomenc x264 etc
 
 ![lovely screenshot of the worker](Screenshotidfk.png)
 
-## **WARNING: THIS IS A WORK IN PROGRESS, IT MAY NOT WORK, IT MAY EAT YOUR FILES, IT MAY EAT YOUR PC
+## *WARNING: THIS IS A WORK IN PROGRESS, IT MAY NOT WORK, TELL IF IT DOESN'T
+
+## **WINDOWS IS NOT SUPPORTED, USE WSL
 
 # Installation
 
-* `pip install alabamaEncoder`
+* `pipx install alabamaEncoder`
 * For basic usage make sure `SvtAv1EncApp`/`ffmpeg`/`ffprobe` are available on your path (you can use them in cli),
-  otherwise the program will crash if something is missing
+  don't worry tho, it'll tell you if something is missing
 
 # CLI
 
@@ -19,20 +21,6 @@ for local only/celery main:
 ````
 alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
 ````
-
-if running celery the celery broker ip should be under `REDIS_HOST` env var,
-eg `REDIS_HOST=192.168.1.10 alabamaEncoder worker 10`  
-otherwise assumed to be `localhost`
-
-for celery workers:
-
-````
-alabamaEncoder worker [# of worker processes] 
-````
-
-note: multiple files will be created in the output file's folder
-
-To clear the celery queue: `alabamaEncoder clear`
 
 | argument                      | type  | default                                                                   | description                                                                                                                                        |
 |-------------------------------|-------|---------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -76,18 +64,43 @@ To clear the celery queue: `alabamaEncoder clear`
 | --resolution_preset           | str   | ""                                                                        | Preset for the scale filter, possible choices are 4k 1440p 1080p 768p 720p 540p 480p 360p                                                          |
 | --ssim-db-target              | float | 20                                                                        | when doing autobirate what ssim dB should the bitrate target                                                                                       |
 
+If you want to use a custom build fork (e.g. svt-av1-psy) youll need to:
+
+- get the path of the binary
+- set it in an env var
+
+the env var is follows this pattern: `<cli name all upper case>_CLI_PATH` <br>
+
+eg `export SVTAV1ENCAPP_CLI_PATH=/path/to/SvtAv1EncApp; alabamaEncoder ...` <br>
+this applies to all binaries used by alabamaEncoder,
+so to use a custom build of ffmpeg, you can set the `FFMPEG_CLI_PATH` env var and so on
+
 ### Multi System Encoding
 
 #### to encode multi-system, you need to:
 
 - make sure all the paths on all the pcs are the same, easily done by encoding on a nfs share that's on mounted on the
   same path everywhere
-- The easiest broker for celery is redis a simple `docker run -d -p 6379:6379 --rm redis`, then set the env variable
-  from above
+- You'll need a job broker for celery,
+  the easiest one by far is redis a simple `docker run -d -p 6379:6379 --rm redis`, and set the env variable
+  like bellow
+
+to run a worker
+
+````
+alabamaEncoder worker [# of parrarel encode processes] 
+````
+
+the celery broker ip should be under `REDIS_HOST` env var for both workers and the main command,
+e.g. `export REDIS_HOST=192.168.1.10; alabamaEncoder worker 10`  
+otherwise assumed to be `localhost`
+
+Sometimes you might want restart encoding, but the queue will stay in redis even after quiting the main command,
+to clear the celery job queue: `alabamaEncoder clear`
 
 #### Things to Note:
 
-- Since i use ffmpeg seeking the bandwidth overhead is low
+- Since I use smart ffmpeg seeking the bandwidth overhead is low, 1gbps lan is plenty
 - the content analysis/scene detection is done on the system that's running the main command, will be configurable in
   the future
 
@@ -119,15 +132,35 @@ Downscale movie.mkv to a 1080p class resolution, tonemap if hdr, audio is 7.1 25
 then use aomenc to encode with grain denoise at level 17, speed 4, crf 25 finally mux and encode audio with above ffmpeg
 params
 
+## Build & Develop
+
+### get the code
+
+clone the repo <br>
+`python -m venv venv` <br>
+`source venv/bin/activate [.fish if you use fish shell]` <br>
+`pip install -r requirements.txt` <br>
+
+You can run without building with `python -m alabamaEncode_frontends.cli <cli args>` <br>
+
+### build
+
+`python -m build` <br>
+now [re]install ur local build <br>
+`pipx install . --editable --force`
+
 ## Notes
 
 - if you already are running `alabamaEncoder`, you can spin up new workers (multi pc guide), they will automatically
   connect
   and split the workload
-- if you crash/abort the script, dont worry, just rerun it with the same arguments and it will pick up where it left
+- if you crash/abort the script, rerun it with the same arguments, and it'll pick up where it left
   off
-- i *personally* did lots of testing and my ffmpeg split/concat method is frame perfect, but if you find any issues,
-  please provide a sample and create a issue
+- I *personally* did lots of testing, and my ffmpeg based split/concat method is frame perfect, but if you find any
+  issues,
+  please create an issue and provide a sample
+- All criticism is welcome, create an issue, and I'll be glad to explain decisions, fix bugs or even fill feature
+  requests
 
 ## Credits
 
