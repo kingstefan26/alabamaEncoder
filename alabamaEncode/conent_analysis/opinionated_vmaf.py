@@ -1,3 +1,5 @@
+import os
+
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Aomenc import EncoderAom
@@ -48,6 +50,9 @@ def convexhull_get_resolutions(codec: Codec) -> list[str]:
 
 
 def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
+    env_name = "CRF_LIMITS"
+    if env_name in os.environ:
+        return tuple(map(int, os.environ[env_name].split(",")))
     match encoder.get_codec():
         case Codec.av1:
             match encoder:
