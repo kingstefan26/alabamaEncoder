@@ -1,13 +1,3 @@
-"""
-Target vmaf but:
-Do two probes at slightly faster speeds,
-for each probe check if it's within the target, if its close enough, return it and quit early
-if none passes the early quit do linear interpolation.
-Encode at interpolated vmaf if it misses target by 1, redo interpolation but bicubic & encode
-This yields a minimum of one encode, a maximum of 4 while being within the target
-Most of the logic will be a copy of alabamaEncode/conent_analysis/chunk/target_vmaf.py,
-but as a final encode step, so we can change output files
-"""
 import os
 from typing import Tuple
 
@@ -72,6 +62,20 @@ def get_weighed_vmaf_score(
 
 
 class DynamicTargetVmaf(FinalEncodeStep):
+    """
+    Target vmaf but:
+    we add a bitrate weight that was determined using some empirical observation
+    now imagine a score, that is the vmaf error + the bitrate weight
+    if we plot it against crf we get a U curve or more likely a nike swoosh
+    we want to find the minimum of this curve
+    binary search does not work because the curve is unimodal and were looking for the minimum.
+    Alternatives are ternary search or golden section search
+    This is a final encode step, since we will be running all encodes at the slow speed
+    and then when we think its good enough we quit.
+    We don't run probes at faster speeds because
+    I've noticed that the vmaf calculation gives more overhead than actual encoding using reasonable SVTAV1 presets
+    """
+
     def run(
         self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
     ) -> EncodeStats:
