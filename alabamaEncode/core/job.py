@@ -30,6 +30,7 @@ from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.core.ws_update import WebsocketServer
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
+from alabamaEncode.scene.annel import annealing
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.sequence import ChunkSequence
 from alabamaEncode.scene.split import get_video_scene_list_skinny
@@ -344,6 +345,10 @@ class AlabamaEncodingJob:
                         command_objects.reverse()
                     else:
                         raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
+
+                    if ctx.throughput_scaling:
+                        # make the chunk length distribution homogenous
+                        command_objects = annealing(command_objects, 1000)
 
                     print(
                         f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"

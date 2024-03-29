@@ -33,6 +33,7 @@ class AlabamaContext:
         return {
             "use_celery": self.use_celery,
             "multiprocess_workers": self.multiprocess_workers,
+            "throughput_scaling": self.throughput_scaling,
             "log_level": self.log_level,
             "print_analysis_logs": self.print_analysis_logs,
             "dry_run": self.dry_run,
@@ -111,6 +112,7 @@ class AlabamaContext:
     use_celery: bool = False
     offload_server = ""
     multiprocess_workers: int = -1
+    throughput_scaling = False
     log_level: int = 0
     print_analysis_logs = False
     dry_run: bool = False

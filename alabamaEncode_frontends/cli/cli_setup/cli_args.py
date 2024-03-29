@@ -571,6 +571,14 @@ def read_args(ctx):
         dest="multi_res_pipeline",
     )
 
+    parser.add_argument(
+        '--throughput_scaling',
+        action='store_true',
+        help='Scale the multi-process workers based on throughput',
+        dest='throughput_scaling'
+    )
+
+
     args = parser.parse_args()
 
     ctx.output_file = args.output
@@ -645,5 +653,6 @@ def read_args(ctx):
     ctx.multi_res_pipeline = args.multi_res_pipeline
     ctx.dont_calc_final_vmaf = args.dont_calc_final_vmaf
     ctx.metric_to_target = args.metric_to_target
+    ctx.throughput_scaling = args.throughput_scaling
 
     return ctx
