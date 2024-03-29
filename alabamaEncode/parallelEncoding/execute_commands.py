@@ -1,21 +1,23 @@
 import asyncio
 import os
 from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 import psutil
 from tqdm import tqdm
 
 from alabamaEncode.core.chunk_job import ChunkEncoder
 from alabamaEncode.parallelEncoding.CeleryApp import run_command_on_celery, app
+from alabamaEncode.parallelEncoding.command import BaseCommandObject
 
 
 async def execute_commands(
-    use_celery,
-    command_objects,
-    multiprocess_workers,
+    use_celery=False,
+    command_objects: List[BaseCommandObject] = None,
+    multiprocess_workers: int = -1,
     pin_to_cores=False,
-    finished_scene_callback=None,
-    size_estimate_data=None,
+    finished_scene_callback: callable = None,
+    size_estimate_data: tuple = None,
 ):
     """
     Execute a list of commands in parallel
@@ -26,7 +28,7 @@ async def execute_commands(
     :param finished_scene_callback: call when a scene finishes, contains the number of finished scenes
     :param size_estimate_data: tuple(frames, kB) of scenes encoded so far for the estimate
     """
-    if len(command_objects) == 0:
+    if command_objects is None or len(command_objects) == 0:
         return
     are_commands_adaptive_commands = isinstance(command_objects[0], ChunkEncoder)
     # to provide a bitrate estimate in the progress bar
