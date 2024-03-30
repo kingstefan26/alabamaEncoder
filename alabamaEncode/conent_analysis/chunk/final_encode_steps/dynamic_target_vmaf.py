@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Tuple
 
 from alabamaEncode.conent_analysis.chunk.final_encode_step import (
@@ -89,6 +90,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
 
         original_speed = enc.speed
         original_output_path = enc.output_path
+        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
         trys = []
         stats = None
 
@@ -106,6 +108,8 @@ class DynamicTargetVmaf(FinalEncodeStep):
             )
             ctx.get_kv().set("best_crfs", chunk.chunk_index, crf)
             os.rename(enc.output_path, original_output_path)
+            if os.path.exists(probe_file_base):
+                shutil.rmtree(probe_file_base)
             return _stats
 
         metric_name = "vmaf"
@@ -166,8 +170,6 @@ class DynamicTargetVmaf(FinalEncodeStep):
 
             tries += 1
             return abs(metric_target - _metric), stats, _metric, _score, quit_early
-
-        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
 
         enc.output_path = os.path.join(
             probe_file_base,
