@@ -379,6 +379,7 @@ class AlabamaEncodingJob:
                                     frames_encoded_so_far,
                                     size_kb_so_far,
                                 ),
+                                throughput_scaling=ctx.throughput_scaling,
                             )
                         )
                         await encode_task

@@ -1,7 +1,8 @@
 import asyncio
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import List
+from typing import List, Tuple
 
 import psutil
 from tqdm import tqdm
@@ -18,6 +19,7 @@ async def execute_commands(
     pin_to_cores=False,
     finished_scene_callback: callable = None,
     size_estimate_data: tuple = None,
+    throughput_scaling=False,
 ):
     """
     Execute a list of commands in parallel
@@ -138,12 +140,53 @@ async def execute_commands(
             smoothing=0,
         )
 
+        frame_encoded_history: List[Tuple[int, float]] = []
+        last_frame_encode = time.time()
+        thughput_history = []
+        current_thughput = -1
+        previuus_thughput = -1
+
+        def frames_encoded(frame_count=1):
+            nonlocal last_frame_encode
+            nonlocal frame_encoded_history
+            nonlocal current_thughput
+            nonlocal previuus_thughput
+            nonlocal thughput_history
+            now = time.time()
+            if last_frame_encode == -1:
+                last_frame_encode = now
+            time_since_update = now - last_frame_encode
+            last_frame_encode = now
+            frame_encoded_history.append((frame_count, time_since_update))
+
+            # measure the throughput based on the last 5 updates, save to history and print
+            if len(frame_encoded_history) > 5:
+                frame_encoded_history.pop(0)
+            total_frames = sum([f[0] for f in frame_encoded_history])
+            total_time = sum([f[1] for f in frame_encoded_history])
+            thughput = total_frames / total_time
+            thughput_history.append(thughput)
+            # calculate the average throughput from the last 3 updates
+            if len(thughput_history) > 3:
+                thughput_history.pop(0)
+            previuus_thughput = current_thughput
+            current_thughput = sum(thughput_history) / len(thughput_history)
+            tqdm.write(
+                f"Current throughput: {current_thughput:.2f} f/s, Last: {previuus_thughput:.2f} f/s, currently running jobs: {len(futures)}"
+            )
+
+        def callback_wrapper():
+            pbar.update()
+            frames_encoded()
+
         # in the case that the encoder class supports "encoded a frame callback",
         # we can update the progress bar immediately after a frame is encoded,
         # so we set the callback
         if are_commands_adaptive_commands:
             for c in command_objects:
-                c.encoded_a_frame_callback = lambda frame, bitrate, fps: pbar.update()
+                c.encoded_a_frame_callback = (
+                    lambda frame, bitrate, fps: callback_wrapper()
+                )
 
         pbar.set_description(f"WORKERS: - CPU -% SWAP -%")
 
@@ -152,17 +195,17 @@ async def execute_commands(
 
             # Start new jobs if we are under the local_jobs_limit
             while (
-                currently_running_jobs < local_jobs_limit
+                currently_running_jobs <= local_jobs_limit
                 and completed_count + currently_running_jobs < total_scenes
             ):
                 command = command_objects[completed_count + currently_running_jobs]
-                if pin_to_cores:
-                    core = used_cores.index(0) if 0 in used_cores else None
-                    if core is not None:
-                        used_cores[core] = 1
-                        command.pin_to_core = core
+                if pin_to_cores and 0 in used_cores:
+                    core = used_cores.index(0)
+                    used_cores[core] = 1
+                    command.pin_to_core = core
                 future = loop.run_in_executor(executor, command.run)
                 futures.append(future)
+                currently_running_jobs = len(futures)
 
             # wait for any of the tasks to finish
             done, pending = await asyncio.wait(futures, timeout=7)
@@ -179,6 +222,7 @@ async def execute_commands(
                     command_object = command_objects[completed_count]
                     if not command_object.supports_encoded_a_frame_callback():
                         units_encoded = command_object.chunk.get_frame_count()
+                        frames_encoded(units_encoded)
                     if stats is not None:
                         encoded_frames_so_far += stats["length_frames"]
                         encoded_size_so_far += stats["size"]
@@ -191,8 +235,6 @@ async def execute_commands(
                 completed_count += 1
 
             # update the progress bar with the current system stats
-            cpu_utilization = psutil.cpu_percent()
-            mem_usage = psutil.virtual_memory().percent
             bitrate_estimate = " ESTM BITRATE N/A"
             if encoded_frames_so_far > 0:
                 fps = command_objects[0].chunk.framerate
@@ -200,17 +242,29 @@ async def execute_commands(
                     f" ESTM BITRATE {((encoded_size_so_far * 8) / (encoded_frames_so_far / fps)):.2f} "
                     f"kb/s"
                 )
+            cpu_percent = psutil.cpu_percent()
+            memory_percent = psutil.virtual_memory().percent
             pbar.set_description(
-                f"WORKERS {currently_running_jobs} CPU {int(cpu_utilization)}% "
-                f"MEM {int(mem_usage)}%{bitrate_estimate}"
+                f"WORKERS {currently_running_jobs} CPU {int(cpu_percent)}% "
+                f"MEM {int(memory_percent)}%{bitrate_estimate}"
             )
-
             # change the local_jobs_limit based on the picked strategy
+            # if throughput_scaling:
+            #     now = time.time()
+            #     if thouput_last_update == -1:
+            #         thouput_last_update = now
+            #     time_since_update = now - thouput_last_update
+            #     thouput_last_update = now
+            #     # if throughput is increasing, increase the number of workers
+            #     # if its decreasing, decrease the number of workers
+            #     # if its stable, keep the number of workers1
+            # else:
+            #     pass
             if auto_scale and currently_running_jobs > 0:
                 local_jobs_limit += (
                     1
-                    if cpu_utilization <= target_cpu_utilization
-                    and mem_usage <= max_mem_usage
+                    if cpu_percent <= target_cpu_utilization
+                    and memory_percent <= max_mem_usage
                     else -1
                 )
                 local_jobs_limit = max(1, min(local_jobs_limit, max_jobs_limit))
