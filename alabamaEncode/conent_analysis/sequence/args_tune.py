@@ -19,6 +19,8 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
             ctx.prototype_encoder.qm_max = 8
             ctx.prototype_encoder.qm_min = 0
             ctx.prototype_encoder.svt_tune = 0
+            ctx.prototype_encoder.svt_variance_boost_strength = 0
+            ctx.prototype_encoder.svt_variance_octile = 0
         case "balanced":
             print("Tuning for balanced appeal and fidelity")
             ctx.prototype_encoder.svt_tune = 0

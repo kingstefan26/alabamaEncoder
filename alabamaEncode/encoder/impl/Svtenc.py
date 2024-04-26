@@ -134,11 +134,11 @@ class EncoderSvt(Encoder):
 
             kommand += f" --enable-tf {self.svt_tf}"
 
+            kommand += (
+                f" --variance-boost-strength {self.svt_variance_boost_strength}"
+            )
+            kommand += f" --variance-octile {self.svt_variance_octile}"
             if self.is_psy():
-                kommand += (
-                    f" --variance-boost-strength {self.svt_variance_boost_strength}"
-                )
-                kommand += f" --variance-octile {self.svt_variance_octile}"
                 kommand += f" --sharpness {self.svt_sharpness}"
 
         else:
