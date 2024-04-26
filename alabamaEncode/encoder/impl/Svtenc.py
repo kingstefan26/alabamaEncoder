@@ -134,6 +134,7 @@ class EncoderSvt(Encoder):
 
             kommand += f" --enable-tf {self.svt_tf}"
 
+            kommand += f" --enable-variance-boost {self.svt_enable_variance_boost} "
             kommand += (
                 f" --variance-boost-strength {self.svt_variance_boost_strength}"
             )
