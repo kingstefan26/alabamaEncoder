@@ -35,6 +35,8 @@ class AlabamaKv(object):
 
     def get(self, bucket, key) -> [str | None]:
         b = self._load(bucket)
+        if not isinstance(key, str):
+            key = str(key)
         if key not in b:
             return None
         return b[key]
