@@ -8,3 +8,4 @@ setuptools
 torf
 argparse-range
 requests
+websockets
