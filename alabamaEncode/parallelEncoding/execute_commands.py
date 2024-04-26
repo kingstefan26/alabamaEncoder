@@ -126,6 +126,9 @@ async def execute_commands(
 
         local_jobs_limit = multiprocess_workers if not auto_scale else 2
 
+        if throughput_scaling:
+            local_jobs_limit = core_count / 2
+
         loop, executor = asyncio.get_event_loop(), ThreadPoolExecutor()
 
         # array of zeros to keep track of which cores are used, used for thread pinning with taskset
@@ -143,8 +146,14 @@ async def execute_commands(
         frame_encoded_history: List[Tuple[int, float]] = []
         last_frame_encode = time.time()
         thughput_history = []
+
         current_thughput = -1
         previuus_thughput = -1
+        thouput_compare = -1
+
+        # -1 for decreasing, 0 for stable, 1 for increasing
+        thouput_change_trend = 0
+        thouput_reverse_trend_trigger_counter = 0
 
         def frames_encoded(frame_count=1):
             nonlocal last_frame_encode
@@ -171,9 +180,9 @@ async def execute_commands(
                 thughput_history.pop(0)
             previuus_thughput = current_thughput
             current_thughput = sum(thughput_history) / len(thughput_history)
-            tqdm.write(
-                f"Current throughput: {current_thughput:.2f} f/s, Last: {previuus_thughput:.2f} f/s, currently running jobs: {len(futures)}"
-            )
+            # tqdm.write(
+            #     f"Current throughput: {current_thughput:.2f} f/s, Last: {previuus_thughput:.2f} f/s, currently running jobs: {len(futures)}"
+            # )
 
         def callback_wrapper():
             pbar.update()
@@ -249,18 +258,37 @@ async def execute_commands(
                 f"MEM {int(memory_percent)}%{bitrate_estimate}"
             )
             # change the local_jobs_limit based on the picked strategy
-            # if throughput_scaling:
-            #     now = time.time()
-            #     if thouput_last_update == -1:
-            #         thouput_last_update = now
-            #     time_since_update = now - thouput_last_update
-            #     thouput_last_update = now
-            #     # if throughput is increasing, increase the number of workers
-            #     # if its decreasing, decrease the number of workers
-            #     # if its stable, keep the number of workers1
-            # else:
-            #     pass
-            if auto_scale and currently_running_jobs > 0:
+            if throughput_scaling:
+                if thouput_compare != current_thughput:
+                    tqdm.write(
+                        f"Checking throughput, current: {current_thughput:.2f} f/s, previous: {previuus_thughput:.2f} f/s"
+                    )
+                    # if we observe that throughput is decreasing, reverse the trend
+                    if previuus_thughput > current_thughput:
+                        thouput_reverse_trend_trigger_counter += 1
+                        if thouput_reverse_trend_trigger_counter <= 2:
+                            thouput_reverse_trend_trigger_counter = 0
+                            if thouput_change_trend == -1:
+                                thouput_change_trend = 1
+                            elif thouput_change_trend == 1:
+                                thouput_change_trend = -1
+                            tqdm.write(
+                                f"Reversing lobs limit trend to {'increasing' if thouput_change_trend == 1 else 'decreasing'}"
+                            )
+                            if thouput_change_trend == 1:
+                                tqdm.write(
+                                    f"Increasing local_jobs_limit to {local_jobs_limit + 1}"
+                                )
+                                local_jobs_limit += 1
+                            # if the throughput is decreasing, decrease the local_jobs_limit
+                            elif thouput_change_trend == -1:
+                                tqdm.write(
+                                    f"Decreasing local_jobs_limit to {local_jobs_limit - 1}"
+                                )
+                                local_jobs_limit -= 1
+
+                            thouput_compare = current_thughput
+            elif auto_scale and currently_running_jobs > 0:             
                 local_jobs_limit += (
                     1
                     if cpu_percent <= target_cpu_utilization
