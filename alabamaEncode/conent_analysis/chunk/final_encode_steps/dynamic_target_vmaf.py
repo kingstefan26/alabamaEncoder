@@ -178,6 +178,11 @@ class DynamicTargetVmaf(FinalEncodeStep):
         enc.passes = 1
         enc.rate_distribution = EncoderRateDistribution.CQ
 
+        best_crf_from_kv = ctx.get_kv().get("best_crfs", chunk.chunk_index)
+        if best_crf_from_kv is not None:
+            _, stats, _, _, _ = run_probe(best_crf_from_kv)
+            return finish(stats, best_crf_from_kv)
+
         low_crf, high_crf = get_crf_limits(enc)
         max_score_error = 0.7
 
