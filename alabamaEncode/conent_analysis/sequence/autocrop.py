@@ -17,7 +17,7 @@ def do_autocrop(ctx: AlabamaContext, sequence: ChunkSequence):
     Does autocrop if needed
     """
     if ctx.auto_crop and ctx.crop_string == "":
-        output = ctx.get_kv().get("autocrop", "value")
+        output = ctx.get_kv().get_global("autocrop")
         if output is None:
             start = time.time()
             print("Running cropdetect...")
@@ -58,7 +58,7 @@ def do_autocrop(ctx: AlabamaContext, sequence: ChunkSequence):
                     if os.path.exists(p):
                         os.remove(p)
 
-            ctx.get_kv().set("autocrop", "value", output)
+            ctx.get_kv().set_global("autocrop", output)
 
         vf = ctx.prototype_encoder.video_filters.split(",")
         for i in range(len(vf)):
