@@ -22,11 +22,14 @@ def validate_input(ctx):
             quit()
 
         hdr = True
-        if (
-            "bt709" in video_track["color_transfer"]
-            or "unknown" in video_track["color_transfer"]
-        ):
+        if 'color_transfer' not in video_track:
             hdr = False
+        else:
+            if (
+                "bt709" in video_track["color_transfer"]
+                or "unknown" in video_track["color_transfer"]
+            ):
+                hdr = False
 
         dem, num = video_track["avg_frame_rate"].split("/")
         fps_rounded = "{:.2f}".format(float(dem) / float(num))
