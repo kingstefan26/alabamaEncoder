@@ -46,7 +46,7 @@ class GrainSynth(ChunkAnalyzePipelineItem):
         return enc
 
 
-tried_opencl = False
+tried_opencl = True
 supports_opencl = False
 
 
