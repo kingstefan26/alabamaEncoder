@@ -276,6 +276,8 @@ class AlabamaEncodingJob:
                 extension=self.ctx.get_encoder().get_chunk_file_extension(),
             )
 
+            self.ctx.total_chunks = len(sequence.chunks)
+
             self.update_proc_done(10)
             self.update_current_step_name("Analyzing content")
             await run_sequence_pipeline(self.ctx, sequence)

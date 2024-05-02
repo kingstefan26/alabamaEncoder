@@ -172,6 +172,7 @@ class AlabamaContext:
     flag3: bool = False
     crf_map = ""
 
+    total_chunks = -1
     max_scene_length: int = 10
     statically_sized_scenes = False
     scene_merge = False
