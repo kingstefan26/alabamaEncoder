@@ -81,23 +81,20 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         while low_crf <= high_crf and depth < probes:
             mid_crf = (low_crf + high_crf) // 2
 
-            if depth == 2 and ctx.probe_count == 3:
+            if (depth == 2 and ctx.probe_count == 3) or (depth == 1 and ctx.probe_count == 2):
                 ll, lh = get_crf_limits(enc_copy)
                 m = (ll + lh) // 2
-                # if closer to edge, then the middle, use that edge
+                # if closer to edge then the middle, use that edge
                 if abs(mid_crf - ll) < abs(mid_crf - m):
                     mid_crf = ll
-                    ctx.log(
-                        f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
-                        category="probe",
-                    )
-                elif abs(mid_crf - lh) < abs(mid_crf - m):
+                else:
                     mid_crf = lh
-                    ctx.log(
-                        f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
-                        category="probe",
-                    )
 
+                ctx.log(
+                    f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
+                    category="probe",
+                )
+                
             # don't try the same crf twice
             if mid_crf in [t[0] for t in trys]:
                 break
@@ -131,7 +128,9 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
             crf_high, metric_high = points[1]
 
             # means multiple probes got the same score, aka all back screens etc
-            if not metric_high - metric_low == 0:
+            if metric_high - metric_low == 0:
+                crf = mid_crf
+            else:
                 crf = crf_low + (crf_high - crf_low) * (
                     (target_metric - metric_low) / (metric_high - metric_low)
                 )
@@ -142,8 +141,6 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 crf_min, crf_max = get_crf_limits(enc_copy)
 
                 crf = max(min(crf, crf_max), crf_min)
-            else:
-                crf = mid_crf
         else:
             crf = mid_crf
 
