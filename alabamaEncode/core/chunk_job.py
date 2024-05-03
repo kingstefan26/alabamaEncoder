@@ -77,6 +77,9 @@ class ChunkEncoder(BaseCommandObject):
 
         timeing.finish()
 
+        valid = self.chunk.verify_integrity(length_of_sequence=self.ctx.total_chunks, quiet=True)
+        self.ctx.get_kv().set("chunk_integrity", self.chunk.chunk_index, not valid)
+
         if final_stats is not None:
             # round to two places
             total_fps = round(

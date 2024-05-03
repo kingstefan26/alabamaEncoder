@@ -290,7 +290,7 @@ class AlabamaEncodingJob:
             if self.ctx.dry_run:
                 iter_counter = 2
 
-            while chunks_sequence.sequence_integrity_check():
+            while chunks_sequence.sequence_integrity_check(kv=self.ctx.get_kv()):
                 iter_counter += 1
                 if iter_counter > 3:
                     print("Integrity check failed 3 times, aborting")

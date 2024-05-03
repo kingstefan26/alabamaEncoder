@@ -1,24 +1,12 @@
 import copy
 import os
 import random
-from multiprocessing.pool import ThreadPool
 from typing import List
 
 from tqdm.asyncio import tqdm
 
+from alabamaEncode.core.kv import AlabamaKv
 from alabamaEncode.scene.chunk import ChunkObject
-
-
-def verify_integrity_wrapper(args) -> ChunkObject or None:
-    """
-    if chunk is invalid return it, else return None
-    :param args:
-    :return:
-    """
-    chunk, pbar, sequence_length = args
-    result: bool = chunk.verify_integrity(sequence_length)
-    pbar.update()
-    return chunk if result else None
 
 
 class ChunkSequence:
@@ -105,29 +93,36 @@ class ChunkSequence:
 
         return copy.deepcopy(chunks)
 
-    def sequence_integrity_check(self, check_workers: int = 5) -> bool:
+    def sequence_integrity_check(self, kv: AlabamaKv = None) -> bool:
         """
         checks the integrity of the chunks, and removes any that are invalid, and see if all are done
-        :param check_workers: number of workers to use for the check
+        :param kv: AlabamaKv object, for checking if a chunk is valid from cache
         :return: true if there are broken chunks / not all chunks are done
         """
 
-        print("Preforming integrity check 🥰")
         seq_chunks = list(self.chunks)
-        total_chunks = len(seq_chunks)
+        total_chunks = len(self.chunks)
+        invalid_chunks: List[ChunkObject or None] = []
 
-        with tqdm(total=total_chunks, desc="Checking files", unit="file") as pbar:
-            with ThreadPool(check_workers) as pool:
-                process_args = [(c, pbar, len(self.chunks)) for c in seq_chunks]
-                invalid_chunks: List[ChunkObject or None] = list(
-                    pool.imap(verify_integrity_wrapper, process_args)
-                )
+        for chunk in tqdm(seq_chunks, desc="Checking files", unit="file"):
+            if kv:
+                valid = kv.get("chunk_integrity", chunk.chunk_index)
+
+                # do an additional check if the chunk file exists
+                valid = valid and os.path.exists(chunk.chunk_path)
+
+                if valid is not None and valid is True:
+                    chunk.chunk_done = True
+                    # print(f"Chunk {chunk.chunk_index} is valid from cache")
+                    continue
+            if chunk.verify_integrity(length_of_sequence=total_chunks):
+                invalid_chunks.append(chunk)
+
+        del_count = 0
 
         invalid_chunks: List[ChunkObject] = [
             chunk for chunk in invalid_chunks if chunk is not None
         ]
-
-        del_count = 0
 
         if len(invalid_chunks) > 0:
             for c in invalid_chunks:
@@ -140,11 +135,15 @@ class ChunkSequence:
         if del_count > 0:
             print(f"Deleted {del_count} invalid files 😂")
 
-        undone_chunks_count = len([c for c in self.chunks if not c.chunk_done])
+        undone_chunks_count = 0
+
+        for c in self.chunks:
+            if not c.chunk_done:
+                undone_chunks_count += 1
 
         if undone_chunks_count > 0:
             print(
-                f"Only {len(self.chunks) - undone_chunks_count}/{len(self.chunks)} chunks are done 😏"
+                f"Only {total_chunks - undone_chunks_count}/{total_chunks} chunks are done 😏"
             )
             return True
 
