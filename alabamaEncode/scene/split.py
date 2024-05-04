@@ -38,7 +38,6 @@ def get_video_scene_list_skinny(
 
     seq = ChunkSequence([])
     if cache_path_is_valid and os.path.exists(cache_file_path):
-        print("Found scene cache... loading")
         seq.load_json(open(cache_file_path).read())
 
         # Ensure input file matches the cached sequence
@@ -47,10 +46,9 @@ def get_video_scene_list_skinny(
                 f"Video ({input_file}) != ({seq.input_file}) does not match scene cache ({cache_file_path}),"
                 f" please correct this (wrong temp folder?), use --override_bad_wrong_cache_path to override."
             )
-        print(f"Computed {len(seq)} scenes")
         return seq
 
-    print("Creating scene cache")
+    print("Running scene detection")
 
     scene_list = None
 
@@ -284,5 +282,5 @@ def get_video_scene_list_skinny(
     if cache_path_is_valid:
         open(cache_file_path, "w").write(seq.dump_json())
 
-    print(f"Computed {len(seq)} scenes")
+    print(f"Detected {len(seq)} scenes")
     return seq
