@@ -317,7 +317,7 @@ class AlabamaEncodingJob:
 
                             return True
                         else:
-                            return _chunk.is_chunk_done()
+                            return _chunk.is_done()
 
                     for chunk in sequence.chunks:
                         if not is_chunk_done(chunk):
