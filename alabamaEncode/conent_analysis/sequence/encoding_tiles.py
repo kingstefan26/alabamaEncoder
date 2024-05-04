@@ -45,8 +45,9 @@ def setup_tiles(ctx: AlabamaContext, sequence: ChunkSequence):
                 }
 
             tile_info = calculate_tiles(width, height, 1_666_666)
-            print(
-                f"Calculated literal tile cols: {tile_info['tileCols']}; literal tile rows: {tile_info['tileRows']}"
+            ctx.log(
+                f"Calculated literal tile cols: {tile_info['tileCols']}; literal tile rows: {tile_info['tileRows']}",
+                category="analyzing_content_logs"
             )
             ctx.prototype_encoder.tile_rows = tile_info["tileRowsLog2"]
             ctx.prototype_encoder.tile_cols = tile_info["tileColsLog2"]
