@@ -281,7 +281,7 @@ class AlabamaEncodingJob:
             self.update_proc_done(10)
             self.update_current_step_name("Analyzing content")
             await run_sequence_pipeline(self.ctx, sequence)
-            chunks_sequence = sequence
+            self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)
 
             self.update_proc_done(20)
             self.update_current_step_name("Encoding scenes")
@@ -290,7 +290,7 @@ class AlabamaEncodingJob:
             if self.ctx.dry_run:
                 iter_counter = 2
 
-            while chunks_sequence.sequence_integrity_check(kv=self.ctx.get_kv()):
+            while sequence.sequence_integrity_check(kv=self.ctx.get_kv()):
                 iter_counter += 1
                 if iter_counter > 3:
                     print("Integrity check failed 3 times, aborting")

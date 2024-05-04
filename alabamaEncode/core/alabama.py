@@ -194,6 +194,13 @@ class AlabamaContext:
     auto_accept_autocrop = False
 
     def log(self, msg, level=0, category=""):
+        # in place so e.g. "calculated x tile rows" only shows on first run
+        if category == "analyzing_content_logs":
+            quiet = self.get_kv().get_global("quiet_analyzing_content_logs")
+            if quiet is None or quiet is False:
+                tqdm.write(msg)
+            return
+
         if 0 < self.log_level <= level:
             tqdm.write(msg)
 
