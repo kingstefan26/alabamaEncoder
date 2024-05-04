@@ -317,14 +317,14 @@ class AlabamaEncodingJob:
 
                             return True
                         else:
-                            return _chunk.is_done()
+                            return _chunk.is_done(kv=ctx.get_kv())
 
                     for chunk in sequence.chunks:
                         if not is_chunk_done(chunk):
                             command_objects.append(ChunkEncoder(ctx, chunk))
                         else:
                             frames_encoded_so_far += chunk.get_frame_count()
-                            size_kb_so_far += chunk.size_kB
+                            size_kb_so_far += chunk.get_filesize() / 1000
 
                     threads = os.cpu_count()
                     if len(command_objects) < threads:

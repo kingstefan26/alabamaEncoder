@@ -105,17 +105,7 @@ class ChunkSequence:
         invalid_chunks: List[ChunkObject or None] = []
 
         for chunk in tqdm(seq_chunks, desc="Checking files", unit="file"):
-            if kv:
-                valid = kv.get("chunk_integrity", chunk.chunk_index)
-
-                # do an additional check if the chunk file exists
-                valid = valid and os.path.exists(chunk.chunk_path)
-
-                if valid is not None and valid is True:
-                    chunk.chunk_done = True
-                    # print(f"Chunk {chunk.chunk_index} is valid from cache")
-                    continue
-            if chunk.verify_integrity(length_of_sequence=total_chunks):
+            if not chunk.is_done(kv=kv, length_of_sequence=total_chunks):
                 invalid_chunks.append(chunk)
 
         del_count = 0

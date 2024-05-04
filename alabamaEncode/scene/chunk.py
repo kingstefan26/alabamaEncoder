@@ -3,6 +3,7 @@ import os.path
 from tqdm import tqdm
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
+from alabamaEncode.core.kv import AlabamaKv
 from alabamaEncode.core.path import PathAlabama
 
 
@@ -103,6 +104,13 @@ class ChunkObject:
         end_thingy = float(local_overriden_end) / self.framerate
         start_time = float(self.first_frame_index) / self.framerate
         return end_thingy - start_time
+
+    def get_filesize(self) -> float:
+        if self.size_kB != -1:
+            return self.size_kB * 1000
+
+        if os.path.exists(self.chunk_path):
+            return os.path.getsize(self.chunk_path)
 
     def get_ss_ffmpeg_command_pair(self) -> str:
         """
@@ -206,16 +214,34 @@ class ChunkObject:
                         f"{self.log_prefix()} failed the integrity because: {e} 🤕"
                     )
             return True
-        self.size_kB = os.path.getsize(self.chunk_path) / 1000
+        self.size_kB = self.get_filesize() / 1000
         self.chunk_done = True
         return False
 
-    def is_done(self, quiet=False) -> bool:
+    def is_done(self, quiet=False, kv: AlabamaKv = None, length_of_sequence=-1) -> bool:
         """
         checks if the chunk is done
+        :param quiet log what's wrong with the chunk to stdout
+        :param kv used to cache the integrity calculation
+        :param length_of_sequence pass to integ check
         :return: True if done
         """
-        self.verify_integrity(quiet=quiet)
+
+        if self.chunk_done is True:
+            return self.chunk_done
+
+        if kv:
+            valid = kv.get("chunk_integrity", self.chunk_index)
+
+            # do an additional check if the chunk file exists
+            valid = valid and os.path.exists(self.chunk_path)
+
+            if valid is not None and valid is True:
+                self.chunk_done = True
+                # print(f"Chunk {chunk.chunk_index} is valid from cache")
+                return self.chunk_done
+
+        self.verify_integrity(quiet=quiet, length_of_sequence=length_of_sequence)
         return self.chunk_done
 
 
