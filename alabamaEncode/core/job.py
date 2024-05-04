@@ -302,7 +302,7 @@ class AlabamaEncodingJob:
                     frames_encoded_so_far = 0
                     size_kb_so_far = 0
 
-                    def is_done(c):
+                    def is_chunk_done(_chunk):
                         if ctx.multi_res_pipeline:
                             enc = ctx.get_encoder()
                             vmafs = get_vmaf_list(enc.get_codec())
@@ -310,17 +310,17 @@ class AlabamaEncodingJob:
                             for vmaf in vmafs:
                                 output_path = (
                                     f"{ctx.temp_folder}/"
-                                    f"{c.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
+                                    f"{_chunk.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
                                 )
                                 if not os.path.exists(output_path):
                                     return False
 
                             return True
                         else:
-                            return c.is_done()
+                            return _chunk.is_chunk_done()
 
                     for chunk in sequence.chunks:
-                        if not is_done(chunk):
+                        if not is_chunk_done(chunk):
                             command_objects.append(ChunkEncoder(ctx, chunk))
                         else:
                             frames_encoded_so_far += chunk.get_frame_count()
