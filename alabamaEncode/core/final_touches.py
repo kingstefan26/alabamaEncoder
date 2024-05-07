@@ -104,7 +104,7 @@ def generate_previews(input_file: str, output_folder: str):
 
     is_av1 = Ffmpeg.get_codec(PathAlabama(input_file)) == "av1"
 
-    for i, offset in tqdm(enumerate(offsets), desc="Generating previews"):
+    for i, offset in tqdm(enumerate(offsets), desc="Generating previews", total=num_previews):
         # create additional avif stream copy previews
         if is_av1:
             run_cli(
