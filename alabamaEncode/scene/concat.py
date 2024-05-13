@@ -80,8 +80,12 @@ class VideoConcatenator:
         extracted_subs = []
         sub_counter = 0
         for track in tqdm([track for track in tracks if track['codec_type'] == "subtitle"], desc="Extracting Subs"):
-            tag_lang = track['tags']['language']
-            tag_title = track['tags']['title']
+            tag_lang = ""
+            if 'language' in track['tags']:
+                tag_lang = track['tags']['language']
+            tag_title = ""
+            if 'title' in track['tags']:
+                tag_title = track['tags']['title']
 
             out_path = f'{self.temp_dir}{tag_lang}.vtt'
             counter = 1
