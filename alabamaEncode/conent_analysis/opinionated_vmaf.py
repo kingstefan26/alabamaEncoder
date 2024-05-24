@@ -24,6 +24,9 @@ def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
 
 
 def get_vmaf_probe_speed(encoder: Encoder) -> int:
+    env_name = "VMAF_PROBE_SPEED"
+    if env_name in os.environ:
+        return int(os.environ[env_name])
     match encoder:
         case EncoderSvt():
             return 13
