@@ -15,6 +15,8 @@ def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
                     )
             ctx.prototype_encoder.svt_tune = 1
             ctx.prototype_encoder.svt_tf = 0
+            ctx.prototype_encoder.svt_enable_variance_boost = 1
+
         case "appeal":
             ctx.log("Tuning for appeal", category="analyzing_content_logs")
             ctx.prototype_encoder.qm_max = 8
