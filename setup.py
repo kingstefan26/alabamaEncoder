@@ -10,11 +10,14 @@ setup(
         "celery",
         "redis",
         "psutil",
-        "opencv-python",
+        "opencv-contrib-python",
         "requests",
         "torf",
         "websockets",
         "argparse_range",
+        "scipy",
+        "numpy",
+        "scikit-image"
     ],
     entry_points="""
       [console_scripts]
