@@ -6,7 +6,7 @@ Also includes checks if the binaries are what we need (e.g., ffmpeg has been com
 import os
 from shutil import which
 
-__all__ = ["get_binary", "register_bin", "verify_ffmpeg_library"]
+__all__ = ["get_binary", "register_bin", "verify_ffmpeg_library", "check_bin"]
 
 from typing import List
 
@@ -15,7 +15,7 @@ from alabamaEncode.core.cli_executor import run_cli
 bins = []
 
 
-def _check_bin(path) -> bool:
+def check_bin(path) -> bool:
     if path is None:
         return False
     _which = which(path) is not None
@@ -100,7 +100,7 @@ def get_binary(name):
         for _name, _cli in bins:
             if _name == name:
                 _bin = _cli
-    if _check_bin(_bin):
+    if check_bin(_bin):
         return _bin
     else:
         raise BinaryNotFound(name)

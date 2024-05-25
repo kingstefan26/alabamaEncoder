@@ -1,7 +1,7 @@
 import re
 from typing import List
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.bin_utils import get_binary, check_bin
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
@@ -27,8 +27,9 @@ class EncoderSvt(Encoder):
 
         kommand = ""
 
-        if self.pin_to_core != -1:
-            kommand += f"taskset -a -c {self.pin_to_core} "
+        if check_bin("taskset"):
+            if self.pin_to_core != -1:
+                kommand += f"taskset -a -c {self.pin_to_core} "
 
         kommand += (
             f"{self.get_ffmpeg_pipe_command()} | "
@@ -135,9 +136,7 @@ class EncoderSvt(Encoder):
             kommand += f" --enable-tf {self.svt_tf}"
 
             kommand += f" --enable-variance-boost {self.svt_enable_variance_boost} "
-            kommand += (
-                f" --variance-boost-strength {self.svt_variance_boost_strength}"
-            )
+            kommand += f" --variance-boost-strength {self.svt_variance_boost_strength}"
             kommand += f" --variance-octile {self.svt_variance_octile}"
             if self.is_psy():
                 kommand += f" --sharpness {self.svt_sharpness}"
