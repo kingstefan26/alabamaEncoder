@@ -17,7 +17,7 @@ setup(
         "argparse_range",
         "scipy",
         "numpy",
-        "scikit-image"
+        "scikit-image",
     ],
     entry_points="""
       [console_scripts]
