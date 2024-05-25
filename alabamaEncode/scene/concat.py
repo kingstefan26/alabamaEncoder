@@ -26,7 +26,7 @@ class VideoConcatenator:
         subs_file=None,
         audio_only=False,
         temp_dir="",
-        copy_included_subs=True
+        copy_included_subs=True,
     ):
         self.files = files
         self.output = output
@@ -79,22 +79,27 @@ class VideoConcatenator:
         tracks = Ffmpeg.get_tracks(og_file)
         extracted_subs = []
         sub_counter = 0
-        for track in tqdm([track for track in tracks if track['codec_type'] == "subtitle"], desc="Extracting Subs"):
+        for track in tqdm(
+            [track for track in tracks if track["codec_type"] == "subtitle"],
+            desc="Extracting Subs",
+        ):
             tag_lang = ""
-            if 'language' in track['tags']:
-                tag_lang = track['tags']['language']
+            if "language" in track["tags"]:
+                tag_lang = track["tags"]["language"]
             tag_title = ""
-            if 'title' in track['tags']:
-                tag_title = track['tags']['title']
+            if "title" in track["tags"]:
+                tag_title = track["tags"]["title"]
 
-            out_path = f'{self.temp_dir}{tag_lang}.vtt'
+            out_path = f"{self.temp_dir}{tag_lang}.vtt"
             counter = 1
             while os.path.exists(out_path):
-                out_path = f'{self.temp_dir}{tag_lang}_{counter}.vtt'
+                out_path = f"{self.temp_dir}{tag_lang}_{counter}.vtt"
                 counter += 1
             try:
-                a = (f'{get_binary("ffmpeg")} -v error -y -stats {start_offset} -i {og_file.get_safe()} {end_offset} '
-                     f'-map 0:s:{sub_counter} "{out_path}"')
+                a = (
+                    f'{get_binary("ffmpeg")} -v error -y -stats {start_offset} -i {og_file.get_safe()} {end_offset} '
+                    f'-map 0:s:{sub_counter} "{out_path}"'
+                )
                 run_cli(a)
             except Exception as e:
                 # print(e)
@@ -130,7 +135,6 @@ class VideoConcatenator:
         os.remove(concat_file_path)
 
         self.final_files += [f'-i "{self.vid_output}"']
-
 
     def encode_audio_tracks(self):
         print("Encoding a audio track")
@@ -247,6 +251,7 @@ class VideoConcatenator:
             if Ffmpeg.check_for_invalid(PathAlabama(self.output)):
                 os.remove(self.output)
                 raise Exception("VIDEO CONCAT FAILED")
+            return
 
         self.encode_audio_tracks()
         print("Muxing audio into the output")
@@ -262,12 +267,14 @@ class VideoConcatenator:
                 "-stats",
                 "-v error",
                 f'-i "{self.vid_output}"',
-                f'-i "{self.audio_output}"'
+                f'-i "{self.audio_output}"',
             ]
 
             sub_tracks = []
             if self.copy_included_subs:
-                sub_tracks = self.extract_subs(start_offset=start_offset_command, end_offset=end_offset_command)
+                sub_tracks = self.extract_subs(
+                    start_offset=start_offset_command, end_offset=end_offset_command
+                )
 
                 for out_path, tag_lang, tag_title, track_index in sub_tracks:
                     vec += [
@@ -284,7 +291,7 @@ class VideoConcatenator:
                 stream_index = 2
                 for out_path, tag_lang, tag_title, track_index in sub_tracks:
                     vec += [
-                        f'-map {stream_index}:s',
+                        f"-map {stream_index}:s",
                         f'-metadata:s:s:{track_index} language="{tag_lang}"',
                         f'-metadata:s:s:{track_index} title="{tag_title}"',
                     ]
@@ -311,8 +318,8 @@ class VideoConcatenator:
             # print(f"running: {final_command}")
             out = run_cli(final_command).verify().get_output()
             if (
-                    "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
-                    in str(out)
+                "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
+                in str(out)
             ):
                 print("Subtitle encoding failed, trying again")
                 for a in vec:
