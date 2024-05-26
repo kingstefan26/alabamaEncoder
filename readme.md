@@ -1,7 +1,3 @@
-Here's a polished version of the README.md for the `alabamaEncoder` video encoding framework:
-
----
-
 # AlabamaEncoder
 
 AlabamaEncoder is a powerful video encoding framework designed for macOS & Linux. It is able to leverage multi-PC setups, and currently supports various encoders such as [SVT-AV1](https://wiki.x266.mov/docs/encoders/SVT-AV1), [aomenc](https://wiki.x266.mov/docs/encoders/aomenc), [rav1e](https://wiki.x266.mov/docs/encoders/rav1e), [x265](https://wiki.x266.mov/docs/encoders/x265), and [x264](https://wiki.x266.mov/docs/encoders/x264), among others.
