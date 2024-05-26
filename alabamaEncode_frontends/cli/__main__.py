@@ -102,7 +102,7 @@ def main():
     runtime_file = os.path.join(ctx.temp_folder, "runtime.txt")
     lock_file_path = os.path.join(ctx.output_folder, "alabama.lock")
 
-    if os.path.exists(lock_file_path) and not ctx.gen_thumbnails:
+    if os.path.exists(lock_file_path) and not ctx.standalone_autothumbnailer:
         print(
             "Lock file exists, are you sure another instance is not encoding in this folder? "
             "if not delete the lock file and try again"
@@ -115,7 +115,7 @@ def main():
     if not os.path.exists(output_lock):
         with open(output_lock, "w") as f:
             f.write(ctx.raw_input_file)
-    elif not ctx.gen_thumbnails:
+    elif not ctx.standalone_autothumbnailer:
         output_file_from_lock = open(output_lock).read()
         if output_file_from_lock != ctx.raw_input_file:
             print(
@@ -137,7 +137,7 @@ def main():
         data = json.dumps(ctx.to_json())
         requests.post(f"{ctx.offload_server}/jobs", data=data, headers=headers)
 
-    if ctx.gen_thumbnails:
+    if ctx.standalone_autothumbnailer:
         AutoThumbnailer().generate_previews(
             input_file=ctx.input_file,
             output_folder=ctx.output_folder,

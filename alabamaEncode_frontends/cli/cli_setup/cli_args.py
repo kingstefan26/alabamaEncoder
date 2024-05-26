@@ -579,10 +579,10 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--gen_thumbnails",
+        "--standalone_autothumbnailer",
         action="store_true",
         help="dont encode, just generate thumbnails for the input file in the output's file directory",
-        dest="gen_thumbnails",
+        dest="standalone_autothumbnailer",
     )
 
     args = parser.parse_args()
@@ -660,6 +660,6 @@ def read_args(ctx):
     ctx.dont_calc_final_vmaf = args.dont_calc_final_vmaf
     ctx.metric_to_target = args.metric_to_target
     ctx.throughput_scaling = args.throughput_scaling
-    ctx.gen_thumbnails = args.gen_thumbnails
+    ctx.standalone_autothumbnailer = args.standalone_autothumbnailer
 
     return ctx

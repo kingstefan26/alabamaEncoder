@@ -109,7 +109,7 @@ class AlabamaContext:
     def __iter__(self):
         return self.dict().__iter__()
 
-    gen_thumbnails = False
+    standalone_autothumbnailer = False
     use_celery: bool = False
     offload_server = ""
     multiprocess_workers: int = -1
@@ -223,9 +223,11 @@ class AlabamaContext:
         return VmafOptions(
             uhd=self.vmaf_4k_model,
             phone=self.vmaf_phone_model,
-            ref=ComparisonDisplayResolution.from_string(self.vmaf_reference_display)
-            if self.vmaf_reference_display
-            else None,
+            ref=(
+                ComparisonDisplayResolution.from_string(self.vmaf_reference_display)
+                if self.vmaf_reference_display
+                else None
+            ),
             no_motion=self.vmaf_no_motion,
             denoise_refrence=self.denoise_vmaf_ref,
         )
