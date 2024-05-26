@@ -6,6 +6,7 @@ import sys
 import time
 
 from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.extras.auto_thumbnailer import AutoThumbnailer
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.worker import worker
@@ -101,7 +102,7 @@ def main():
     runtime_file = os.path.join(ctx.temp_folder, "runtime.txt")
     lock_file_path = os.path.join(ctx.output_folder, "alabama.lock")
 
-    if os.path.exists(lock_file_path):
+    if os.path.exists(lock_file_path) and not ctx.gen_thumbnails:
         print(
             "Lock file exists, are you sure another instance is not encoding in this folder? "
             "if not delete the lock file and try again"
@@ -114,7 +115,7 @@ def main():
     if not os.path.exists(output_lock):
         with open(output_lock, "w") as f:
             f.write(ctx.raw_input_file)
-    else:
+    elif not ctx.gen_thumbnails:
         output_file_from_lock = open(output_lock).read()
         if output_file_from_lock != ctx.raw_input_file:
             print(
@@ -135,6 +136,13 @@ def main():
         headers = {"Authorization": f"Bearer {auth_token}"}
         data = json.dumps(ctx.to_json())
         requests.post(f"{ctx.offload_server}/jobs", data=data, headers=headers)
+
+    if ctx.gen_thumbnails:
+        AutoThumbnailer().generate_previews(
+            input_file=ctx.input_file,
+            output_folder=ctx.output_folder,
+        )
+        quit()
 
     job = AlabamaEncodingJob(ctx)
 

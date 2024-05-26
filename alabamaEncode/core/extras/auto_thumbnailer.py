@@ -1,5 +1,4 @@
 import multiprocessing
-import os.path
 
 import cv2
 import numpy as np
@@ -7,7 +6,7 @@ import scipy
 from skimage.metrics import structural_similarity as ssim
 from tqdm import tqdm
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.bin_utils import get_binary, check_ffmpeg_libraries, check_bin
 from alabamaEncode.core.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.path import PathAlabama
@@ -132,25 +131,40 @@ class AutoThumbnailer:
             total=total_length, desc="Gathering thumbnail data", unit="frame"
         )
 
-        if not os.path.exists("frame_data.json"):
-            get_yuv_frame_stream(
-                chunk,
-                frame_callback=self.process_frame,
-                vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
-            )
+        get_yuv_frame_stream(
+            chunk,
+            frame_callback=self.process_frame,
+            vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
+        )
 
-            # await all the tasks in the pool to be finished
-            self.pool.close()
-            self.pool.join()
-            import json
+        # await all the tasks in the pool to be finished
+        self.pool.close()
+        self.pool.join()
 
-            with open("frame_data.json", "w") as f:
-                json.dump(self.frame_data, f)
-        else:
-            import json
+        # if not os.path.exists("frame_data.json"):
+        #     get_yuv_frame_stream(
+        #         chunk,
+        #         frame_callback=self.process_frame,
+        #         vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
+        #     )
+        #
+        #     # await all the tasks in the pool to be finished
+        #     self.pool.close()
+        #     self.pool.join()
+        #     import json
+        #
+        #     with open("frame_data.json", "w") as f:
+        #         json.dump(self.frame_data, f)
+        # else:
+        #     import json
+        #
+        #     with open("frame_data.json", "r") as f:
+        #         self.frame_data = json.load(f)
 
-            with open("frame_data.json", "r") as f:
-                self.frame_data = json.load(f)
+        self.pbar.close()
+
+        if len(self.frame_data) == 0:
+            raise Exception("No frames were processed")
 
         best_frames = self.get_top_frames(
             self.frame_data,
@@ -166,14 +180,22 @@ class AutoThumbnailer:
             ],
             # feature_names=['contrast']
         )
-
-        for i, best_frame in tqdm(enumerate(best_frames), desc="Saving best frames"):
+        has_placebo = check_ffmpeg_libraries("libplacebo")
+        has_jpegli = check_bin("cjpeg")
+        for i, best_frame in tqdm(
+            enumerate(best_frames), desc="Saving best frames", total=len(best_frames)
+        ):
             chunk = ChunkObject(
                 first_frame_index=best_frame,
                 last_frame_index=best_frame + 1,
                 path=input_file,
             )
-            command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' -c:v png -f image2pipe - | {get_binary('cjpeg')} -q 95 -tune-psnr -optimize -progressive > {output_folder}/{i}.jpg"
+            if has_placebo and has_jpegli:
+                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' -c:v png -f image2pipe - | {get_binary('cjpeg')} -q 95 -tune-psnr -optimize -progressive > {output_folder}/{i}.jpg"
+            elif has_placebo:
+                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' {output_folder}/{i}.png"
+            else:
+                command = f"{get_binary('ffmpeg')} -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 {output_folder}/{i}.png"
             run_cli(command).verify()
 
     def process_frame(self, yuv_frame):
@@ -251,12 +273,12 @@ class AutoThumbnailer:
             combined_score, sigma=smoothing_factor
         )
 
-        import matplotlib.pyplot as plt
-
-        plt.plot(combined_score, label="Combined Score")
-        plt.plot(smoothed_score, label="Smoothed Score")
-        plt.legend()
-        plt.show()
+        # import matplotlib.pyplot as plt
+        #
+        # plt.plot(combined_score, label="Combined Score")
+        # plt.plot(smoothed_score, label="Smoothed Score")
+        # plt.legend()
+        # plt.show()
 
         return smoothed_score
 
@@ -267,24 +289,31 @@ class AutoThumbnailer:
         )  # Adjust distance for peak spacing
 
         # print the data with peeks overlayed
-        import matplotlib.pyplot as plt
-
-        plt.plot(smoothed_score, label="Smoothed Score")
-        plt.plot(peaks, smoothed_score[peaks], "x", label="Peaks")
-        plt.legend()
-        plt.show()
+        # import matplotlib.pyplot as plt
+        #
+        # plt.plot(smoothed_score, label="Smoothed Score")
+        # plt.plot(peaks, smoothed_score[peaks], "x", label="Peaks")
+        # plt.legend()
+        # plt.show()
 
         return peaks
 
     # Step 4: Select evenly spaced peaks or fallback to highest scores
     def select_evenly_spaced_peaks(self, peaks, num_peaks, combined_score):
-        if len(peaks) >= num_peaks:
+
+        if not len(peaks) >= num_peaks:
+            print(f"Detection only found {num_peaks} good candidates, using them")
+            return peaks
+        else:
             step = len(peaks) // num_peaks
             evenly_spaced_peaks = peaks[::step][:num_peaks]
-        else:
-            # Fallback: select frames with the highest combined scores
-            top_indices = np.argsort(-combined_score)[:num_peaks]
-            evenly_spaced_peaks = sorted(top_indices)
+        # if len(peaks) >= num_peaks:
+        #     step = len(peaks) // num_peaks
+        #     evenly_spaced_peaks = peaks[::step][:num_peaks]
+        # else:
+        #     # Fallback: select frames with the highest combined scores
+        #     top_indices = np.argsort(-combined_score)[:num_peaks]
+        #     evenly_spaced_peaks = sorted(top_indices)
         return evenly_spaced_peaks
 
     # Main function to get top frame indices
@@ -301,8 +330,11 @@ class AutoThumbnailer:
 
 
 if __name__ == "__main__":
-    # AutoThumbnailer().generate_previews('/home/kokoniara/movieEncode/Coraline (2009)/Coraline.2009.1440p.AV1.OPUS.HDR10.SouAV1R.webm', '.')
     AutoThumbnailer().generate_previews(
-        "/home/kokoniara/showsEncode/Silo (2023)/s1/e9/Silo.2023.S01E09.OPUS.AV1.1080p.webm",
+        "/home/kokoniara/Downloads/I Bought 6 PC “Speed Up” Tools to See if They Work [-G-DByczbWA].webm",
         ".",
     )
+    # AutoThumbnailer().generate_previews(
+    #     "/home/kokoniara/showsEncode/Silo (2023)/s1/e9/Silo.2023.S01E09.OPUS.AV1.1080p.webm",
+    #     ".",
+    # )
