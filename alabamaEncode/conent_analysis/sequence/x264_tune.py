@@ -9,10 +9,10 @@ from alabamaEncode.scene.sequence import ChunkSequence
 
 
 def run_tune(a):
-    tune, enc, path = a
+    tune, enc, path, vmaf_options = a
     enc.x264_tune = tune
     enc.output_path = os.path.join(path, f"{tune}{enc.get_chunk_file_extension()}")
-    stats = enc.run(metric_to_calculate=Metric.VMAF)
+    stats = enc.run(metric_to_calculate=Metric.VMAF, metric_params=vmaf_options)
     print(f"{tune}: {stats.bitrate}kb/s {stats.metric_results.harmonic_mean}vmaf")
     return tune, stats.metric_results.harmonic_mean, stats.bitrate
 
@@ -51,7 +51,11 @@ def get_ideal_x264_tune(ctx: AlabamaContext, sequence: ChunkSequence):
                 # get (tune, stats) tuples in a parallel fashion
                 with Pool() as p:
                     runs = p.map(
-                        run_tune, [(tune, enc.clone(), path) for tune in tunes]
+                        run_tune,
+                        [
+                            (tune, enc.clone(), path, ctx.get_vmaf_options())
+                            for tune in tunes
+                        ],
                     )
                     # and close the pool
                     p.close()
