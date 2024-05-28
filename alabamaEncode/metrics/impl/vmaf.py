@@ -4,7 +4,7 @@ from statistics import mean
 
 from alabamaEncode.core.bin_utils import get_binary
 from alabamaEncode.core.bin_utils import register_bin
-from alabamaEncode.core.cli_executor import run_cli, run_cli_parallel
+from alabamaEncode.core.cli_executor import run_cli_parallel
 from alabamaEncode.core.path import PathAlabama
 from alabamaEncode.metrics.exception import VmafException
 from alabamaEncode.metrics.metric import Metric
@@ -254,12 +254,13 @@ def get_models() -> dict[str, str]:
         os.makedirs(models_dir)
 
     try:
+        import requests
+
         for link in links:
             if not os.path.exists(os.path.join(models_dir, link[1])):
                 print("Downloading VMAF model")
-                run_cli(
-                    f"wget -O {models_dir}/{link[1]} {link[0]}"
-                )  # TsODO: WINDOWS SUPPORT
+                r = requests.get(link[0], allow_redirects=True)
+                open(os.path.join(models_dir, link[1]), "wb").write(r.content)
 
         for link in links:
             if not os.path.exists(os.path.join(models_dir, link[1])):
