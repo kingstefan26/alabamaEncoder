@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="alabamaEncoder",
-    version="0.4.2",
+    version="0.4.3",
     packages=find_packages(),
     install_requires=[
         "scenedetect",
@@ -14,10 +14,10 @@ setup(
         "requests",
         "torf",
         "websockets",
-        "argparse_range",
         "scipy",
         "numpy",
         "scikit-image",
+        "argparse_range",
     ],
     entry_points="""
       [console_scripts]
