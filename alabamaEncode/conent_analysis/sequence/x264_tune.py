@@ -62,12 +62,16 @@ def get_ideal_x264_tune(ctx: AlabamaContext, sequence: ChunkSequence):
                     p.join()
 
                 # pick the tune with the biggest vmaf per bitrate with a little bias towards vmaf
-                runs_calculated = [
-                    (tune, ((vmaf / bitrate) + (vmaf / 100)))
-                    for tune, vmaf, bitrate in runs
-                ]
-                runs_calculated.sort(key=lambda x: x[1])
-                best_tune = runs_calculated[-1][0]
+                # runs_calculated = [
+                #     (tune, ((vmaf / bitrate) + (vmaf / 100)))
+                #     for tune, vmaf, bitrate in runs
+                # ]
+                # runs_calculated.sort(key=lambda x: x[1])
+                # best_tune = runs_calculated[-1][0]
+
+                # pick the tune with the biggest vmaf
+                runs.sort(key=lambda x: x[1])
+                best_tune = runs[-1][0]
 
                 best.append(best_tune)
 
