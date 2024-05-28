@@ -150,7 +150,7 @@ class AlabamaContext:
     max_bitrate: int = 0
     simple_denoise = False
     args_tune = "balanced"
-    dont_calc_final_vmaf = False
+    calc_final_vmaf = False
 
     metric_to_target = "vmaf"
     vmaf: int = 96

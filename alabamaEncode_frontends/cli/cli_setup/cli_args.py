@@ -557,11 +557,11 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--dont_calc_final_vmaf",
-        default=ctx.dont_calc_final_vmaf,
+        "--calc_final_vmaf",
+        default=ctx.calc_final_vmaf,
         action="store_true",
         help="Dont calculate final vmaf",
-        dest="dont_calc_final_vmaf",
+        dest="calc_final_vmaf",
     )
 
     parser.add_argument(
@@ -657,7 +657,7 @@ def read_args(ctx):
     ctx.args_tune = args.tune
     ctx.denoise_vmaf_ref = args.denoise_vmaf_ref
     ctx.multi_res_pipeline = args.multi_res_pipeline
-    ctx.dont_calc_final_vmaf = args.dont_calc_final_vmaf
+    ctx.calc_final_vmaf = args.calc_final_vmaf
     ctx.metric_to_target = args.metric_to_target
     ctx.throughput_scaling = args.throughput_scaling
     ctx.standalone_autothumbnailer = args.standalone_autothumbnailer
