@@ -4,6 +4,7 @@ from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Aomenc import EncoderAom
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
+from alabamaEncode.encoder.impl.VideoToolbox import EncoderAppleHEVC
 
 
 def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
@@ -63,6 +64,10 @@ def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
                     return 20, 35
                 case _:
                     return 18, 40
+        case Codec.h265:
+            match encoder:
+                case EncoderAppleHEVC():
+                    return 10, 90
         case _:
             return 12, 50
 
