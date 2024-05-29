@@ -155,7 +155,7 @@ class AlabamaContext:
     metric_to_target = "vmaf"
     vmaf: int = 96
     denoise_vmaf_ref = False
-    probe_count = 3
+    probe_count = 2
     vmaf_reference_display = ""
     crf_based_vmaf_targeting = True
     vmaf_4k_model = False
