@@ -45,6 +45,15 @@ def run_pipeline(ctx):
         ctx = pipeline_item(ctx)
     return ctx
 
+def fmt_time(seconds) -> str:
+    # Convert seconds to hours and remaining seconds
+    hours, remainder = divmod(seconds, 3600)
+
+    # If at least one hour has passed
+    if hours:
+        return f"{int(hours)} hour(s) {int(remainder)} second(s)"
+    else:
+        return f"{int(seconds)} second(s)"
 
 @atexit.register
 def at_exit():
@@ -58,8 +67,9 @@ def at_exit():
             with open(runtime_file) as f:
                 saved_runtime = float(f.read())
         print(
-            f"Current Session Runtime: {current_session_runtime}, Runtime From Previous Sessions: {saved_runtime},"
-            f" Total Runtime: {current_session_runtime + saved_runtime}"
+            f"Current Session Runtime: {fmt_time(current_session_runtime)},"
+            f" Runtime From Previous Sessions: {fmt_time(saved_runtime)},"
+            f" Total Runtime: {fmt_time(current_session_runtime + saved_runtime)}"
         )
 
         try:
@@ -87,7 +97,6 @@ def main():
     if len(sys.argv) > 1:
         match sys.argv[1]:
             case "clear":
-                # if a user does 'python __main__.py clear' then clear the celery queue
                 print("Clearing celery queue")
                 app.control.purge()
                 quit()
