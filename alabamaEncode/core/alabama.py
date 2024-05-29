@@ -149,7 +149,7 @@ class AlabamaContext:
     cutoff_bitrate: int = -1
     max_bitrate: int = 0
     simple_denoise = False
-    args_tune = "balanced"
+    args_tune = "appeal"
     calc_final_vmaf = False
 
     metric_to_target = "vmaf"
