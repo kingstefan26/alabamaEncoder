@@ -181,6 +181,16 @@ class VideoConcatenator:
 
         return has_audio_track
 
+    def has_sub_track(self) -> bool:
+        has_sub_track = False
+        tracks = Ffmpeg.get_tracks(PathAlabama(self.file_with_audio))
+        for track in tracks:
+            if track["codec_type"] == "subtitle":
+                has_sub_track = True
+                break
+
+        return has_sub_track
+
     def _concat_videos(self):
         if os.path.exists(self.output):
             print(f"File {self.output} already exists")
@@ -189,6 +199,7 @@ class VideoConcatenator:
         self.concat_video_track()
 
         has_audio_track = self.has_audio_track()
+        has_sub_track = self.has_sub_track()
 
         if self.audio_only:
             if not has_audio_track:
@@ -271,7 +282,7 @@ class VideoConcatenator:
             ]
 
             sub_tracks = []
-            if self.copy_included_subs:
+            if self.copy_included_subs and has_sub_track:
                 sub_tracks = self.extract_subs(
                     start_offset=start_offset_command, end_offset=end_offset_command
                 )
@@ -314,8 +325,6 @@ class VideoConcatenator:
             ]
 
             final_command = " ".join(vec)
-            print(final_command)
-            # print(f"running: {final_command}")
             out = run_cli(final_command).verify().get_output()
             if (
                 "Subtitle encoding currently only possible from text to text or bitmap to bitmap"
@@ -326,8 +335,6 @@ class VideoConcatenator:
                     if "mov_text" in a or "map 2:s" in a:
                         vec.remove(a)
                 final_command = " ".join(vec)
-                # print(f"running: {final_command}")
-                print(final_command)
                 run_cli(final_command).verify()
         else:
             subs_i = ""
@@ -357,7 +364,6 @@ class VideoConcatenator:
                 f"{title_bit} -map 0:v -map 1:a {subs_map} -movflags +faststart -map_chapters -1 "
                 f'-c:v copy -c:a copy -vsync cfr "{self.output}"'
             )
-            # print(f"running: {final_command}")
             os.system(final_command)
 
         os.remove(self.vid_output)
