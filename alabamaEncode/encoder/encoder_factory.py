@@ -6,6 +6,7 @@ from alabamaEncode.encoder.impl.Nvenc import EncoderNVENCH264
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.impl.VaapiH264 import EncoderVaapiH264
 from alabamaEncode.encoder.impl.VaapiH265 import EncoderVaapiH265
+from alabamaEncode.encoder.impl.VideoToolbox import EncoderAppleHEVC
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.impl.X265 import EncoderX265
 from alabamaEncode.encoder.impl.rav1e import EncoderRav1e
@@ -22,6 +23,7 @@ encoders = [
     EncoderVaapiH264(),
     EncoderRav1e(),
     EncoderNVENCH264(),
+    EncoderAppleHEVC()
 ]
 
 
