@@ -26,7 +26,19 @@ class EncoderAppleHEVC(Encoder):
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:
-                vec.append(f"-q:v {self.crf}")
+                # the framework has assumptions that crf is 0-63; where 0 is the highest quality,
+                # but the videotoolbox api is 100-1 where 100 is the highest quality
+                # thats why we need to transform the number
+                crf = self.crf
+                # scale 0-63 to 1-100
+                crf = crf * 100 / 63
+                # invert the number
+                if crf == 0:
+                    crf = 1
+                else:
+                    crf = 100 - crf
+                crf = int(crf)
+                vec.append(f"-q:v {crf}")
             case EncoderRateDistribution.VBR:
                 vec.append(f"-b:v {int(self.bitrate)}k")
             case _:

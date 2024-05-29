@@ -64,10 +64,6 @@ def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
                     return 20, 35
                 case _:
                     return 18, 40
-        case Codec.h265:
-            match encoder:
-                case EncoderAppleHEVC():
-                    return 10, 90
         case _:
             return 12, 50
 
@@ -78,6 +74,7 @@ if __name__ == "__main__":
 
     assert get_crf_limits(my_enc), [22, 38]
     assert get_crf_limits(my_aom_enc), [18, 40]
+    assert get_crf_limits(EncoderAppleHEVC()), [10, 90]
 
 
 def get_vmaf_list(codec: Codec) -> list[int]:
