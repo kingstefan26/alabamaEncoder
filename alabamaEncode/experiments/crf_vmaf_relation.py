@@ -23,7 +23,7 @@ from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.scene.split import get_video_scene_list_skinny
+from alabamaEncode.scene.scene_detection import scene_detect
 
 
 def get_complexity(enc: Encoder, c: ChunkObject) -> float:
@@ -101,7 +101,7 @@ def generate_stat_from_chunk(current_chunk: ChunkObject):
 
 
 def get_chunks_of_file(path, video_filters):
-    scenes: ChunkSequence = get_video_scene_list_skinny(
+    scenes: ChunkSequence = scene_detect(
         input_file=path, cache_file_path=f"{env}/sceneCache_{os.path.basename(path)}.pt"
     )
 

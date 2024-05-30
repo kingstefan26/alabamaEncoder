@@ -16,7 +16,7 @@ from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.scene.chunk import ChunkObject
-from alabamaEncode.scene.split import get_video_scene_list_skinny
+from alabamaEncode.scene.scene_detection import scene_detect
 
 
 class GrainSynth(ChunkAnalyzePipelineItem):
@@ -263,7 +263,7 @@ def test():
     if not os.path.exists(test_env):
         os.makedirs(test_env)
 
-    scene_list = get_video_scene_list_skinny(
+    scene_list = scene_detect(
         input_file="/home/kokoniara/ep3_halo_test.mkv",
         cache_file_path=test_env + "sceneCache.pt",
     )
@@ -292,7 +292,7 @@ def test_altblur():
     if not os.path.exists(test_env):
         os.makedirs(test_env)
 
-    scene_list = get_video_scene_list_skinny(
+    scene_list = scene_detect(
         input_file="/home/kokoniara/ep3_halo_test.mkv",
         cache_file_path=test_env + "sceneCache.pt",
     )

@@ -32,8 +32,8 @@ from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.annel import annealing
 from alabamaEncode.scene.concat import VideoConcatenator
+from alabamaEncode.scene.scene_detection import scene_detect
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.scene.split import get_video_scene_list_skinny
 from alabamaEncode_frontends.cli.cli_setup.paths import parse_paths
 from alabamaEncode_frontends.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode_frontends.cli.cli_setup.res_preset import parse_resolution_presets
@@ -260,7 +260,7 @@ class AlabamaEncodingJob:
         if not encode_finished():
             constant_updates = asyncio.create_task(self.constant_updates())
             self.update_current_step_name("Running scene detection")
-            sequence: ChunkSequence = get_video_scene_list_skinny(
+            sequence: ChunkSequence = scene_detect(
                 input_file=self.ctx.input_file,
                 cache_file_path=self.ctx.temp_folder + "scene_cache.json",
                 max_scene_length=self.ctx.max_scene_length,

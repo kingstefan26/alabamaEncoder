@@ -7,8 +7,8 @@ from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
 from alabamaEncode.metrics.metric import Metric
+from alabamaEncode.scene.scene_detection import scene_detect
 from alabamaEncode.scene.sequence import ChunkSequence
-from alabamaEncode.scene.split import get_video_scene_list_skinny
 
 if __name__ == "__main__":
     env = "./seq_convexhull"
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     if not os.path.exists(env):
         os.mkdir(env)
 
-    scenes: ChunkSequence = get_video_scene_list_skinny(
+    scenes: ChunkSequence = scene_detect(
         input_file="/home/kokoniara/ep3_halo_test.mkv",
         max_scene_length=10,
         cache_file_path=f"{env}/scenes_skinny.pt",

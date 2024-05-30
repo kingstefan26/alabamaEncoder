@@ -8,7 +8,7 @@ from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.concat import VideoConcatenator
-from alabamaEncode.scene.split import get_video_scene_list_skinny
+from alabamaEncode.scene.scene_detection import scene_detect
 
 counter = 0
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # data = []
 
-    scene_list = get_video_scene_list_skinny(
+    scene_list = scene_detect(
         input_file=input_file,
         cache_file_path=env + "/sceneCache.pt",
         max_scene_length=10,

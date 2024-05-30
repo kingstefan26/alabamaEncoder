@@ -10,7 +10,7 @@ from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def get_video_scene_list_skinny(
+def scene_detect(
     input_file: str,
     cache_file_path: str,
     max_scene_length: int = 10,
