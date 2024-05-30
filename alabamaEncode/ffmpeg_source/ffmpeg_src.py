@@ -1,15 +1,9 @@
 import subprocess
 
+from alabamaEncode.core.util.abort_controler import AbortControler
 from alabamaEncode.ffmpeg_source.yuv import Reader
 from alabamaEncode.scene.chunk import ChunkObject
 
-
-class AbortControler:
-    def __init__(self):
-        self.aborted = False
-
-    def abort(self):
-        self.aborted = True
 
 def get_yuv_frame_stream(chunk: ChunkObject, frame_callback, vf: str= "", abort_controler: AbortControler = None):
     command = chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf, bit_depth=8)
