@@ -73,7 +73,6 @@ def get_target_ssimdb(bitrate: int, ctx, chunk_sequence) -> float:
 def setup_ssimdb_target(ctx: AlabamaContext, sequence: ChunkSequence):
     if all(
         [
-            not ctx.flag1,
             ctx.crf_based_vmaf_targeting is False,
             ctx.vbr_perchunk_optimisation,
         ]

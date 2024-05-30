@@ -216,8 +216,7 @@ async def get_best_bitrate(ctx, chunk_sequence, skip_cache=False) -> int:
 
 async def setup_ideal_bitrate(ctx: AlabamaContext, sequence: ChunkSequence):
     if (
-        not ctx.flag1
-        and ctx.crf_based_vmaf_targeting is False
+        ctx.crf_based_vmaf_targeting is False
         and ctx.find_best_bitrate
     ):
         print("Using ideal bitrate")

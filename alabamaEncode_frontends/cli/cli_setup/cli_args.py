@@ -308,12 +308,6 @@ def read_args(ctx):
         dest="encoder_speed_override",
     )
 
-    parser.add_argument(
-        "--flag1",
-        action="store_true",
-        help="find what crf matches config.bitrate, encode at that crf and redo if the crf bitrate is higher then set",
-        dest="flag1",
-    )
 
     parser.add_argument(
         "--flag2", action="store_true", help="Used for debugging", dest="flag2"
@@ -594,7 +588,6 @@ def read_args(ctx):
     ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
     ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
     ctx.use_celery = args.use_celery
-    ctx.flag1 = args.flag1
     ctx.flag2 = args.flag2
     ctx.flag3 = args.flag3
     ctx.prototype_encoder.override_flags = args.encoder_flag_override

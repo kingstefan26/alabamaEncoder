@@ -4,9 +4,6 @@ def parse_rd(ctx):
     """
     if ctx.bitrate_string is not None and ctx.bitrate_string != "":
         if "auto" in ctx.bitrate_string or "-1" in ctx.bitrate_string:
-            if ctx.flag1 and not ctx.crf_based_vmaf_targeting:
-                print("Flag1 and auto bitrate are mutually exclusive")
-                quit()
             ctx.find_best_bitrate = True
         else:
             if "M" in ctx.bitrate_string or "m" in ctx.bitrate_string:
@@ -20,7 +17,4 @@ def parse_rd(ctx):
 
                 ctx.prototype_encoder.bitrate = int(ctx.bitrate_string)
 
-    if ctx.flag1 and ctx.prototype_encoder.bitrate == -1:
-        print("Flag1 requires bitrate to be set --bitrate 2M")
-        quit()
     return ctx

@@ -51,8 +51,6 @@ def setup_chunk_analyze_chain(ctx, sequence):
         ctx.chunk_analyze_chain.append(EncodeMultiResCandidates())
     elif ctx.crf_map != "":
         ctx.chunk_analyze_chain.append(CrfIndexesMap(ctx.crf_map))
-    elif ctx.flag1 is True:
-        ctx.chunk_analyze_chain.append(PlainCrf())
     elif (
         ctx.crf_based_vmaf_targeting is True
         and ctx.multi_res_pipeline is False
@@ -77,9 +75,6 @@ def setup_chunk_encoder(ctx, sequence):
     """
 
     # ugly imports here cuz "Circular import 🤓☝"
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.capped_crf_encode import (
-        WeridCapedCrfFinalEncode,
-    )
     from alabamaEncode.conent_analysis.chunk.final_encode_steps.plain import (
         PlainFinalEncode,
     )
@@ -88,9 +83,7 @@ def setup_chunk_encoder(ctx, sequence):
         DynamicTargetVmafVBR,
     )
 
-    if ctx.flag1:
-        ctx.chunk_encode_class = WeridCapedCrfFinalEncode()
-    elif ctx.dynamic_vmaf_target:
+    if ctx.dynamic_vmaf_target:
         ctx.chunk_encode_class = DynamicTargetVmaf()
     elif ctx.dynamic_vmaf_target_vbr:
         ctx.chunk_encode_class = DynamicTargetVmafVBR()
@@ -119,9 +112,6 @@ async def run_sequence_pipeline(ctx, sequence):
     )
     from alabamaEncode.conent_analysis.sequence.denoise_filtering import setup_denoise
     from alabamaEncode.conent_analysis.sequence.encoding_tiles import setup_tiles
-    from alabamaEncode.conent_analysis.sequence.ideal_crf import (
-        setup_ideal_crf_weighted,
-    )
     from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import (
         scrape_hdr_metadata,
     )
@@ -143,7 +133,6 @@ async def run_sequence_pipeline(ctx, sequence):
         setup_tiles,
         setup_denoise,
         setup_autograin,
-        setup_ideal_crf_weighted,
         setup_ideal_bitrate,
         setup_ssimdb_target,
         get_ideal_x264_tune,

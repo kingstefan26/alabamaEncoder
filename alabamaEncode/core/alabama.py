@@ -68,7 +68,6 @@ class AlabamaContext:
             "vmaf_no_motion": self.vmaf_no_motion,
             "probe_speed_override": self.probe_speed_override,
             "vmaf_target_representation": self.vmaf_target_representation,
-            "flag1": self.flag1,
             "flag2": self.flag2,
             "flag3": self.flag3,
             "crf_map": self.crf_map,
@@ -166,7 +165,6 @@ class AlabamaContext:
     dynamic_vmaf_target_vbr = False
     best_crfs = []
 
-    flag1: bool = False
     flag2: bool = False
     flag3: bool = False
     crf_map = ""
