@@ -310,10 +310,6 @@ def read_args(ctx):
 
 
     parser.add_argument(
-        "--flag2", action="store_true", help="Used for debugging", dest="flag2"
-    )
-
-    parser.add_argument(
         "--flag3",
         action="store_true",
         help="Find best bitrate using the top 5%% of most complex chunks",
@@ -588,7 +584,6 @@ def read_args(ctx):
     ctx.vbr_perchunk_optimisation = args.vbr_perchunk_optimisation
     ctx.crf_based_vmaf_targeting = args.crf_based_vmaf_targeting
     ctx.use_celery = args.use_celery
-    ctx.flag2 = args.flag2
     ctx.flag3 = args.flag3
     ctx.prototype_encoder.override_flags = args.encoder_flag_override
     ctx.prototype_encoder.speed = args.encoder_speed_override
