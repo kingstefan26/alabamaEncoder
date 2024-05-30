@@ -310,11 +310,11 @@ def read_args(ctx):
 
 
     parser.add_argument(
-        "--flag4",
+        "--crf_map",
         type=str,
         help="Map of crf <-> chunk index, for debugging purposes only",
         default=ctx.crf_map,
-        dest="flag4",
+        dest="crf_map",
     )
 
     parser.add_argument(
@@ -616,7 +616,7 @@ def read_args(ctx):
     ctx.probe_count = args.probe_count
     ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
-    ctx.crf_map = args.flag4
+    ctx.crf_map = args.crf_map
     ctx.pin_to_cores = args.dont_pin_to_cores
     ctx.prototype_encoder.niceness = args.niceness
     ctx.vmaf_target_representation = args.vmaf_target_repesentation
