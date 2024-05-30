@@ -1,7 +1,7 @@
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.scene.chunk import ChunkObject

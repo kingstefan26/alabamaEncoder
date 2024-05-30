@@ -1,4 +1,4 @@
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.scene.sequence import ChunkSequence
 
 

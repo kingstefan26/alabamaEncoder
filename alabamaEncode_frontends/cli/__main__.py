@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.auto_thumbnailer import AutoThumbnailer
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallelEncoding.CeleryApp import app

@@ -6,7 +6,7 @@ from multiprocessing.pool import ThreadPool
 from statistics import mean
 from typing import List
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.util.kv import AlabamaKv

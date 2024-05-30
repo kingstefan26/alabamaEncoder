@@ -18,8 +18,8 @@ from alabamaEncode.conent_analysis.pipelines import (
     run_sequence_pipeline,
     get_refine_steps,
 )
-from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.chunk_job import ChunkEncoder
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.ws_update import WebsocketServer
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.final_touches import (

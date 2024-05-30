@@ -1,7 +1,7 @@
 import json
 import os
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt

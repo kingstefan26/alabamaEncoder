@@ -3,7 +3,7 @@ import pickle
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.scene.chunk import ChunkObject

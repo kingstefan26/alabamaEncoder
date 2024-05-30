@@ -1,7 +1,7 @@
 import os
 import re
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 
 
 def parse_movie_title(title):

@@ -10,7 +10,7 @@ from alabamaEncode.conent_analysis.opinionated_vmaf import (
     get_vmaf_probe_speed,
     get_vmaf_probe_offset,
 )
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calculate import get_metric_from_stats

@@ -3,10 +3,10 @@ import re
 import time
 from typing import List
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
+from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.cli_executor import run_cli
-from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence

@@ -2,7 +2,7 @@ import os
 
 from alabamaEncode.conent_analysis.chunk.final_encode_step import FinalEncodeStep
 from alabamaEncode.conent_analysis.opinionated_vmaf import get_vmaf_list
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.scene.chunk import ChunkObject

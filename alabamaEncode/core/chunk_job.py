@@ -7,7 +7,7 @@ from tqdm import tqdm
 from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
     DynamicTargetVmaf,
 )
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.stats import EncodeStats

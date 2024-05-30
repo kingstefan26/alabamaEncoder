@@ -2,7 +2,7 @@ import os
 import shutil
 from multiprocessing import Pool
 
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.scene.sequence import ChunkSequence

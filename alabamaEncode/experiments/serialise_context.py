@@ -1,4 +1,4 @@
-from alabamaEncode.core.alabama import AlabamaContext
+from alabamaEncode.core.context import AlabamaContext
 
 if __name__ == "__main__":
     ctx = AlabamaContext()
