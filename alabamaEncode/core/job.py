@@ -20,6 +20,7 @@ from alabamaEncode.conent_analysis.pipelines import (
 )
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.chunk_job import ChunkEncoder
+from alabamaEncode.core.extras.ws_update import WebsocketServer
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.final_touches import (
     print_stats,
@@ -27,7 +28,6 @@ from alabamaEncode.core.final_touches import (
     create_torrent_file,
 )
 from alabamaEncode.core.path import PathAlabama
-from alabamaEncode.core.ws_update import WebsocketServer
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.annel import annealing
