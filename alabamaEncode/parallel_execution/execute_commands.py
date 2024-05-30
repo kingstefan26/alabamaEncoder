@@ -8,8 +8,8 @@ import psutil
 from tqdm import tqdm
 
 from alabamaEncode.core.chunk_job import ChunkEncoder
-from alabamaEncode.parallelEncoding.celery_app import run_command_on_celery, app
-from alabamaEncode.parallelEncoding.command import BaseCommandObject
+from alabamaEncode.parallel_execution.celery_app import run_command_on_celery, app
+from alabamaEncode.parallel_execution.command import BaseCommandObject
 
 
 async def execute_commands(

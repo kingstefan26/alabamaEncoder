@@ -11,7 +11,7 @@ from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.stats import EncodeStats
-from alabamaEncode.parallelEncoding.command import BaseCommandObject
+from alabamaEncode.parallel_execution.command import BaseCommandObject
 from alabamaEncode.scene.chunk import ChunkObject
 
 

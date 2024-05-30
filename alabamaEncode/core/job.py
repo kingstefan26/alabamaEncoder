@@ -28,8 +28,8 @@ from alabamaEncode.core.final_touches import (
     create_torrent_file,
 )
 from alabamaEncode.core.util.path import PathAlabama
-from alabamaEncode.parallelEncoding.celery_app import app
-from alabamaEncode.parallelEncoding.execute_commands import execute_commands
+from alabamaEncode.parallel_execution.celery_app import app
+from alabamaEncode.parallel_execution.execute_commands import execute_commands
 from alabamaEncode.scene.annel import annealing
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.scene_detection import scene_detect

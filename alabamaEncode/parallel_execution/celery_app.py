@@ -5,7 +5,7 @@ from typing import Any
 
 from celery import Celery
 
-from alabamaEncode.parallelEncoding.command import BaseCommandObject
+from alabamaEncode.parallel_execution.command import BaseCommandObject
 
 BROKER_URL = os.getenv("BROKER_URL", "redis://" + os.getenv("REDIS_HOST", "localhost"))
 BACKEND_URL = os.getenv(
@@ -30,4 +30,3 @@ def run_command_on_celery(self, command: BaseCommandObject) -> Any:
         return command.run()
     except:
         traceback.print_exc()
-        

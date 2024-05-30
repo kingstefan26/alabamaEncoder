@@ -1,7 +1,7 @@
 import os
 import sys
 
-from alabamaEncode.parallelEncoding.celery_app import app
+from alabamaEncode.parallel_execution.celery_app import app
 
 
 def worker():
