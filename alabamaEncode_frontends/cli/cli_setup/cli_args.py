@@ -92,7 +92,7 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--multiprocess_workers",
+        "--multiprocess_workers", '--workers', '-j',
         help="Number of workers to use for multiprocessing, if -1 the program will auto scale",
         type=int,
         default=ctx.multiprocess_workers,
@@ -168,7 +168,7 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--no_crf_based_vmaf_targeting",
+        "--no_crf_based_vmaf_targeting", '--crf_mode',
         help="per chunk, find a crf that hits target quality and encode using that",
         action="store_false",
         dest="crf_based_vmaf_targeting",
@@ -257,7 +257,7 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--hdr",
+        "--hdr", '-hdr',
         help="Encode in HDR, if not specified and input is hdr it will automatically tonemap",
         action="store_true",
         default=ctx.prototype_encoder.hdr,
@@ -300,7 +300,7 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--encoder_speed_override",
+        "--encoder_speed_override", '--enc_speed',
         type=int,
         action=range_action(0, 10),
         default=ctx.prototype_encoder.speed,
@@ -431,7 +431,8 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--probe_speed_override",
+        "--probe_speed",
+        dest="probe_speed_override",
         type=int,
         default=ctx.prototype_encoder.speed,
         help="Override the speed for target vmaf probes",
@@ -445,13 +446,6 @@ def read_args(ctx):
         choices=["HD", "FHD", "UHD"],
         help="HD FHD UHD",
         dest="vmaf_reference_display",
-    )
-
-    parser.add_argument(
-        "--vmaf_ai_assisted_targeting",
-        action="store_true",
-        help="use vmaf ai assisted targeting",
-        dest="vmaf_ai_assisted_targeting",
     )
 
     parser.add_argument(
@@ -560,7 +554,7 @@ def read_args(ctx):
         "--calc_final_vmaf",
         default=ctx.calc_final_vmaf,
         action="store_true",
-        help="Dont calculate final vmaf",
+        help="Calculate vmaf of the final chunk at the end",
         dest="calc_final_vmaf",
     )
 
@@ -643,7 +637,6 @@ def read_args(ctx):
     ctx.vmaf_reference_display = args.vmaf_reference_display
     ctx.probe_speed_override = args.probe_speed_override
     ctx.crf_map = args.flag4
-    ctx.ai_vmaf_targeting = args.vmaf_ai_assisted_targeting
     ctx.pin_to_cores = args.dont_pin_to_cores
     ctx.prototype_encoder.niceness = args.niceness
     ctx.vmaf_target_representation = args.vmaf_target_repesentation

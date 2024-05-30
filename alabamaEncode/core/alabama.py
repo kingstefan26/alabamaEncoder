@@ -67,7 +67,6 @@ class AlabamaContext:
             "vmaf_phone_model": self.vmaf_phone_model,
             "vmaf_no_motion": self.vmaf_no_motion,
             "probe_speed_override": self.probe_speed_override,
-            "ai_vmaf_targeting": self.ai_vmaf_targeting,
             "vmaf_target_representation": self.vmaf_target_representation,
             "flag1": self.flag1,
             "flag2": self.flag2,
@@ -162,7 +161,6 @@ class AlabamaContext:
     vmaf_phone_model = False
     vmaf_no_motion = False
     probe_speed_override = prototype_encoder.speed
-    ai_vmaf_targeting = False
     vmaf_target_representation = "mean"
     dynamic_vmaf_target = False
     dynamic_vmaf_target_vbr = False

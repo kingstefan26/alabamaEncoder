@@ -55,11 +55,10 @@ def setup_chunk_analyze_chain(ctx, sequence):
         ctx.chunk_analyze_chain.append(PlainCrf())
     elif (
         ctx.crf_based_vmaf_targeting is True
-        and ctx.ai_vmaf_targeting is False
         and ctx.multi_res_pipeline is False
     ):
         ctx.chunk_analyze_chain.append(TargetVmaf())
-    elif ctx.crf_bitrate_mode or ctx.ai_vmaf_targeting:
+    elif ctx.crf_bitrate_mode:
         ctx.chunk_analyze_chain.append(CapedCrf())
     elif ctx.prototype_encoder.crf != -1:
         ctx.chunk_analyze_chain.append(PlainCrf())
@@ -78,9 +77,6 @@ def setup_chunk_encoder(ctx, sequence):
     """
 
     # ugly imports here cuz "Circular import 🤓☝"
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.ai_targeted_vmaf import (
-        AiTargetedVmafFinalEncode,
-    )
     from alabamaEncode.conent_analysis.chunk.final_encode_steps.capped_crf_encode import (
         WeridCapedCrfFinalEncode,
     )
@@ -94,8 +90,6 @@ def setup_chunk_encoder(ctx, sequence):
 
     if ctx.flag1:
         ctx.chunk_encode_class = WeridCapedCrfFinalEncode()
-    elif ctx.ai_vmaf_targeting:
-        ctx.chunk_encode_class = AiTargetedVmafFinalEncode()
     elif ctx.dynamic_vmaf_target:
         ctx.chunk_encode_class = DynamicTargetVmaf()
     elif ctx.dynamic_vmaf_target_vbr:
