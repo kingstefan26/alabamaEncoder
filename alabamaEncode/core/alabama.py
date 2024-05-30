@@ -68,7 +68,6 @@ class AlabamaContext:
             "vmaf_no_motion": self.vmaf_no_motion,
             "probe_speed_override": self.probe_speed_override,
             "vmaf_target_representation": self.vmaf_target_representation,
-            "flag3": self.flag3,
             "crf_map": self.crf_map,
             "max_scene_length": self.max_scene_length,
             "start_offset": self.start_offset,
@@ -164,7 +163,6 @@ class AlabamaContext:
     dynamic_vmaf_target_vbr = False
     best_crfs = []
 
-    flag3: bool = False
     crf_map = ""
 
     total_chunks = -1
