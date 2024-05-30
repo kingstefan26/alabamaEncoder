@@ -8,7 +8,7 @@ from alabamaEncode.core.util.abort_controler import AbortControler
 from alabamaEncode.core.util.bin_utils import get_binary, verify_ffmpeg_library
 from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.util.path import PathAlabama
-from alabamaEncode.ffmpeg_source.yuv import Reader
+from alabamaEncode.core.util.yuv import Reader
 from alabamaEncode.scene.chunk import ChunkObject
 
 
