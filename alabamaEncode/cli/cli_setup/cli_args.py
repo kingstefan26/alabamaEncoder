@@ -391,7 +391,7 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--resolution_preset",
+        "--resolution_preset", '-res',
         type=str,
         default=ctx.resolution_preset,
         help="Preset for the scale filter, possible choices are 4k 1440p 1080p 768p 720p 540p 480p 360p",
