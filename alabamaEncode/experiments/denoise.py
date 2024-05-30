@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from alabamaEncode.core.timer import Timer
+from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats

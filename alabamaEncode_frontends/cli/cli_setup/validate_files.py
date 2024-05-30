@@ -1,5 +1,5 @@
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 
 
 def validate_input(ctx):

@@ -9,8 +9,8 @@ from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.kv import AlabamaKv
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.kv import AlabamaKv
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution

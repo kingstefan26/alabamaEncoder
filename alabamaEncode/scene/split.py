@@ -5,7 +5,7 @@ import os
 from scenedetect import detect, AdaptiveDetector
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.sequence import ChunkSequence
 

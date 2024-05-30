@@ -2,8 +2,8 @@ import os
 import random
 import struct
 
-from alabamaEncode.core.bin_utils import get_binary
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.bin_utils import get_binary
+from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.scene.chunk import ChunkObject
 
 # big shoutout to @master_of_zen for this

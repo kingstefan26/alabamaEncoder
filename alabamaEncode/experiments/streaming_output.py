@@ -1,6 +1,6 @@
 import os
 
-from alabamaEncode.core.bin_utils import register_bin
+from alabamaEncode.core.util.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.experiments.util.ExperimentUtil import get_test_files
 from alabamaEncode.scene.chunk import ChunkObject

@@ -4,7 +4,7 @@ import re
 
 from celery.worker.autoscale import Autoscaler as CeleryAutoscaler
 
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.cli_executor import run_cli
 
 
 # https://gist.github.com/hussainfolio3/c5246f59f9e5c31fa720524fb45b2077

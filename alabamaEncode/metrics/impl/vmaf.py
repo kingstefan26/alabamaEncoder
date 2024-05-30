@@ -2,10 +2,10 @@ import json
 import os
 from statistics import mean
 
-from alabamaEncode.core.bin_utils import get_binary
-from alabamaEncode.core.bin_utils import register_bin
-from alabamaEncode.core.cli_executor import run_cli_parallel
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.bin_utils import get_binary
+from alabamaEncode.core.util.bin_utils import register_bin
+from alabamaEncode.core.util.cli_executor import run_cli_parallel
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.metrics.exception import VmafException
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions

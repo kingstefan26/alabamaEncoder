@@ -2,7 +2,7 @@ import os
 
 from matplotlib import pyplot as plt
 
-from alabamaEncode.core.bin_utils import register_bin
+from alabamaEncode.core.util.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.scene.sequence import ChunkSequence

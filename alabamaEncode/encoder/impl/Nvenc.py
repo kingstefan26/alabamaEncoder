@@ -1,6 +1,6 @@
 from typing import List
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution

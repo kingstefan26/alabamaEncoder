@@ -11,9 +11,9 @@ from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
 from alabamaEncode.core.alabama import AlabamaContext
-from alabamaEncode.core.bin_utils import get_binary
-from alabamaEncode.core.cli_executor import run_cli
-from alabamaEncode.core.timer import Timer
+from alabamaEncode.core.util.bin_utils import get_binary
+from alabamaEncode.core.util.cli_executor import run_cli
+from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.split import get_video_scene_list_skinny

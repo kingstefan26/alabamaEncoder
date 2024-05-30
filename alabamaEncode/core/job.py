@@ -27,7 +27,7 @@ from alabamaEncode.core.final_touches import (
     generate_previews,
     create_torrent_file,
 )
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.parallelEncoding.CeleryApp import app
 from alabamaEncode.parallelEncoding.execute_commands import execute_commands
 from alabamaEncode.scene.annel import annealing

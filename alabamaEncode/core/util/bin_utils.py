@@ -10,7 +10,7 @@ __all__ = ["get_binary", "register_bin", "verify_ffmpeg_library", "check_bin"]
 
 from typing import List
 
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.cli_executor import run_cli
 
 bins = []
 

@@ -1,9 +1,9 @@
 from typing import List
 
-from alabamaEncode.core.bin_utils import get_binary
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.bin_utils import get_binary
+from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution

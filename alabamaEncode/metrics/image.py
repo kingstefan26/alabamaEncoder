@@ -1,8 +1,8 @@
 import os
 import re
 
-from alabamaEncode.core.cli_executor import run_cli
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.util.cli_executor import run_cli
+from alabamaEncode.core.util.bin_utils import get_binary
 
 
 class ImageMetrics:

@@ -5,9 +5,9 @@ import sys
 
 from tqdm import tqdm
 
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 
 # example usage:
 # python genConcat.py out.mp4

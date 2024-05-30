@@ -8,7 +8,7 @@ from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf 
     DynamicTargetVmaf,
 )
 from alabamaEncode.core.alabama import AlabamaContext
-from alabamaEncode.core.timer import Timer
+from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.parallelEncoding.command import BaseCommandObject

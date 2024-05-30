@@ -3,7 +3,7 @@ import os
 
 from matplotlib import pyplot as plt
 
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.scene.chunk import ChunkObject
 

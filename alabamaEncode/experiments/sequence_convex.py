@@ -2,7 +2,7 @@ import os
 
 from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
 from alabamaEncode.core.alabama import AlabamaContext
-from alabamaEncode.core.bin_utils import register_bin
+from alabamaEncode.core.util.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions

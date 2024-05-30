@@ -3,8 +3,8 @@ import os.path
 from tqdm import tqdm
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.kv import AlabamaKv
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.kv import AlabamaKv
+from alabamaEncode.core.util.path import PathAlabama
 
 
 class WrongFrameCountError(Exception):

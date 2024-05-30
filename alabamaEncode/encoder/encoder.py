@@ -6,9 +6,9 @@ from typing import List
 
 from tqdm import tqdm
 
-from alabamaEncode.core.cli_executor import run_cli
+from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats

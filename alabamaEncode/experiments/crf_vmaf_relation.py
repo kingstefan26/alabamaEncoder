@@ -18,7 +18,7 @@ from alabamaEncode.metrics.metric import Metric
 
 print(tf.__version__)
 
-from alabamaEncode.core.bin_utils import register_bin
+from alabamaEncode.core.util.bin_utils import register_bin
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.scene.chunk import ChunkObject

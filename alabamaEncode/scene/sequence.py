@@ -5,7 +5,7 @@ from typing import List
 
 from tqdm.asyncio import tqdm
 
-from alabamaEncode.core.kv import AlabamaKv
+from alabamaEncode.core.util.kv import AlabamaKv
 from alabamaEncode.scene.chunk import ChunkObject
 
 

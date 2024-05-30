@@ -3,7 +3,7 @@ import os
 
 from alabamaEncode.core.alabama import AlabamaContext
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.scene.sequence import ChunkSequence

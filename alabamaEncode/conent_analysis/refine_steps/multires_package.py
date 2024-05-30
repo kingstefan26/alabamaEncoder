@@ -2,9 +2,9 @@ import os
 
 from alabamaEncode.conent_analysis.opinionated_vmaf import get_vmaf_list
 from alabamaEncode.conent_analysis.refine_step import RefineStep
-from alabamaEncode.core.bin_utils import get_binary
+from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.path import PathAlabama
+from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.scene.concat import VideoConcatenator
 
 
