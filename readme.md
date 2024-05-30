@@ -9,6 +9,14 @@ and [x264](https://wiki.x266.mov/docs/encoders/x264), among others.
 
 ## Installation
 
+## Recommended way, install with pipx
+
+```bash
+pipx install alabamaEncoder
+```
+
+## But if you are a developer
+
 1. First, clone the upstream GitHub repository:
 
 ```bash
@@ -46,14 +54,6 @@ To build and install the local version:
 pip install build
 python -m build
 pipx install . --editable --force
-```
-
-**Install with `pipx`**
-
-To install AlabamaEncoder with pipx:
-
-```bash
-pipx install alabamaEncoder
 ```
 
 Ensure `SvtAv1EncApp`, `ffmpeg`, `ffprobe`, and any other encoder binaries you wish to use are available in your PATH.
@@ -125,26 +125,28 @@ alabamaEncoder clear
 Here's an example of an Adaptive encoding command for alabamaEncoder:
 
 ```bash
-alabamaEncoder input.mkv output-av1.webm --autocrop --resolution_preset 1080p --grain -2 --hdr --audio_params "-c:a libopus -b:a 170k -ac 6 -mapping_family 1" --vmaf_target 95 --end_offset 60 --start_offset 60 --title "TV SHOW (2023) S00E00"
+alabamaEncoder input.mkv auto --autocrop -res 1080p --grain -2 --hdr --audio_params "-c:a libopus -b:a 170k -ac 6 -mapping_family 1" --vmaf_target 95 --end_offset 60 --start_offset 60 --title "TV SHOW (2023) S00E00"
 ```
 
 Now, let's break down what this command is doing:
 
-- `alabamaEncoder input.mkv output-av1.webm`
+- `alabamaEncoder input.mkv auto`
 
-Specifies that alabamaEncoder should encode `./input.mkv` to `./output-av1.webm`
+This example uses the auto output path, it automatically makes up an output dir based on the title,
+so alabamaEncoder will encode `./input.mkv`
+to `~/showsEncode/TV SHOW (2024)/s0/e0/TV.SHOW.2023.S00E00.AV1.OPUS.Placeholder.webm`
 
 - `--autocrop`
 
 Crops black bars
 
-- `--resolution_preset 1080p`
+- `-res 1080p`
 
-Downscales to a 1080p resolution
+Downscales to a 1080p class resolution
 
 - `--grain -2`
 
-Automatically adjusts film grain synthesis on a per-scene basis
+Automatically adjusts film grain synthesis parameters on a per-scene basis
 
 - `--hdr`
 
@@ -152,11 +154,11 @@ Preserves HDR metadata resulting in a proper HDR output
 
 - `--audio_params "-c:a libopus -b:a 170k -ac 6 -mapping_family 1"`
 
-Transcodes audio to 170k 5.1 Opus
+Transcode audio to 170k 5.1 Opus
 
 - `--vmaf_target 95`
 
-Uses ideal CRF to achieve a VMAF score of 95 on a per-scene basis
+Calculate the ideal CRF to achieve a VMAF score of 95 on a per-scene basis
 
 - `--end_offset 60 --start_offset 60`
 
@@ -175,9 +177,7 @@ Encodes using SvtAv1EncApp by default when an encoder is not specified.
 Here's an example of a Constant Rate Factor encoding command for alabamaEncoder:
 
 ```bash
-alabamaEncoder /path/to/movie.m
-
-kv ./dir/out.webm --audio_params "-c:a libopus -b:a 256k -ac 8 -mapping_family 1" --grain 17 --scale_string="1920:-2" --crf 24 --encoder aomenc
+alabamaEncoder /path/to/movie.mkv ./dir/out.webm --audio_params "-c:a libopus -b:a 256k -ac 8 -mapping_family 1" --grain 17 -res 1080p --crf_mode --crf 24 --encoder AOMENC
 ```
 
 This command:
