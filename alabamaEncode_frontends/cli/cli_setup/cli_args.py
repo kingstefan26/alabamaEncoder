@@ -22,7 +22,7 @@ def read_args(ctx):
     parser.add_argument("output", type=str, help="Output video file")
 
     parser.add_argument(
-        "--dont-encode_audio",
+        "--dont_encode_audio",
         help="Mux audio",
         action="store_false",
         dest="encode_audio",
