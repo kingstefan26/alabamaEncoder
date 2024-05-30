@@ -21,6 +21,6 @@ setup(
     ],
     entry_points="""
       [console_scripts]
-      alabamaEncoder=alabamaEncode_frontends.cli.__main__:main
+      alabamaEncoder=alabamaEncode.cli.__main__:main
       """,
 )

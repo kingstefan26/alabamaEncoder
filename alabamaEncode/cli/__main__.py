@@ -5,18 +5,18 @@ import os
 import sys
 import time
 
+from alabamaEncode.cli.cli_setup.autopaths import auto_output_paths
+from alabamaEncode.cli.cli_setup.cli_args import read_args
+from alabamaEncode.cli.cli_setup.paths import parse_paths
+from alabamaEncode.cli.cli_setup.ratecontrol import parse_rd
+from alabamaEncode.cli.cli_setup.res_preset import parse_resolution_presets
+from alabamaEncode.cli.cli_setup.validate_files import validate_input
+from alabamaEncode.cli.cli_setup.video_filters import parse_video_filters
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.auto_thumbnailer import AutoThumbnailer
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.worker import worker
-from alabamaEncode_frontends.cli.cli_setup.autopaths import auto_output_paths
-from alabamaEncode_frontends.cli.cli_setup.cli_args import read_args
-from alabamaEncode_frontends.cli.cli_setup.paths import parse_paths
-from alabamaEncode_frontends.cli.cli_setup.ratecontrol import parse_rd
-from alabamaEncode_frontends.cli.cli_setup.res_preset import parse_resolution_presets
-from alabamaEncode_frontends.cli.cli_setup.validate_files import validate_input
-from alabamaEncode_frontends.cli.cli_setup.video_filters import parse_video_filters
 
 runtime = -1
 runtime_file = ""

@@ -1,6 +1,9 @@
 # AlabamaEncoder
 
-AlabamaEncoder is a powerful video encoding framework designed for macOS & Linux. It is able to leverage multi-PC setups, and currently supports various encoders such as [SVT-AV1](https://wiki.x266.mov/docs/encoders/SVT-AV1), [aomenc](https://wiki.x266.mov/docs/encoders/aomenc), [rav1e](https://wiki.x266.mov/docs/encoders/rav1e), [x265](https://wiki.x266.mov/docs/encoders/x265), and [x264](https://wiki.x266.mov/docs/encoders/x264), among others.
+AlabamaEncoder is a powerful video encoding framework designed for macOS & Linux. It is able to leverage multi-PC
+setups, and currently supports various encoders such
+as [SVT-AV1](https://wiki.x266.mov/docs/encoders/SVT-AV1), [aomenc](https://wiki.x266.mov/docs/encoders/aomenc), [rav1e](https://wiki.x266.mov/docs/encoders/rav1e), [x265](https://wiki.x266.mov/docs/encoders/x265),
+and [x264](https://wiki.x266.mov/docs/encoders/x264), among others.
 
 *Note: this utility is a work in progress. It may not function as expected. Please report any issues you encounter.*
 
@@ -32,7 +35,7 @@ From here, you can either run the program without building it, or build & instal
 **Run Without Building**
 
 ```bash
-python -m alabamaEncode_frontends.cli <cli_args>
+python -m alabamaEncode.cli <cli_args>
 ```
 
 **Build & Install**
@@ -53,7 +56,8 @@ To install AlabamaEncoder with pipx:
 pipx install alabamaEncoder
 ```
 
-Ensure `SvtAv1EncApp`, `ffmpeg`, `ffprobe`, and any other encoder binaries you wish to use are available in your PATH. The program will notify you if any dependencies are missing.
+Ensure `SvtAv1EncApp`, `ffmpeg`, `ffprobe`, and any other encoder binaries you wish to use are available in your PATH.
+The program will notify you if any dependencies are missing.
 
 ## Command-Line Interface (CLI)
 
@@ -67,7 +71,8 @@ For a more comprehensive breakdown of the arguments and flags, see our [USAGE pa
 
 ### Non-Mainline Encoders
 
-To use one of the many community-built forks of mainline video encoders (like [SVT-AV1-PSY](https://github.com/gianni-rosato/svt-av1-psy)), you may do the following:
+To use one of the many community-built forks of mainline video encoders (
+like [SVT-AV1-PSY](https://github.com/gianni-rosato/svt-av1-psy)), you may do the following:
 
 - Get the path of the binary.
 - Set it in an environment variable following this pattern: `<CLI_NAME_ALL_UPPER_CASE>_CLI_PATH`.
@@ -79,13 +84,15 @@ export SVTAV1ENCAPP_CLI_PATH=/path/to/SvtAv1EncApp # Custom path
 alabamaEncoder [arguments...]
 ```
 
-This applies to *all* binaries used by AlabamaEncoder. So, to use a custom build of ffmpeg, set the `FFMPEG_CLI_PATH` environment variable.
+This applies to *all* binaries used by AlabamaEncoder. So, to use a custom build of ffmpeg, set the `FFMPEG_CLI_PATH`
+environment variable.
 
 ### Multi-System Encoding
 
 #### Setup
 
-- Ensure all paths on all PCs are the same. This can be achieved by encoding on an NFS share mounted on the same path everywhere.
+- Ensure all paths on all PCs are the same. This can be achieved by encoding on an NFS share mounted on the same path
+  everywhere.
 - You will need a job broker for Celery. The simplest option is Redis. Run the following:
 
 ```bash
@@ -110,7 +117,8 @@ alabamaEncoder clear
 ### Notes
 
 - Bandwidth overhead is low with smart FFmpeg seeking. A 1 Gb/s LAN is sufficient.
-- Content analysis/scene detection is done on the system running the main command. This will ideally be configurable in the future, but is not at this time.
+- Content analysis/scene detection is done on the system running the main command. This will ideally be configurable in
+  the future, but is not at this time.
 
 ### Examples
 
@@ -173,6 +181,7 @@ kv ./dir/out.webm --audio_params "-c:a libopus -b:a 256k -ac 8 -mapping_family 1
 ```
 
 This command:
+
 - Downscales `movie.mkv` to a 1080p resolution.
 - Tonemaps if HDR.
 - Uses 7.1 256kb/s Opus audio.
@@ -181,9 +190,11 @@ This command:
 
 ## Notes
 
-- If `alabamaEncoder` is already running, you can spin up new workers (multi-PC guide), and they will automatically connect and split the workload.
+- If `alabamaEncoder` is already running, you can spin up new workers (multi-PC guide), and they will automatically
+  connect and split the workload.
 - If you crash or abort the script, rerun it with the same arguments, and it will pick up where it left off.
-- Extensive testing has been done to ensure frame-perfect ffmpeg-based split/concat methods. However, if you encounter any issues, please create an issue and provide a sample.
+- Extensive testing has been done to ensure frame-perfect ffmpeg-based split/concat methods. However, if you encounter
+  any issues, please create an issue and provide a sample.
 - All feedback is welcome. Create an issue for explanations, bug fixes, or feature requests.
 
 ## Credits
