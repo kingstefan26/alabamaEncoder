@@ -18,7 +18,6 @@ def setup_chunk_analyze_chain(ctx, sequence):
     """
     Sets up the chunk analyze chain
     """
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.capped_crf import CapedCrf
     from alabamaEncode.conent_analysis.chunk.analyze_steps.manual_crf import (
         CrfIndexesMap,
     )
@@ -56,8 +55,6 @@ def setup_chunk_analyze_chain(ctx, sequence):
         and ctx.multi_res_pipeline is False
     ):
         ctx.chunk_analyze_chain.append(TargetVmaf())
-    elif ctx.crf_bitrate_mode:
-        ctx.chunk_analyze_chain.append(CapedCrf())
     elif ctx.prototype_encoder.crf != -1:
         ctx.chunk_analyze_chain.append(PlainCrf())
     else:
@@ -119,9 +116,6 @@ async def run_sequence_pipeline(ctx, sequence):
         setup_autograin,
     )
     from alabamaEncode.conent_analysis.sequence.taget_ssimdb import setup_ssimdb_target
-    from alabamaEncode.conent_analysis.sequence.target_bitrate_optimisation import (
-        setup_ideal_bitrate,
-    )
     from alabamaEncode.conent_analysis.sequence.x264_tune import get_ideal_x264_tune
 
     pipeline = [
@@ -133,7 +127,6 @@ async def run_sequence_pipeline(ctx, sequence):
         setup_tiles,
         setup_denoise,
         setup_autograin,
-        setup_ideal_bitrate,
         setup_ssimdb_target,
         get_ideal_x264_tune,
     ]

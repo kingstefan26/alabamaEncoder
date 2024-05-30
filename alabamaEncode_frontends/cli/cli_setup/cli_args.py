@@ -174,12 +174,6 @@ def read_args(ctx):
         dest="crf_based_vmaf_targeting",
     )
 
-    parser.add_argument(
-        "--auto_crf",
-        help="Find a crf that hits target vmaf, calculate a peak bitrate cap, and encode using that",
-        action="store_false",
-        dest="crf_bitrate_mode",
-    )
 
     parser.add_argument(
         "--chunk_order",
@@ -583,7 +577,6 @@ def read_args(ctx):
     ctx.bitrate_adjust_mode = args.bitrate_adjust_mode
     ctx.bitrate_undershoot = args.bitrate_undershoot
     ctx.bitrate_overshoot = args.bitrate_overshoot
-    ctx.crf_bitrate_mode = args.crf_bitrate_mode
     ctx.prototype_encoder.crf = args.crf
     ctx.prototype_encoder.hdr = args.hdr
     ctx.max_scene_length = args.max_scene_length

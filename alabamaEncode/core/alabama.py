@@ -52,7 +52,6 @@ class AlabamaContext:
             "find_best_bitrate": self.find_best_bitrate,
             "vbr_perchunk_optimisation": self.vbr_perchunk_optimisation,
             "ssim_db_target": self.ssim_db_target,
-            "crf_bitrate_mode": self.crf_bitrate_mode,
             "bitrate_undershoot": self.bitrate_undershoot,
             "bitrate_overshoot": self.bitrate_overshoot,
             "bitrate_adjust_mode": self.bitrate_adjust_mode,
@@ -138,7 +137,6 @@ class AlabamaContext:
     find_best_bitrate = False
     vbr_perchunk_optimisation: bool = True
     ssim_db_target: float = 20
-    crf_bitrate_mode: bool = False
     bitrate_undershoot: float = 0.90
     bitrate_overshoot: float = 2
     bitrate_adjust_mode: str = ""
