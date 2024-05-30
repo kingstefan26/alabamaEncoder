@@ -8,7 +8,7 @@ import time
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.auto_thumbnailer import AutoThumbnailer
 from alabamaEncode.core.job import AlabamaEncodingJob
-from alabamaEncode.parallelEncoding.CeleryApp import app
+from alabamaEncode.parallelEncoding.celery_app import app
 from alabamaEncode.parallelEncoding.worker import worker
 from alabamaEncode_frontends.cli.cli_setup.autopaths import auto_output_paths
 from alabamaEncode_frontends.cli.cli_setup.cli_args import read_args
