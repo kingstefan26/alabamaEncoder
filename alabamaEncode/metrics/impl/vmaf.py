@@ -20,12 +20,14 @@ class VmafOptions(MetricOptions):
         uhd=False,
         neg=False,
         no_motion=False,
+        subsample=-1,
         **kwargs,
     ):
         self.phone = phone
         self.uhd = uhd
         self.neg = neg
         self.no_motion = no_motion
+        self.subsample = subsample
         super().__init__(**kwargs)
 
     def get_model(self) -> str:
@@ -81,6 +83,9 @@ def calc_vmaf(
         f"--distorted {dist_pipe}"
         f" --threads {vmaf_options.threads}"
     )
+
+    if vmaf_options.subsample != -1:
+        vmaf_command += f" --subsample {vmaf_options.subsample}"
 
     cli_results = run_cli_parallel(
         [

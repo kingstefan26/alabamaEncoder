@@ -377,6 +377,13 @@ def read_args(ctx):
     )
 
     parser.add_argument(
+        '--vmaf_subsample',
+        type=int,
+        help="compute scores only every N frames",
+        dest="vmaf_subsample"
+    )
+
+    parser.add_argument(
         "--vmaf_no_motion",
         action="store_true",
         help="use vmaf no motion model for auto crf tuning",
@@ -603,6 +610,7 @@ def read_args(ctx):
     ctx.bitrate_string = args.bitrate
     ctx.vmaf_phone_model = args.vmaf_phone_model
     ctx.vmaf_4k_model = args.vmaf_4k_model
+    ctx.vmaf_subsample = args.vmaf_subsample
     ctx.vmaf_no_motion = args.vmaf_no_motion
     ctx.auto_accept_autocrop = args.auto_accept_autocrop
     ctx.resolution_preset = args.resolution_preset

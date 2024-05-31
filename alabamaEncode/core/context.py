@@ -65,6 +65,7 @@ class AlabamaContext:
             "vmaf_4k_model": self.vmaf_4k_model,
             "vmaf_phone_model": self.vmaf_phone_model,
             "vmaf_no_motion": self.vmaf_no_motion,
+            "vmaf_subsample": self.vmaf_subsample,
             "probe_speed_override": self.probe_speed_override,
             "vmaf_target_representation": self.vmaf_target_representation,
             "crf_map": self.crf_map,
@@ -148,6 +149,7 @@ class AlabamaContext:
 
     metric_to_target = "vmaf"
     vmaf: int = 96
+    vmaf_subsample = -1
     denoise_vmaf_ref = False
     probe_count = 2
     vmaf_reference_display = ""
@@ -220,6 +222,7 @@ class AlabamaContext:
             ),
             no_motion=self.vmaf_no_motion,
             denoise_refrence=self.denoise_vmaf_ref,
+            subsample=self.vmaf_subsample
         )
 
     def get_metric_target(self) -> Tuple[Metric, float]:
