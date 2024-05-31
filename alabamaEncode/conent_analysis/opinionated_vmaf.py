@@ -53,10 +53,10 @@ def convexhull_get_resolutions(codec: Codec) -> list[str]:
             return ["1920:-2", "1280:-2", "960:-2", "854:-2", "768:-2", "480:-2"]
 
 
-def get_crf_limits(encoder: Encoder) -> tuple[int, int]:
-    env_name = "CRF_LIMITS"
-    if env_name in os.environ:
-        return tuple(map(int, os.environ[env_name].split(",")))
+def get_crf_limits(encoder: Encoder, ctx=None) -> tuple[int, int]:
+    if ctx is not None:
+        if ctx.crf_limits is not None:
+            return tuple(map(int, ctx.crf_limits.split(",")))
     match encoder.get_codec():
         case Codec.av1:
             match encoder:

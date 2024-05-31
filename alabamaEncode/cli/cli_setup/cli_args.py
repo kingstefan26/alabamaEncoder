@@ -363,6 +363,13 @@ def read_args(ctx):
     )
 
     parser.add_argument(
+        "--crf_limits",
+        type=str,
+        help="limits for crf when targeting vmaf, comma separated eg 20,35",
+        dest="crf_limits",
+    )
+
+    parser.add_argument(
         "--vmaf_phone_model",
         action="store_true",
         help="use vmaf phone model for auto crf tuning",
@@ -608,6 +615,7 @@ def read_args(ctx):
     ctx.prototype_encoder.video_filters = args.video_filters
     ctx.auto_crop = args.auto_crop
     ctx.bitrate_string = args.bitrate
+    ctx.crf_limits = args.crf_limits
     ctx.vmaf_phone_model = args.vmaf_phone_model
     ctx.vmaf_4k_model = args.vmaf_4k_model
     ctx.vmaf_subsample = args.vmaf_subsample

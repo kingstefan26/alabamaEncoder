@@ -62,6 +62,7 @@ class AlabamaContext:
             "probe_count": self.probe_count,
             "vmaf_reference_display": self.vmaf_reference_display,
             "crf_based_vmaf_targeting": self.crf_based_vmaf_targeting,
+            "crf_limits": self.crf_limits,
             "vmaf_4k_model": self.vmaf_4k_model,
             "vmaf_phone_model": self.vmaf_phone_model,
             "vmaf_no_motion": self.vmaf_no_motion,
@@ -147,6 +148,7 @@ class AlabamaContext:
     args_tune = "appeal"
     calc_final_vmaf = False
 
+    crf_limits = None
     metric_to_target = "vmaf"
     vmaf: int = 96
     vmaf_subsample = -1

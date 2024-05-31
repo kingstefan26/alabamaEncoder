@@ -183,7 +183,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
             _, stats, _, _, _ = run_probe(best_crf_from_kv)
             return finish(stats, best_crf_from_kv)
 
-        low_crf, high_crf = get_crf_limits(enc)
+        low_crf, high_crf = get_crf_limits(enc, ctx)
         max_score_error = 0.7
 
         tol = 0.10 if enc.supports_float_crfs() else 1
