@@ -24,7 +24,7 @@ def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
 
 def get_vmaf_probe_speed(encoder: Encoder, ctx=None) -> int:
     if ctx is not None:
-        if ctx.vmaf_probe_speed is not -1:
+        if ctx.vmaf_probe_speed != -1:
             return ctx.vmaf_probe_speed
     match encoder:
         case EncoderSvt():
