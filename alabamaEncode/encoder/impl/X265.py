@@ -17,10 +17,10 @@ class EncoderX265(Encoder):
 
     def get_version(self) -> str:
         return (
-            run_cli(f"{get_binary('x264')} --help")
+            run_cli(f"{get_binary('x265')} --help")
             .get_output()
             .split("\n")[0]
-            .replace("x265", "")
+            .replace("x265 [info]: HEVC encoder version ", "")
             .strip()
         )
 
@@ -49,16 +49,9 @@ class EncoderX265(Encoder):
             # if self.svt_master_display:
             #     kommand += f' --mastering-display "{self.svt_master_display}" '
 
-        kommand += (
-            " --wpp --ctu=64 --tu-intra-depth=2 --me=3 --subme=3 --merange=57 --rect --amp --max-merge=3 -"
-            "-temporal-mvp --no-early-skip --rdpenalty=0 --no-tskip --no-tskip-fast --strong-intra-smoothing "
-            "--no-lossless --no-cu-lossless --no-constrained-intra --no-fast-intra --open-gop --interlace=0 "
-            "--min-keyint=24 --scenecut=40 --rc-lookahead=30 --bframes=8 "
-            "--bframe-bias=0 --b-adapt=2 --ref=3 --weightp --weightb --aq-mode=2 --aq-strength=1.00 "
-            "--cbqpoffs=0 --crqpoffs=0 --rd=6 --psy-rd=0.00 --psy-rdoq=0.00 --signhide --lft --sao "
-            "--no-sao-non-deblock --b-pyramid --cutree --qcomp=0.60 --qpmin=0 --qpstep=4 --ipratio=1.40"
-            " --pbratio=1.30 "
-        )
+        kommand += " --no-scenecut "
+
+        kommand += f" --keyint={self.keyint} "
 
         match self.rate_distribution:
             case EncoderRateDistribution.CQ:
@@ -90,8 +83,6 @@ class EncoderX265(Encoder):
             case 0:
                 kommand += " --preset=placebo"
 
-        kommand += f" --keyint={self.keyint} "
-
         if self.passes == 2:
             raise Exception("FATAL: 2 pass encoding not supported")
         elif self.passes == 1:
@@ -107,3 +98,12 @@ class EncoderX265(Encoder):
 
     def supports_float_crfs(self) -> bool:
         return True
+
+
+if __name__ == '__main__':
+    x265 = EncoderX265()
+    print(x265.get_pretty_name())
+    print(x265.get_codec())
+    print(x265.get_version())
+    print(x265.get_chunk_file_extension())
+    print(x265.supports_float_crfs())
