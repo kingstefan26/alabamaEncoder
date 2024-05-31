@@ -1,5 +1,3 @@
-import os
-
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.impl.Aomenc import EncoderAom
@@ -24,10 +22,10 @@ def convexhull_get_crf_range(codec: Codec) -> tuple[int, int]:
             raise ValueError(f"FATAL: Unknown codec: {codec}")
 
 
-def get_vmaf_probe_speed(encoder: Encoder) -> int:
-    env_name = "VMAF_PROBE_SPEED"
-    if env_name in os.environ:
-        return int(os.environ[env_name])
+def get_vmaf_probe_speed(encoder: Encoder, ctx=None) -> int:
+    if ctx is not None:
+        if ctx.vmaf_probe_speed is not -1:
+            return ctx.vmaf_probe_speed
     match encoder:
         case EncoderSvt():
             return 13

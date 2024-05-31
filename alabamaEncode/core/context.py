@@ -67,7 +67,7 @@ class AlabamaContext:
             "vmaf_phone_model": self.vmaf_phone_model,
             "vmaf_no_motion": self.vmaf_no_motion,
             "vmaf_subsample": self.vmaf_subsample,
-            "probe_speed_override": self.probe_speed_override,
+            "vmaf_probe_speed": self.vmaf_probe_speed,
             "vmaf_target_representation": self.vmaf_target_representation,
             "crf_map": self.crf_map,
             "max_scene_length": self.max_scene_length,
@@ -159,7 +159,7 @@ class AlabamaContext:
     vmaf_4k_model = False
     vmaf_phone_model = False
     vmaf_no_motion = False
-    probe_speed_override = prototype_encoder.speed
+    vmaf_probe_speed = -1
     vmaf_target_representation = "mean"
     dynamic_vmaf_target = False
     dynamic_vmaf_target_vbr = False

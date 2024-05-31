@@ -422,10 +422,9 @@ def read_args(ctx):
     )
 
     parser.add_argument(
-        "--probe_speed",
-        dest="probe_speed_override",
+        "--vmaf_probe_speed",
+        dest="vmaf_probe_speed",
         type=int,
-        default=ctx.prototype_encoder.speed,
         help="Override the speed for target vmaf probes",
         action=range_action(0, 10),
     )
@@ -624,7 +623,7 @@ def read_args(ctx):
     ctx.resolution_preset = args.resolution_preset
     ctx.probe_count = args.probe_count
     ctx.vmaf_reference_display = args.vmaf_reference_display
-    ctx.probe_speed_override = args.probe_speed_override
+    ctx.vmaf_probe_speed = args.vmaf_probe_speed
     ctx.crf_map = args.crf_map
     ctx.pin_to_cores = args.dont_pin_to_cores
     ctx.prototype_encoder.niceness = args.niceness
