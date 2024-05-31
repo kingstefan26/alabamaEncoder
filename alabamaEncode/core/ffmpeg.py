@@ -121,6 +121,28 @@ class Ffmpeg:
         )
 
     @staticmethod
+    def get_pix_fmt(path: PathAlabama) -> str:
+        path.check_video()
+        return (
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt "
+                f"-of default=noprint_wrappers=1:nokey=1 {path.get_safe()}"
+            )
+            .verify()
+            .strip_mp4_warning()
+        )
+
+    @staticmethod
+    def get_bit_depth(path: PathAlabama) -> int:
+        pix_fmt = Ffmpeg.get_pix_fmt(path)
+        if pix_fmt == "yuv420p":
+            return 8
+        elif pix_fmt == "yuv420p10le":
+            return 10
+        else:
+            raise NotImplemented(f"could not parse bitdepth out of: {pix_fmt}; please report it")
+
+    @staticmethod
     def is_hdr(path: PathAlabama) -> bool:
         """Check if a video is HDR"""
         path.check_video()
