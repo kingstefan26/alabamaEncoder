@@ -130,6 +130,7 @@ class Ffmpeg:
             )
             .verify()
             .strip_mp4_warning()
+            .get_output()
         )
 
     @staticmethod
