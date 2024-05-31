@@ -345,6 +345,8 @@ class AlabamaEncodingJob:
                         pass
                     elif ctx.chunk_order == "sequential_reverse":
                         command_objects.reverse()
+                    elif ctx.chunk_order == "even":
+                        command_objects = annealing(command_objects, 1000)
                     else:
                         raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
 
