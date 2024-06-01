@@ -84,7 +84,7 @@ def calc_vmaf(
         f" --threads {vmaf_options.threads}"
     )
 
-    if vmaf_options.subsample != -1:
+    if vmaf_options.subsample != -1 and vmaf_options.subsample is not None:
         vmaf_command += f" --subsample {vmaf_options.subsample}"
 
     cli_results = run_cli_parallel(
