@@ -426,6 +426,7 @@ def read_args(ctx):
         "--vmaf_probe_speed",
         dest="vmaf_probe_speed",
         type=int,
+        default=ctx.vmaf_probe_speed,
         help="Override the speed for target vmaf probes",
         action=range_action(0, 10),
     )
