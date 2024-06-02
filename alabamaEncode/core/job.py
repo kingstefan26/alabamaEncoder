@@ -390,7 +390,7 @@ class AlabamaEncodingJob:
                     for step in refine_steps:
                         step(ctx, sequence)
 
-                except KeyboardInterrupt:
+                except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
                     print("Keyboard interrupt, stopping")
                     # kill all async tasks
                     for task in asyncio.all_tasks():
