@@ -5,9 +5,9 @@ from typing import List
 
 from tqdm import tqdm
 
+from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.cli_executor import run_cli
-from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.path import PathAlabama
 
 
@@ -122,7 +122,12 @@ class VideoConcatenator:
             for file in self.files:
                 f.write(f"file '{file}'\n")
 
-        self.vid_output = f"{self.temp_dir}vid.mkv"
+        concat_vid_ext = ".mkv"
+
+        if Ffmpeg.get_codec(PathAlabama(self.files[0])) == "av1":
+            concat_vid_ext = ".ivf"
+
+        self.vid_output = f"{self.temp_dir}vid{concat_vid_ext}"
         print("Concating Video")
         if not os.path.exists(self.vid_output):
             os.system(
@@ -317,10 +322,10 @@ class VideoConcatenator:
                 "-map_chapters -1",
                 "-c:v copy",
                 "-c:a copy",
-                "-vsync cfr",
                 "-fflags +bitexact",
                 "-flags:v +bitexact",
                 "-flags:a +bitexact",
+                "-avoid_negative_ts make_zero",
                 f'"{self.output}"',
             ]
 
