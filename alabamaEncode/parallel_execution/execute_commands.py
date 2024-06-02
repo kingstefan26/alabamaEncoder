@@ -20,9 +20,12 @@ async def execute_commands(
     finished_scene_callback: callable = None,
     size_estimate_data: tuple = None,
     throughput_scaling=False,
+    pbar: tqdm = None,
 ):
     """
     Execute a list of commands in parallel
+    :param throughput_scaling:
+    :param pbar:
     :param pin_to_cores:
     :param use_celery: execute on a celery cluster
     :param command_objects: objects with a `run()` method to execute
@@ -45,22 +48,8 @@ async def execute_commands(
         encoded_frames_so_far, encoded_size_so_far = size_estimate_data
 
     total_scenes = len(command_objects)
-    total_encode_units = (
-        sum([c.chunk.length for c in command_objects])
-        if are_commands_adaptive_commands
-        else total_scenes
-    )
 
     if use_celery:
-        pbar = tqdm(
-            total=total_encode_units,
-            desc="Encoding",
-            unit="frame" if are_commands_adaptive_commands else "scene",
-            dynamic_ncols=True,
-            unit_scale=True if are_commands_adaptive_commands else False,
-            smoothing=0,
-        )
-
         for a in command_objects:
             a.run_on_celery = True
 
@@ -133,15 +122,6 @@ async def execute_commands(
 
         # array of zeros to keep track of which cores are used, used for thread pinning with taskset
         used_cores = [0] * core_count
-
-        pbar = tqdm(
-            total=total_encode_units,
-            desc="Encoding",
-            unit="frame" if are_commands_adaptive_commands else "scene",
-            dynamic_ncols=True,
-            unit_scale=True,
-            smoothing=0,
-        )
 
         frame_encoded_history: List[Tuple[int, float]] = []
         last_frame_encode = time.time()

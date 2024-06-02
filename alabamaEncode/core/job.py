@@ -294,82 +294,91 @@ class AlabamaEncodingJob:
                     print("Integrity check failed 3 times, aborting")
                     quit()
 
-                try:
-                    command_objects = []
-                    ctx = self.ctx
-                    frames_encoded_so_far = 0
-                    size_kb_so_far = 0
+                command_objects = []
+                ctx = self.ctx
+                frames_encoded_so_far = 0
+                size_kb_so_far = 0
 
-                    def is_chunk_done(_chunk):
-                        if ctx.multi_res_pipeline:
-                            enc = ctx.get_encoder()
-                            vmafs = get_vmaf_list(enc.get_codec())
+                def is_chunk_done(_chunk):
+                    if ctx.multi_res_pipeline:
+                        enc = ctx.get_encoder()
+                        vmafs = get_vmaf_list(enc.get_codec())
 
-                            for vmaf in vmafs:
-                                output_path = (
-                                    f"{ctx.temp_folder}/"
-                                    f"{_chunk.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
-                                )
-                                if not os.path.exists(output_path):
-                                    return False
+                        for vmaf in vmafs:
+                            output_path = (
+                                f"{ctx.temp_folder}/"
+                                f"{_chunk.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
+                            )
+                            if not os.path.exists(output_path):
+                                return False
 
-                            return True
-                        else:
-                            return _chunk.is_done(kv=ctx.get_kv())
-
-                    for chunk in sequence.chunks:
-                        if not is_chunk_done(chunk):
-                            command_objects.append(ChunkEncoder(ctx, chunk))
-                        else:
-                            frames_encoded_so_far += chunk.get_frame_count()
-                            size_kb_so_far += chunk.get_filesize() / 1000
-
-                    threads = os.cpu_count()
-                    if len(command_objects) < threads:
-                        ctx.prototype_encoder.threads = int(
-                            threads / len(command_objects)
-                        )
-
-                    # order chunks based on order
-                    if ctx.chunk_order == "random":
-                        random.shuffle(command_objects)
-                    elif ctx.chunk_order == "length_asc":
-                        command_objects.sort(key=lambda x: x.job.chunk.length)
-                    elif ctx.chunk_order == "length_desc":
-                        command_objects.sort(
-                            key=lambda x: x.job.chunk.length, reverse=True
-                        )
-                    elif ctx.chunk_order == "sequential":
-                        pass
-                    elif ctx.chunk_order == "sequential_reverse":
-                        command_objects.reverse()
-                    elif ctx.chunk_order == "even":
-                        command_objects = annealing(command_objects, 1000)
+                        return True
                     else:
-                        raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
+                        return _chunk.is_done(kv=ctx.get_kv())
 
-                    if ctx.throughput_scaling:
-                        # make the chunk length distribution homogenous
-                        command_objects = annealing(command_objects, 1000)
+                for chunk in sequence.chunks:
+                    if not is_chunk_done(chunk):
+                        command_objects.append(ChunkEncoder(ctx, chunk))
+                    else:
+                        frames_encoded_so_far += chunk.get_frame_count()
+                        size_kb_so_far += chunk.get_filesize() / 1000
 
-                    print(
-                        f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"
+                threads = os.cpu_count()
+                if len(command_objects) < threads:
+                    ctx.prototype_encoder.threads = int(
+                        threads / len(command_objects)
                     )
 
-                    already_done = len(sequence.chunks) - len(command_objects)
+                # order chunks based on order
+                if ctx.chunk_order == "random":
+                    random.shuffle(command_objects)
+                elif ctx.chunk_order == "length_asc":
+                    command_objects.sort(key=lambda x: x.job.chunk.length)
+                elif ctx.chunk_order == "length_desc":
+                    command_objects.sort(
+                        key=lambda x: x.job.chunk.length, reverse=True
+                    )
+                elif ctx.chunk_order == "sequential":
+                    pass
+                elif ctx.chunk_order == "sequential_reverse":
+                    command_objects.reverse()
+                elif ctx.chunk_order == "even":
+                    command_objects = annealing(command_objects, 1000)
+                else:
+                    raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
 
-                    def update_proc_done(num_finished_scenes):
-                        # map 20 to 95% as the space where the scenes are encoded
-                        self.update_proc_done(
-                            20
-                            + (already_done + num_finished_scenes)
-                            / len(sequence.chunks)
-                            * 75
-                        )
+                if ctx.throughput_scaling:
+                    # make the chunk length distribution homogenous
+                    command_objects = annealing(command_objects, 1000)
 
-                    if len(command_objects) == 0:
-                        print("Nothing to encode, skipping")
-                    else:
+                print(
+                    f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"
+                )
+
+                already_done = len(sequence.chunks) - len(command_objects)
+
+                def update_proc_done(num_finished_scenes):
+                    # map 20 to 95% as the space where the scenes are encoded
+                    self.update_proc_done(
+                        20
+                        + (already_done + num_finished_scenes)
+                        / len(sequence.chunks)
+                        * 75
+                    )
+
+                pbar = tqdm(
+                    total=sum([c.chunk.length for c in command_objects]),
+                    desc="Encoding",
+                    unit="frame",
+                    dynamic_ncols=True,
+                    unit_scale=True,
+                    smoothing=0,
+                )
+
+                if len(command_objects) == 0:
+                    print("Nothing to encode, skipping")
+                else:
+                    try:
                         encode_task = asyncio.create_task(
                             execute_commands(
                                 ctx.use_celery,
@@ -382,20 +391,23 @@ class AlabamaEncodingJob:
                                     size_kb_so_far,
                                 ),
                                 throughput_scaling=ctx.throughput_scaling,
+                                pbar=pbar,
                             )
                         )
                         await encode_task
 
-                    refine_steps = get_refine_steps(ctx)
-                    for step in refine_steps:
-                        step(ctx, sequence)
+                    except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
+                        print("Keyboard interrupt, stopping")
+                        # kill all async tasks
+                        pbar.close()
+                        for task in asyncio.all_tasks():
+                            task.cancel()
+                        quit()
 
-                except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
-                    print("Keyboard interrupt, stopping")
-                    # kill all async tasks
-                    for task in asyncio.all_tasks():
-                        task.cancel()
-                    quit()
+                refine_steps = get_refine_steps(ctx)
+                for step in refine_steps:
+                    step(ctx, sequence)
+
 
             if not self.ctx.multi_res_pipeline:
                 self.update_proc_done(95)
