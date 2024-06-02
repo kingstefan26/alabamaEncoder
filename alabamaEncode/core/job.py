@@ -366,14 +366,30 @@ class AlabamaEncodingJob:
                         * 75
                     )
 
+                kv = self.ctx.get_kv()
+                saved_progress = kv.get_global("pbar_progress")
+
                 pbar = tqdm(
                     total=sum([c.chunk.length for c in command_objects]),
                     desc="Encoding",
                     unit="frame",
                     dynamic_ncols=True,
                     unit_scale=True,
-                    smoothing=0,
+                    smoothing=0.2,
+                    initial=saved_progress if saved_progress is not None else 0
                 )
+
+
+                saved_total = kv.get_global("pbar_total")
+                if saved_total is not None:
+                    pbar.total = saved_total
+
+                saved_estimation = kv.get_global("pbar_estimation")
+                if saved_estimation is not None:
+                    pbar.set_postfix(estimation=saved_estimation)
+
+                pbar.refresh()
+
 
                 if len(command_objects) == 0:
                     print("Nothing to encode, skipping")
@@ -402,6 +418,13 @@ class AlabamaEncodingJob:
                         pbar.close()
                         for task in asyncio.all_tasks():
                             task.cancel()
+
+                        # save pbar progress in kv
+                        kv = self.ctx.get_kv()
+                        kv.set_global("pbar_progress", pbar.n)
+                        if kv.get_global("pbar_total") is None:
+                            kv.set_global("pbar_total", pbar.total)
+                        kv.set_global("pbar_estimation", pbar.postfix.get('estimation'))
                         quit()
 
                 refine_steps = get_refine_steps(ctx)
