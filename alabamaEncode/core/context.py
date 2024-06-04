@@ -106,7 +106,6 @@ class AlabamaContext:
     def __iter__(self):
         return self.dict().__iter__()
 
-    standalone_autothumbnailer = False
     use_celery: bool = False
     offload_server = ""
     multiprocess_workers: int = -1

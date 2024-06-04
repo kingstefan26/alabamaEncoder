@@ -102,6 +102,22 @@ def main():
                 quit()
             case "worker":
                 worker()
+            case "autothumbnailer":
+                if len(sys.argv) < 3:
+                    print("Usage: alabamaEncode autothumbnailer <input_file>")
+                    quit()
+
+                input_file = sys.argv[2]
+
+                if not os.path.exists(input_file):
+                    print(f"File {input_file} does not exist")
+                    quit()
+
+                AutoThumbnailer().generate_previews(
+                    input_file=input_file,
+                    output_folder=os.path.dirname(input_file)
+                )
+                quit()
 
     if ctx is None:
         ctx = setup_context_for_standalone_usage()
@@ -111,7 +127,7 @@ def main():
     runtime_file = os.path.join(ctx.temp_folder, "runtime.txt")
     lock_file_path = os.path.join(ctx.output_folder, "alabama.lock")
 
-    if os.path.exists(lock_file_path) and not ctx.standalone_autothumbnailer:
+    if os.path.exists(lock_file_path):
         print(
             "Lock file exists, are you sure another instance is not encoding in this folder? "
             "if not delete the lock file and try again"
@@ -124,7 +140,7 @@ def main():
     if not os.path.exists(output_lock):
         with open(output_lock, "w") as f:
             f.write(ctx.raw_input_file)
-    elif not ctx.standalone_autothumbnailer:
+    else:
         output_file_from_lock = open(output_lock).read()
         if output_file_from_lock != ctx.raw_input_file:
             print(
@@ -145,13 +161,6 @@ def main():
         headers = {"Authorization": f"Bearer {auth_token}"}
         data = json.dumps(ctx.to_json())
         requests.post(f"{ctx.offload_server}/jobs", data=data, headers=headers)
-
-    if ctx.standalone_autothumbnailer:
-        AutoThumbnailer().generate_previews(
-            input_file=ctx.input_file,
-            output_folder=ctx.output_folder,
-        )
-        quit()
 
     job = AlabamaEncodingJob(ctx)
 

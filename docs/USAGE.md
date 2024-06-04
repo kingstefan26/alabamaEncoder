@@ -2,13 +2,23 @@
 
 ## Usage
 
-For local or Celery-based encoding, use:
+To encode locally or to run the main celery worker, use:
 
 ```bash
 alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
 ```
 
-A full list of arguments is provided below.
+### Auto Thumbnailer
+
+For a special auto-thumbnailing mode, use:
+
+```bash
+alabamaEncoder autothumbnailer [INPUT FILE]
+```
+
+The thumbnails will be saved in the same directory as your input file.
+
+### Full argument list
 
 | Parameter                                                                                                                      | Description                                                                                                                                                                                                                             |
 |--------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
