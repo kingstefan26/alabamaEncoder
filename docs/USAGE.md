@@ -8,17 +8,25 @@ To encode locally or to run the main celery worker, use:
 alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
 ```
 
-### Auto Thumbnailer
+### Automatic Thumbnail Generation
 
-For a special auto-thumbnailing mode, use:
+AlabamaEncoder will gather multiple statistics about each frame,  
+to then pick nine frames that will make the most appealing thumbnail.  
+Generated thumbnails will be saved in the same directory as [INPUT FILE]
+
+Usage:
 
 ```bash
-alabamaEncoder autothumbnailer [INPUT FILE]
+alabamaEncoder autothumbnailer [INPUT FILE] [flags]
 ```
 
-The thumbnails will be saved in the same directory as your input file.
+#### Additional Thumbnail Generation Flags
 
-### Full argument list
+| Parameter | Description |
+|-----------|-------------|
+| -         | -           |
+
+## Full argument list
 
 | Parameter                                                                                                                      | Description                                                                                                                                                                                                                             |
 |--------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
