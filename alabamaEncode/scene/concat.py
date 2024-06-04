@@ -322,10 +322,12 @@ class VideoConcatenator:
                 "-map_chapters -1",
                 "-c:v copy",
                 "-c:a copy",
-                "-fflags +bitexact",
                 "-flags:v +bitexact",
                 "-flags:a +bitexact",
-                "-avoid_negative_ts make_zero",
+                "-avoid_negative_ts make_non_negative",
+                "-strict strict",
+                "-err_detect compliant",
+                "-fflags +genpts+bitexact",
                 f'"{self.output}"',
             ]
 
