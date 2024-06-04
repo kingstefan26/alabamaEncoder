@@ -23,17 +23,8 @@ runtime_file = ""
 lock_file_path = ""
 
 
-def setup_context_for_standalone_usage() -> AlabamaContext:
-    ctx = AlabamaContext()
-
-    ctx = run_pipeline(ctx)
-
-    return ctx
-
-
 def run_pipeline(ctx):
     creation_pipeline = [
-        read_args,
         auto_output_paths,
         parse_paths,
         validate_input,
@@ -92,7 +83,9 @@ def main():
     global runtime
     runtime = time.time()
 
-    ctx: [AlabamaContext | None] = None
+    ctx: AlabamaContext = AlabamaContext()
+
+    ctx = read_args(ctx)
 
     if len(sys.argv) > 1:
         match sys.argv[1]:
@@ -119,8 +112,7 @@ def main():
                 )
                 quit()
 
-    if ctx is None:
-        ctx = setup_context_for_standalone_usage()
+    ctx = run_pipeline(ctx)
 
     global runtime_file
     global lock_file_path
