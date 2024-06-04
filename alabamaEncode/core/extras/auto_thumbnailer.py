@@ -191,11 +191,11 @@ class AutoThumbnailer:
                 path=input_file,
             )
             if has_placebo and has_jpegli:
-                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' -c:v png -f image2pipe - | {get_binary('cjpeg')} -q 95 -tune-psnr -optimize -progressive > {output_folder}/{i}.jpg"
+                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' -c:v png -f image2pipe - | {get_binary('cjpeg')} -q 95 -tune-psnr -optimize -progressive > \"{output_folder}/{i}.jpg\""
             elif has_placebo:
-                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' {output_folder}/{i}.png"
+                command = f"{get_binary('ffmpeg')} -init_hw_device vulkan -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 -vf 'hwupload,libplacebo=minimum_peak=2:percentile=99.6:tonemapping=spline:colorspace=bt709:color_primaries=bt709:gamut_mode=perceptual:color_trc=bt709:range=tv:gamma=1:format=yuv420p,hwdownload,format=yuv420p' \"{output_folder}/{i}.png\""
             else:
-                command = f"{get_binary('ffmpeg')} -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 {output_folder}/{i}.png"
+                command = f"{get_binary('ffmpeg')} -y {chunk.get_ss_ffmpeg_command_pair()} -frames:v 1 \"{output_folder}/{i}.png\""
             run_cli(command).verify()
 
     def process_frame(self, yuv_frame):
