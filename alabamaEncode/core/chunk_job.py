@@ -1,6 +1,5 @@
 import json
 import os
-import time
 
 from tqdm import tqdm
 
@@ -17,7 +16,7 @@ from alabamaEncode.scene.chunk import ChunkObject
 
 class ChunkEncoder(BaseCommandObject):
     """
-    Class that gets the ideal bitrate and encodes the final chunk
+    Take a chunk, run it through the pipeline and encode it
     """
 
     def __init__(self, ctx: AlabamaContext, chunk: ChunkObject):
@@ -32,15 +31,14 @@ class ChunkEncoder(BaseCommandObject):
         self.run_on_celery = False
 
     def supports_encoded_a_frame_callback(self):
-        return (
-            isinstance(self.ctx.prototype_encoder, EncoderSvt)
-            and not isinstance(self.ctx.chunk_encode_class, DynamicTargetVmaf)
+        return isinstance(self.ctx.prototype_encoder, EncoderSvt) and not isinstance(
+            self.ctx.chunk_encode_class, DynamicTargetVmaf
         )
 
     def run(self) -> [int, EncodeStats]:
-        total_start = time.time()
-
         timeing = Timer()
+
+        timeing.start("chunk")
         try:
             timeing.start("analyze_step")
 
@@ -62,7 +60,7 @@ class ChunkEncoder(BaseCommandObject):
                 return
 
             timeing.start("final_step")
-            final_stats = self.ctx.chunk_encode_class.run(
+            chunk_stats = self.ctx.chunk_encode_class.run(
                 enc,
                 chunk=self.chunk,
                 ctx=self.ctx,
@@ -75,30 +73,26 @@ class ChunkEncoder(BaseCommandObject):
                 os.remove(self.chunk.chunk_path)
             return
 
-        timeing.finish()
-
-        valid = self.chunk.verify_integrity(length_of_sequence=self.ctx.total_chunks, quiet=True)
+        valid = self.chunk.verify_integrity(
+            length_of_sequence=self.ctx.total_chunks, quiet=True
+        )
         self.ctx.get_kv().set("chunk_integrity", self.chunk.chunk_index, not valid)
 
-        if final_stats is not None:
-            # round to two places
-            total_fps = round(
-                self.chunk.get_frame_count() / (time.time() - total_start), 2
-            )
-            final_stats.total_fps = total_fps
-            final_stats.chunk_index = self.chunk.chunk_index
-            final_stats.rate_search_time = rate_search_time
-            self.ctx.log(
-                f"[{self.chunk.chunk_index}] final stats:"
-                f" vmaf={final_stats.vmaf} "
-                f" time={int(final_stats.time_encoding)}s "
-                f" bitrate={final_stats.bitrate}k"
-                f" chunk_length={round(self.chunk.get_lenght(), 2)}s"
-                f" total_fps={total_fps}"
-            )
-            # save the stats to [temp_folder]/chunks.log
-            with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
-                f.write(json.dumps(final_stats.__dict__()) + "\n")
-            return self.pin_to_core, final_stats.__dict__()
-        else:
+        timeing.stop("chunk")
+        timing_stats = timeing.finish()
+
+        if chunk_stats is None:
             return self.pin_to_core, None
+
+        chunk_stats.total_fps = round(
+            self.chunk.get_frame_count() / (timing_stats["chunk"]), 2
+        )
+        chunk_stats.chunk_index = self.chunk.chunk_index
+        chunk_stats.rate_search_time = rate_search_time
+
+        with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
+            f.write(json.dumps(chunk_stats.__dict__()) + "\n")
+
+        self.ctx.get_kv().set("chunk_timing", self.chunk.chunk_index, timing_stats)
+
+        return self.pin_to_core, chunk_stats.__dict__()
