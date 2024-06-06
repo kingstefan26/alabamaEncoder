@@ -257,26 +257,26 @@ class AlabamaEncodingJob:
             else:
                 return os.path.exists(self.ctx.output_file)
 
-        if not encode_finished():
-            constant_updates = asyncio.create_task(self.constant_updates())
-            self.update_current_step_name("Running scene detection")
-            sequence: ChunkSequence = scene_detect(
-                input_file=self.ctx.input_file,
-                cache_file_path=self.ctx.temp_folder + "scene_cache.json",
-                max_scene_length=self.ctx.max_scene_length,
-                start_offset=self.ctx.start_offset,
-                end_offset=self.ctx.end_offset,
-                override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
-                static_length=self.ctx.statically_sized_scenes,
-                static_length_size=self.ctx.max_scene_length,
-                scene_merge=self.ctx.scene_merge,
-            )
-            sequence.setup_paths(
-                temp_folder=self.ctx.temp_folder,
-                extension=self.ctx.get_encoder().get_chunk_file_extension(),
-            )
+        constant_updates = asyncio.create_task(self.constant_updates())
+        self.update_current_step_name("Running scene detection")
+        sequence: ChunkSequence = scene_detect(
+            input_file=self.ctx.input_file,
+            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
+            max_scene_length=self.ctx.max_scene_length,
+            start_offset=self.ctx.start_offset,
+            end_offset=self.ctx.end_offset,
+            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
+            static_length=self.ctx.statically_sized_scenes,
+            static_length_size=self.ctx.max_scene_length,
+            scene_merge=self.ctx.scene_merge,
+        )
+        sequence.setup_paths(
+            temp_folder=self.ctx.temp_folder,
+            extension=self.ctx.get_encoder().get_chunk_file_extension(),
+        )
 
-            self.ctx.total_chunks = len(sequence.chunks)
+        self.ctx.total_chunks = len(sequence.chunks)
+        if not encode_finished():
 
             self.update_proc_done(10)
             self.update_current_step_name("Analyzing content")
@@ -479,7 +479,7 @@ class AlabamaEncodingJob:
                 self.ctx.calc_final_vmaf
                 and self.ctx.get_metric_target()[0] == Metric.VMAF
             ):
-                plot_vmaf(self.ctx)
+                plot_vmaf(self.ctx, sequence)
 
         if self.ctx.generate_previews:
             generate_previews(
