@@ -24,12 +24,14 @@ from alabamaEncode.conent_analysis.pipelines import (
 )
 from alabamaEncode.core.chunk_job import ChunkEncoder
 from alabamaEncode.core.context import AlabamaContext
+from alabamaEncode.core.extras.vmaf_plot import plot_vmaf
 from alabamaEncode.core.extras.ws_update import WebsocketServer
 from alabamaEncode.core.final_touches import (
     print_stats,
     generate_previews,
     create_torrent_file,
 )
+from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
 from alabamaEncode.scene.annel import annealing
@@ -325,9 +327,7 @@ class AlabamaEncodingJob:
 
                 threads = os.cpu_count()
                 if len(command_objects) < threads:
-                    ctx.prototype_encoder.threads = int(
-                        threads / len(command_objects)
-                    )
+                    ctx.prototype_encoder.threads = int(threads / len(command_objects))
 
                 # order chunks based on order
                 if ctx.chunk_order == "random":
@@ -335,9 +335,7 @@ class AlabamaEncodingJob:
                 elif ctx.chunk_order == "length_asc":
                     command_objects.sort(key=lambda x: x.job.chunk.length)
                 elif ctx.chunk_order == "length_desc":
-                    command_objects.sort(
-                        key=lambda x: x.job.chunk.length, reverse=True
-                    )
+                    command_objects.sort(key=lambda x: x.job.chunk.length, reverse=True)
                 elif ctx.chunk_order == "sequential":
                     pass
                 elif ctx.chunk_order == "sequential_reverse":
@@ -376,9 +374,8 @@ class AlabamaEncodingJob:
                     dynamic_ncols=True,
                     unit_scale=True,
                     smoothing=0.2,
-                    initial=saved_progress if saved_progress is not None else 0
+                    initial=saved_progress if saved_progress is not None else 0,
                 )
-
 
                 saved_total = kv.get_global("pbar_total")
                 if saved_total is not None:
@@ -389,7 +386,6 @@ class AlabamaEncodingJob:
                     pbar.set_postfix(estimation=saved_estimation)
 
                 pbar.refresh()
-
 
                 if len(command_objects) == 0:
                     print("Nothing to encode, skipping")
@@ -424,13 +420,12 @@ class AlabamaEncodingJob:
                         kv.set_global("pbar_progress", pbar.n)
                         if kv.get_global("pbar_total") is None:
                             kv.set_global("pbar_total", pbar.total)
-                        kv.set_global("pbar_estimation", pbar.postfix.get('estimation'))
+                        kv.set_global("pbar_estimation", pbar.postfix.get("estimation"))
                         quit()
 
                 refine_steps = get_refine_steps(ctx)
                 for step in refine_steps:
                     step(ctx, sequence)
-
 
             if not self.ctx.multi_res_pipeline:
                 self.update_proc_done(95)
@@ -480,6 +475,12 @@ class AlabamaEncodingJob:
                 #     else False
                 # ),
             )
+            if (
+                self.ctx.calc_final_vmaf
+                and self.ctx.get_metric_target()[0] == Metric.VMAF
+            ):
+                plot_vmaf(self.ctx)
+
         if self.ctx.generate_previews:
             generate_previews(
                 input_file=self.ctx.output_file, output_folder=self.ctx.output_folder
