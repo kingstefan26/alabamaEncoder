@@ -130,6 +130,7 @@ class VmafResult(MetricResult):
             pooled_metrics = {}
 
         self.fps = fps
+        self.frames = _frames
 
         if _frames is not None:
             frames = []
