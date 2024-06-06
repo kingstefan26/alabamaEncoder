@@ -29,17 +29,19 @@ class AlabamaKv(object):
         return self.set("kv", key, value)
 
     def set(self, bucket, key, value, individual_mode=False):
-        bucket_path = os.path.join(self.folder, bucket)
-        if not os.path.exists(bucket_path):
-            os.makedirs(bucket_path)
         if individual_mode:
-            key_path = os.path.join(bucket_path, key + ".json")
+            bucket_path = os.path.join(self.folder, bucket)
+            if not os.path.exists(bucket_path):
+                os.makedirs(bucket_path)
+            key_path = os.path.join(bucket_path, f"{key}.json")
             with open(key_path, "w") as f:
                 json.dump(value, f)
         else:
             bucket_content = self._load(bucket)
             bucket_content[key] = value
-            self._save(bucket, bucket_content)
+            bucket_path = os.path.join(self.folder, bucket + ".json")
+            with open(bucket_path, "w") as f:
+                json.dump(bucket_content, f)
 
     def get(self, bucket, key) -> [str | None]:
         b = self._load(bucket)
@@ -72,8 +74,3 @@ class AlabamaKv(object):
             return bucket_content
         else:
             return {}
-
-    def _save(self, name: str, content):
-        bucket_path = os.path.join(self.folder, name + ".json")
-        with open(bucket_path, "w") as f:
-            json.dump(content, f)
