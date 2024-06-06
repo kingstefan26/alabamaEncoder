@@ -1,4 +1,7 @@
+import hashlib
+import json
 import multiprocessing
+import os
 
 import cv2
 import numpy as np
@@ -125,46 +128,46 @@ class AutoThumbnailer:
 
     def generate_previews(self, input_file: str, output_folder: str):
         chunk = ChunkObject(path=input_file)
-        total_length = Ffmpeg.get_frame_count(PathAlabama(chunk.path))
 
-        self.pbar = tqdm(
-            total=total_length, desc="Gathering thumbnail data", unit="frame"
-        )
+        random_part = hashlib.sha1(input_file.encode("utf-8")).hexdigest()[:5]
 
-        get_yuv_frame_stream(
-            chunk,
-            frame_callback=self.process_frame,
-            vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
-        )
+        frame_data_path = f"{output_folder}/thumbnail_frame_data_{random_part}.json"
 
-        # await all the tasks in the pool to be finished
-        self.pool.close()
-        self.pool.join()
+        try:
+            if os.path.exists(frame_data_path):
+                with open(frame_data_path, "r") as f:
+                    self.frame_data = json.load(f)
+                    print(f"Loaded {len(self.frame_data)} frames from cache")
+        except:
+            pass
 
-        # if not os.path.exists("frame_data.json"):
-        #     get_yuv_frame_stream(
-        #         chunk,
-        #         frame_callback=self.process_frame,
-        #         vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
-        #     )
-        #
-        #     # await all the tasks in the pool to be finished
-        #     self.pool.close()
-        #     self.pool.join()
-        #     import json
-        #
-        #     with open("frame_data.json", "w") as f:
-        #         json.dump(self.frame_data, f)
-        # else:
-        #     import json
-        #
-        #     with open("frame_data.json", "r") as f:
-        #         self.frame_data = json.load(f)
+        if len(self.frame_data) <= 0:
+            total_length = Ffmpeg.get_frame_count(PathAlabama(chunk.path))
+            self.pbar = tqdm(
+                total=total_length, desc="Gathering thumbnail data", unit="frame"
+            )
 
-        self.pbar.close()
+            get_yuv_frame_stream(
+                chunk,
+                frame_callback=self.process_frame,
+                vf="\"scale=-2:min'(720,ih)':force_original_aspect_ratio=decrease\"",
+            )
+
+            # await all the tasks in the pool to be finished
+            self.pool.close()
+            self.pool.join()
+
+            with open(frame_data_path, "w") as f:
+                json.dump(self.frame_data, f)
+
+            self.pbar.close()
+
+            print(f"Processed {len(self.frame_data)} frames")
 
         if len(self.frame_data) == 0:
             raise Exception("No frames were processed")
+
+
 
         best_frames = self.get_top_frames(
             self.frame_data,
@@ -244,6 +247,14 @@ class AutoThumbnailer:
             else:
                 normalized_features[feature] = values - min_val
 
+        # if any of the values contain nan's kick them out
+        # normalized_features = {k: v for k, v in normalized_features.items() if not np.isnan(v).any()}
+
+        # change any nans in the data into 0's
+        for feature, values in normalized_features.items():
+            normalized_features[feature] = np.nan_to_num(values)
+
+
         # Combine the normalized scores into a single score
         combined_score = np.zeros_like(list(normalized_features.values())[0])
         for feature, normalized_values in normalized_features.items():
@@ -259,7 +270,6 @@ class AutoThumbnailer:
                 normalized_values *= 0.9
 
             combined_score += normalized_values
-
         return combined_score
 
     # Step 2: Smooth the data to highlight peaks
@@ -302,7 +312,7 @@ class AutoThumbnailer:
     def select_evenly_spaced_peaks(self, peaks, num_peaks, combined_score):
 
         if not len(peaks) >= num_peaks:
-            print(f"Detection only found {num_peaks} good candidates, using them")
+            print(f"Detection only found {len(peaks)} good candidates, using them")
             return peaks
         else:
             step = len(peaks) // num_peaks
@@ -318,6 +328,7 @@ class AutoThumbnailer:
 
     # Main function to get top frame indices
     def get_top_frames(self, frame_data, feature_names, num_peaks=5):
+        print("Processing frame data...")
         combined_score = self.normalize_and_combine(frame_data, feature_names)
         smoothed_score = self.smooth_data(combined_score)
         peaks = self.find_peaks(smoothed_score)
@@ -326,6 +337,7 @@ class AutoThumbnailer:
         )
         selected_indices = [frame_data[peak]["index"] for peak in selected_peaks]
 
+        print(f"Selected frames: {selected_indices}")
         return selected_indices
 
 
