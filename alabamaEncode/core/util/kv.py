@@ -28,10 +28,18 @@ class AlabamaKv(object):
     def set_global(self, key, value):
         return self.set("kv", key, value)
 
-    def set(self, bucket, key, value):
-        b = self._load(bucket)
-        b[key] = value
-        self._save(bucket, b)
+    def set(self, bucket, key, value, individual_mode=False):
+        bucket_path = os.path.join(self.folder, bucket)
+        if not os.path.exists(bucket_path):
+            os.makedirs(bucket_path)
+        if individual_mode:
+            key_path = os.path.join(bucket_path, key + ".json")
+            with open(key_path, "w") as f:
+                json.dump(value, f)
+        else:
+            bucket_content = self._load(bucket)
+            bucket_content[key] = value
+            self._save(bucket, bucket_content)
 
     def get(self, bucket, key) -> [str | None]:
         b = self._load(bucket)
@@ -50,10 +58,18 @@ class AlabamaKv(object):
         return key in b
 
     def _load(self, bucket_name: str) -> dict:
-        bucket_path = os.path.join(self.folder, bucket_name + ".json")
-        if os.path.exists(bucket_path):
-            with open(bucket_path) as f:
+        bucket_path = os.path.join(self.folder, bucket_name)
+        single_file_path = bucket_path + ".json"
+        if os.path.exists(single_file_path):
+            with open(single_file_path, "r") as f:
                 return json.load(f)
+        elif os.path.exists(bucket_path):
+            bucket_content = {}
+            for key_file in os.listdir(bucket_path):
+                key = os.path.splitext(key_file)[0]
+                with open(os.path.join(bucket_path, key_file)) as f:
+                    bucket_content[key] = json.load(f)
+            return bucket_content
         else:
             return {}
 
