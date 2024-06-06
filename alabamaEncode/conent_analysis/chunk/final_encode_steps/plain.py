@@ -24,7 +24,7 @@ class PlainFinalEncode(FinalEncodeStep):
                 for frame in stats.metric_results.frames:
                     vmaf_frame_scores[frame["frameNum"]] = frame["metrics"]["vmaf"]
                 ctx.get_kv().set(
-                    "vmaf_frame_scores", chunk.chunk_index, vmaf_frame_scores
+                    "vmaf_frame_scores", chunk.chunk_index, vmaf_frame_scores, individual_mode=True
                 )
 
         return stats
