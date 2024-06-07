@@ -24,7 +24,27 @@ def plot_vmaf(ctx: AlabamaContext, sequence: ChunkSequence, show_bpp=False):
     for chunk_scores in vmaf_scores.values():
         all_scores.extend(chunk_scores.values())
 
-    plt.figure(figsize=(12, 8))
+    total_frames = sum([len(chunk_scores) for chunk_scores in vmaf_scores.values()])
+    # Define a space per frame (e.g., 0.01 inch per frame)
+    space_per_frame = 0.01
+
+    # Calculate figure width based on total frames and space per frame
+    fig_width = total_frames * space_per_frame
+
+    # cap at 1000
+    fig_width = min(fig_width, 100)
+
+    # scale dpi based on width
+    dpi = 100
+    if fig_width > 10:
+        dpi = 200
+
+    fig_height = 8
+
+    # make height proportional to width
+    fig_height = fig_height * (fig_width / 10)
+
+    plt.figure(figsize=(fig_width, fig_height), dpi=dpi)
 
     plt.plot(all_scores, label="VMAF", color="steelblue")
     plt.ylabel("VMAF Score")
@@ -64,11 +84,12 @@ def plot_vmaf(ctx: AlabamaContext, sequence: ChunkSequence, show_bpp=False):
 
     mean_vmaf = np.mean(all_scores)
     median_vmaf = np.median(all_scores)
+    harmonic_mean = 1 / np.mean([1 / x for x in all_scores if x != 0])
 
     plt.text(
         0.02,
         0.10,
-        f"Mean: {mean_vmaf:.2f}\nMedian: {median_vmaf:.2f}\nTarget: {ctx.vmaf}",
+        f"Mean: {mean_vmaf:.2f}\nMedian: {median_vmaf:.2f}\nHarmonic mean: {harmonic_mean}\nTarget: {ctx.vmaf}",
         transform=ax1.transAxes,
         fontsize=9,
         verticalalignment="top",
