@@ -18,17 +18,40 @@ def read_args(ctx):
         description="AlabamaEncoder, one and only encoder framework for all your needs*",
         epilog="*not really",
     )
-    parser.add_argument("input", type=str, help="Input video file")
-    parser.add_argument("output", type=str, help="Output video file")
 
-    parser.add_argument(
+    subparsers = parser.add_subparsers(dest="command")
+
+    worker_parser = subparsers.add_parser("worker", help="Celery worker mode")
+    worker_parser.add_argument(
+        "--workers",
+        "-workers",
+        type=int,
+        help="Amount of multiprocess workers",
+        default=2,
+        dest="workers",
+    )
+
+    subparsers.add_parser("clear", help="clear celery queue")
+
+    auto_thumbnailer = subparsers.add_parser(
+        "autothumbnailer", help="Pick and extract perfect thumbnail frames"
+    )
+
+    auto_thumbnailer.add_argument("input", type=str, help="Input video file")
+
+    encode = subparsers.add_parser("encode", help="Typical encode mode")
+
+    encode.add_argument("input", type=str, help="Input video file")
+    encode.add_argument("output", type=str, help="Output video file")
+
+    encode.add_argument(
         "--dont_encode_audio",
         help="Mux audio",
         action="store_false",
         dest="encode_audio",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--audio_params",
         help="Audio params",
         type=str,
@@ -36,7 +59,7 @@ def read_args(ctx):
         dest="audio_params",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--celery",
         help="Encode on a celery cluster, that is at localhost",
         action="store_true",
@@ -44,7 +67,7 @@ def read_args(ctx):
         dest="use_celery",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--autocrop",
         help="Automatically crop the video",
         action="store_true",
@@ -52,7 +75,7 @@ def read_args(ctx):
         dest="auto_crop",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--video_filters",
         type=str,
         default=ctx.prototype_encoder.video_filters,
@@ -61,14 +84,14 @@ def read_args(ctx):
         " make sure ffmpeg on all workers has support for the filters you use",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--bitrate",
         help="Bitrate to use, `auto` for auto bitrate selection",
         type=str,
         default=str(ctx.prototype_encoder.bitrate),
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--overshoot",
         help="How much proc the vbr_perchunk_optimisation is allowed to overshoot",
         type=int,
@@ -76,7 +99,7 @@ def read_args(ctx):
         dest="bitrate_overshoot",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--undershoot",
         help="How much proc the vbr_perchunk_optimisation is allowed to undershoot",
         type=int,
@@ -84,22 +107,24 @@ def read_args(ctx):
         dest="bitrate_undershoot",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vbr_perchunk_optimisation",
         help="Enable automatic bitrate optimisation per chunk",
         action="store_true",
         dest="vbr_perchunk_optimisation",
     )
 
-    parser.add_argument(
-        "--multiprocess_workers", '--workers', '-j',
+    encode.add_argument(
+        "--multiprocess_workers",
+        "--workers",
+        "-j",
         help="Number of workers to use for multiprocessing, if -1 the program will auto scale",
         type=int,
         default=ctx.multiprocess_workers,
         dest="multiprocess_workers",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--ssim-db-target",
         type=float,
         default=ctx.ssim_db_target,
@@ -108,7 +133,7 @@ def read_args(ctx):
         dest="ssim_db_target",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--crf",
         help="What crf to use",
         type=int,
@@ -117,7 +142,7 @@ def read_args(ctx):
         dest="crf",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--encoder",
         help="What encoder to use",
         type=str,
@@ -126,7 +151,7 @@ def read_args(ctx):
         dest="encoder",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--grain",
         help="Manually give the grainsynth value, 0 to disable, -1 for auto, -2 for auto per scene",
         type=int,
@@ -134,7 +159,7 @@ def read_args(ctx):
         dest="grain",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_target",
         help="What vmaf to target when using bitrate auto",
         default=ctx.vmaf,
@@ -142,7 +167,7 @@ def read_args(ctx):
         dest="vmaf_target",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--max_scene_length",
         help="If a scene is longer then this, it will recursively cut in the"
         " middle it to get until each chunk is within the max",
@@ -151,7 +176,7 @@ def read_args(ctx):
         dest="max_scene_length",
     )
 
-    scene_split_method_group = parser.add_mutually_exclusive_group()
+    scene_split_method_group = encode.add_mutually_exclusive_group()
 
     scene_split_method_group.add_argument(
         "--statically_sized_scenes",
@@ -167,15 +192,15 @@ def read_args(ctx):
         dest="scene_merge",
     )
 
-    parser.add_argument(
-        "--no_crf_based_vmaf_targeting", '--crf_mode',
+    encode.add_argument(
+        "--no_crf_based_vmaf_targeting",
+        "--crf_mode",
         help="per chunk, find a crf that hits target quality and encode using that",
         action="store_false",
         dest="crf_based_vmaf_targeting",
     )
 
-
-    parser.add_argument(
+    encode.add_argument(
         "--chunk_order",
         help="Encode chunks in a specific order",
         type=str,
@@ -186,12 +211,12 @@ def read_args(ctx):
             "length_desc",
             "length_asc",
             "sequential_reverse",
-            "even"
+            "even",
         ],
         dest="chunk_order",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--start_offset",
         help="Offset from the beginning of the video (in seconds), useful for cutting intros etc",
         default=ctx.start_offset,
@@ -199,7 +224,7 @@ def read_args(ctx):
         dest="start_offset",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--end_offset",
         help="Offset from the end of the video (in seconds), useful for cutting end credits outtros etc",
         default=ctx.end_offset,
@@ -207,7 +232,7 @@ def read_args(ctx):
         dest="end_offset",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--bitrate_adjust_mode",
         help="do a complexity analysis on each chunk individually and adjust "
         "bitrate based on that, can overshoot/undershoot a lot, "
@@ -219,7 +244,7 @@ def read_args(ctx):
         dest="bitrate_adjust_mode",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--log_level",
         help="Set the log level, 0 silent, 1 verbose",
         type=int,
@@ -227,7 +252,7 @@ def read_args(ctx):
         dest="log_level",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--generate_previews",
         "-previews",
         help="Dont generate previews for encoded file",
@@ -235,7 +260,7 @@ def read_args(ctx):
         dest="generate_previews",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--generate_stats",
         "-stats",
         help="Generate stats for encoded file",
@@ -243,7 +268,7 @@ def read_args(ctx):
         dest="generate_stats",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--override_bad_wrong_cache_path",
         help="Override the check for input file path matching in scene cache loading",
         action="store_true",
@@ -251,15 +276,16 @@ def read_args(ctx):
         dest="override_bad_wrong_cache_path",
     )
 
-    parser.add_argument(
-        "--hdr", '-hdr',
+    encode.add_argument(
+        "--hdr",
+        "-hdr",
         help="Encode in HDR, if not specified and input is hdr it will automatically tonemap",
         action="store_true",
         default=ctx.prototype_encoder.hdr,
         dest="hdr",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--crop_string",
         help="Crop string to use, eg `1920:1080:0:0`, `3840:1600:0:280`. Obtained using the `cropdetect` ffmpeg filter",
         type=str,
@@ -267,7 +293,7 @@ def read_args(ctx):
         dest="crop_string",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--scale_string",
         help="Scale string to use, eg. `1920:1080`, `1280:-2`, `1920:1080:force_original_aspect_ratio=decrease`",
         type=str,
@@ -275,18 +301,18 @@ def read_args(ctx):
         dest="scale_string",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--dry_run",
         help="Do not encode, just print what would be done",
         action="store_true",
         dest="dry_run",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--title", help="Title of the video", type=str, default=ctx.title, dest="title"
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--encoder_flag_override",
         type=str,
         default=ctx.prototype_encoder.override_flags,
@@ -294,8 +320,9 @@ def read_args(ctx):
         dest="encoder_flag_override",
     )
 
-    parser.add_argument(
-        "--encoder_speed_override", '--enc_speed',
+    encode.add_argument(
+        "--encoder_speed_override",
+        "--enc_speed",
         type=int,
         action=range_action(0, 10),
         default=ctx.prototype_encoder.speed,
@@ -303,8 +330,7 @@ def read_args(ctx):
         dest="encoder_speed_override",
     )
 
-
-    parser.add_argument(
+    encode.add_argument(
         "--crf_map",
         type=str,
         help="Map of crf <-> chunk index, for debugging purposes only",
@@ -312,28 +338,28 @@ def read_args(ctx):
         dest="crf_map",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--color-primaries",
         type=str,
         default=ctx.prototype_encoder.color_primaries,
         help="Color primaries",
         dest="color_primaries",
     )
-    parser.add_argument(
+    encode.add_argument(
         "--transfer-characteristics",
         type=str,
         default=ctx.prototype_encoder.transfer_characteristics,
         help="Transfer characteristics",
         dest="transfer_characteristics",
     )
-    parser.add_argument(
+    encode.add_argument(
         "--matrix-coefficients",
         type=str,
         default=ctx.prototype_encoder.matrix_coefficients,
         help="Matrix coefficients",
         dest="matrix_coefficients",
     )
-    parser.add_argument(
+    encode.add_argument(
         "--maximum_content_light_level",
         type=str,
         default=ctx.prototype_encoder.maximum_content_light_level,
@@ -341,21 +367,21 @@ def read_args(ctx):
         dest="maximum_content_light_level",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--frame-average-light",
         type=str,
         default=ctx.prototype_encoder.maximum_frame_average_light_level,
         help="Maximum frame average light level",
         dest="frame_average_light",
     )
-    parser.add_argument(
+    encode.add_argument(
         "--chroma-sample-position",
         type=str,
         default=ctx.prototype_encoder.chroma_sample_position,
         help="Chroma sample position",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--sub_file",
         type=str,
         default=ctx.sub_file,
@@ -363,57 +389,58 @@ def read_args(ctx):
         dest="sub_file",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--crf_limits",
         type=str,
         help="limits for crf when targeting vmaf, comma separated eg 20,35",
         dest="crf_limits",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_phone_model",
         action="store_true",
         help="use vmaf phone model for auto crf tuning",
         default=ctx.vmaf_phone_model,
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_4k_model",
         action="store_true",
         help="use vmaf 4k model for auto crf tuning",
         dest="vmaf_4k_model",
     )
 
-    parser.add_argument(
-        '--vmaf_subsample',
+    encode.add_argument(
+        "--vmaf_subsample",
         type=int,
         help="compute scores only every N frames",
-        dest="vmaf_subsample"
+        dest="vmaf_subsample",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_no_motion",
         action="store_true",
         help="use vmaf no motion model for auto crf tuning",
         dest="vmaf_no_motion",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--auto_accept_autocrop",
         action="store_true",
         help="Automatically accept autocrop",
         dest="auto_accept_autocrop",
     )
 
-    parser.add_argument(
-        "--resolution_preset", '-res',
+    encode.add_argument(
+        "--resolution_preset",
+        "-res",
         type=str,
         default=ctx.resolution_preset,
         help="Preset for the scale filter, possible choices are 4k 1440p 1080p 768p 720p 540p 480p 360p",
         dest="resolution_preset",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--probe_count",
         type=int,
         default=ctx.probe_count,
@@ -422,7 +449,7 @@ def read_args(ctx):
         dest="probe_count",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_probe_speed",
         dest="vmaf_probe_speed",
         type=int,
@@ -431,7 +458,7 @@ def read_args(ctx):
         action=range_action(0, 10),
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_reference_display",
         type=str,
         default=ctx.vmaf_reference_display,
@@ -440,7 +467,7 @@ def read_args(ctx):
         dest="vmaf_reference_display",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--vmaf_target_repesentation",
         type=str,
         default=ctx.vmaf_target_representation,
@@ -459,7 +486,7 @@ def read_args(ctx):
         dest="vmaf_target_repesentation",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--simple_denoise",
         action="store_true",
         help="use atadenoise on input, useful for x26 encoding with very noisy imputs and target vmaf, "
@@ -467,14 +494,14 @@ def read_args(ctx):
         dest="simple_denoise",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--dont_pin_to_cores",
         action="store_false",
         help="pin each chunk to a core",
         dest="dont_pin_to_cores",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--niceness",
         type=int,
         default=ctx.prototype_encoder.niceness,
@@ -482,21 +509,21 @@ def read_args(ctx):
         dest="niceness",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--print_analysis_logs",
         action="store_true",
         help="Print content analysis logs into console, like what crf did vmaf target pick etc",
         dest="print_analysis_logs",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--poster_url",
         type=str,
         help="Url of poster for website updates",
         dest="poster_url",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--offload_server",
         type=str,
         default="",
@@ -504,7 +531,7 @@ def read_args(ctx):
         dest="offload_server",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--metric_to_target",
         default=ctx.metric_to_target,
         choices=["vmaf", "ssimu2"],
@@ -512,21 +539,21 @@ def read_args(ctx):
         dest="metric_to_target",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--dynamic_vmaf_target",
         action="store_true",
         help="Target vmaf and weight it against the bitrate, useful for lossy sources that trick vmaf into low scores",
         dest="dynamic_vmaf_target",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--dynamic_vmaf_target_vbr",
         action="store_true",
         help="vmaf targeting but instead of tuning crf, we tune the bitrate and use variable bitrate encoding",
         dest="dynamic_vmaf_target_vbr",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--tune",
         default=ctx.args_tune,
         type=str,
@@ -535,14 +562,14 @@ def read_args(ctx):
         dest="tune",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--denoise_vmaf_ref",
         action="store_true",
         help="Denoise the vmaf reference",
         dest="denoise_vmaf_ref",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--calc_final_vmaf",
         default=ctx.calc_final_vmaf,
         action="store_true",
@@ -550,22 +577,28 @@ def read_args(ctx):
         dest="calc_final_vmaf",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--multi_res_pipeline",
         action="store_true",
         help="Create a optimised multi bitrate tier stream",
         dest="multi_res_pipeline",
     )
 
-    parser.add_argument(
+    encode.add_argument(
         "--throughput_scaling",
         action="store_true",
         help="Scale the multi-process workers based on throughput",
         dest="throughput_scaling",
     )
 
-
     args = parser.parse_args()
+
+    if (
+        args.command == "autothumbnailer"
+        or args.command == "worker"
+        or args.command == "clear"
+    ):
+        return ctx, args
 
     ctx.output_file = args.output
     ctx.output_folder = ctx.output_file
@@ -638,4 +671,4 @@ def read_args(ctx):
     ctx.metric_to_target = args.metric_to_target
     ctx.throughput_scaling = args.throughput_scaling
 
-    return ctx
+    return ctx, args

@@ -1,13 +1,5 @@
 [TOP-LEVEL](../README.md)
 
-## Usage
-
-To encode locally or to run the main celery worker, use:
-
-```bash
-alabamaEncoder [-h] [INPUT FILE] [OUTPUT FILE] [flags]
-```
-
 ### Automatic Thumbnail Generation
 
 AlabamaEncoder will gather multiple statistics about each frame,  
@@ -26,12 +18,44 @@ alabamaEncoder autothumbnailer [INPUT FILE] [flags]
 |-----------|-------------|
 | -         | -           |
 
-## Full argument list
+### Worker
+
+Commands for interfacing with celery, the multi-system part of AlabamaEncoder
+
+Start a worker:
+
+```sh
+alabamaEncoder worker [FLAGS]
+```
+
+Additional flags:
+
+| Parameter       | Description                    |
+|-----------------|--------------------------------|
+| `--workers int` | Amount of multiprocess workers |
+
+Clear the celery queue:
+
+```sh
+alabamaEncoder clear
+```
+
+### Encoder
+
+Encode video using AlabamaEncoder!
+
+Usage:
+
+```bash
+alabamaEncoder encode [-h] [INPUT FILE] [OUTPUT FILE] [flags]
+```
+
+#### Encode flags
 
 | Parameter                                                                                                                      | Description                                                                                                                                                                                                                             |
 |--------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `-h`, `--help`                                                                                                                 | Show the help message and exit                                                                                                                                                                                                          |
-| `--dont-encode_audio`                                                                                                          | Do not mux audio                                                                                                                                                                                                                        |
+| `--dont_encode_audio`                                                                                                          | Do not mux audio                                                                                                                                                                                                                        |
 | `--audio_params AUDIO_PARAMS`                                                                                                  | Audio params                                                                                                                                                                                                                            |
 | `--celery`                                                                                                                     | Encode on a Celery cluster, which is at localhost                                                                                                                                                                                       |
 | `--autocrop`                                                                                                                   | Automatically crop the video                                                                                                                                                                                                            |

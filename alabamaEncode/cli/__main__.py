@@ -36,6 +36,7 @@ def run_pipeline(ctx):
         ctx = pipeline_item(ctx)
     return ctx
 
+
 def fmt_time(seconds) -> str:
     # Convert seconds to hours and remaining seconds
     hours, remainder = divmod(seconds, 3600)
@@ -45,6 +46,7 @@ def fmt_time(seconds) -> str:
         return f"{int(hours)} hour(s) {int(remainder)} second(s)"
     else:
         return f"{int(seconds)} second(s)"
+
 
 @atexit.register
 def at_exit():
@@ -85,32 +87,24 @@ def main():
 
     ctx: AlabamaContext = AlabamaContext()
 
-    ctx = read_args(ctx)
+    ctx, args = read_args(ctx)
 
-    if len(sys.argv) > 1:
-        match sys.argv[1]:
-            case "clear":
-                print("Clearing celery queue")
-                app.control.purge()
+    match args.command:
+        case "clear":
+            print("Clearing celery queue")
+            app.control.purge()
+            quit()
+        case "worker":
+            worker(args.workers)
+        case "autothumbnailer":
+            if not os.path.exists(args.input):
+                print(f"File {args.input} does not exist")
                 quit()
-            case "worker":
-                worker()
-            case "autothumbnailer":
-                if len(sys.argv) < 3:
-                    print("Usage: alabamaEncode autothumbnailer <input_file>")
-                    quit()
 
-                input_file = sys.argv[2]
-
-                if not os.path.exists(input_file):
-                    print(f"File {input_file} does not exist")
-                    quit()
-
-                AutoThumbnailer().generate_previews(
-                    input_file=input_file,
-                    output_folder=os.path.dirname(input_file)
-                )
-                quit()
+            AutoThumbnailer().generate_previews(
+                input_file=args.input, output_folder=os.path.dirname(args.input)
+            )
+            quit()
 
     ctx = run_pipeline(ctx)
 
