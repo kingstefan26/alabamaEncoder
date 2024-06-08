@@ -89,6 +89,13 @@ class AlabamaEncodingJob:
 
         return AlabamaEncodingJob(ctx)
 
+    def encode_finished(self):
+        if self.ctx.multi_res_pipeline:
+            return os.path.exists(self.ctx.output_file)
+            # TODO: do a paranoid check for all files
+        else:
+            return os.path.exists(self.ctx.output_file)
+
     async def run_pipeline(self):
         self.save()
 
@@ -115,34 +122,12 @@ class AlabamaEncodingJob:
                 f"Using {self.ctx.prototype_encoder.get_pretty_name()} version: {self.ctx.prototype_encoder.get_version()}"
             )
 
-        def encode_finished():
-            if self.ctx.multi_res_pipeline:
-                return os.path.exists(self.ctx.output_file)
-                # TODO: do a paranoid check for all files
-            else:
-                return os.path.exists(self.ctx.output_file)
-
         constant_updates = asyncio.create_task(self.websiteUpdate.constant_updates())
         self.websiteUpdate.update_current_step_name("Running scene detection")
-        sequence: ChunkSequence = scene_detect(
-            input_file=self.ctx.input_file,
-            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
-            max_scene_length=self.ctx.max_scene_length,
-            start_offset=self.ctx.start_offset,
-            end_offset=self.ctx.end_offset,
-            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
-            static_length=self.ctx.statically_sized_scenes,
-            static_length_size=self.ctx.max_scene_length,
-            scene_merge=self.ctx.scene_merge,
-        )
-        sequence.setup_paths(
-            temp_folder=self.ctx.temp_folder,
-            extension=self.ctx.get_encoder().get_chunk_file_extension(),
-        )
 
-        self.ctx.total_chunks = len(sequence.chunks)
-        if not encode_finished():
+        sequence = self.prepare_sequence()
 
+        if not self.encode_finished():
             self.websiteUpdate.update_proc_done(10)
             self.websiteUpdate.update_current_step_name("Analyzing content")
             await run_sequence_pipeline(self.ctx, sequence)
@@ -161,10 +146,11 @@ class AlabamaEncodingJob:
                     print("Integrity check failed 3 times, aborting")
                     quit()
 
-                command_objects = []
                 ctx = self.ctx
                 frames_encoded_so_far = 0
                 size_kb_so_far = 0
+
+                command_objects = []
 
                 def is_chunk_done(_chunk):
                     if ctx.multi_res_pipeline:
@@ -218,9 +204,8 @@ class AlabamaEncodingJob:
                     f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"
                 )
 
-                already_done = len(sequence.chunks) - len(command_objects)
-
                 def update_proc_done(num_finished_scenes):
+                    already_done = len(sequence.chunks) - len(command_objects)
                     # map 20 to 95% as the space where the scenes are encoded
                     self.websiteUpdate.update_proc_done(
                         20
@@ -256,7 +241,7 @@ class AlabamaEncodingJob:
                     print("Nothing to encode, skipping")
                 else:
                     try:
-                        encode_task = asyncio.create_task(
+                        await asyncio.create_task(
                             execute_commands(
                                 ctx.use_celery,
                                 command_objects,
@@ -271,8 +256,6 @@ class AlabamaEncodingJob:
                                 pbar=pbar,
                             )
                         )
-                        await encode_task
-
                     except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
                         print("Keyboard interrupt, stopping")
                         # kill all async tasks
@@ -384,3 +367,22 @@ class AlabamaEncodingJob:
             self.finished_callback()
 
         self.delete()
+
+    def prepare_sequence(self):
+        sequence: ChunkSequence = scene_detect(
+            input_file=self.ctx.input_file,
+            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
+            max_scene_length=self.ctx.max_scene_length,
+            start_offset=self.ctx.start_offset,
+            end_offset=self.ctx.end_offset,
+            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
+            static_length=self.ctx.statically_sized_scenes,
+            static_length_size=self.ctx.max_scene_length,
+            scene_merge=self.ctx.scene_merge,
+        )
+        sequence.setup_paths(
+            temp_folder=self.ctx.temp_folder,
+            extension=self.ctx.get_encoder().get_chunk_file_extension(),
+        )
+        self.ctx.total_chunks = len(sequence.chunks)
+        return sequence
