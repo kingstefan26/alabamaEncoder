@@ -4,7 +4,7 @@ ordered in effort
 
 - [ ] Make the whole "pipeline" process easier to read, add docs
 - [ ] Refactor job.py so its shorter/easier to read
-- [ ] Use argparse to its fullest extent, like the worker or clear mode
+- [x] Use argparse to its fullest extent, like the worker or clear mode
 - [ ] Add more graphs/visualisations of the encode process for insights in the spirit of plot_vmaf
 - [ ] Add dev docs to make development easier
 - [ ] Move as much stuff as possible to AlabamaKV, and AlabamaPath
