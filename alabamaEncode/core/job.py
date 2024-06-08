@@ -1,14 +1,9 @@
 import asyncio
 import hashlib
-import json
 import os
 import random
-import socket
 import sys
-import time
 
-import psutil
-import requests
 from tqdm import tqdm
 
 from alabamaEncode.cli.cli_setup.paths import parse_paths
@@ -25,7 +20,7 @@ from alabamaEncode.conent_analysis.pipelines import (
 from alabamaEncode.core.chunk_job import ChunkEncoder
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.vmaf_plot import plot_vmaf
-from alabamaEncode.core.extras.ws_update import WebsocketServer
+from alabamaEncode.core.extras.ws_update import WebsiteUpdate
 from alabamaEncode.core.final_touches import (
     print_stats,
     generate_previews,
@@ -43,22 +38,19 @@ from alabamaEncode.scene.sequence import ChunkSequence
 class AlabamaEncodingJob:
     def __init__(self, ctx):
         self.ctx = ctx
-        self.current_step_callback = None
-        self.proc_done_callback = None
+        self.websiteUpdate = WebsiteUpdate(ctx)
         self.finished_callback = None
-        self.proc_done = 0
-        self.current_step_name = "idle"
+
         self.serialise_folder = self.get_serialise_folder()
+
         sha1 = hashlib.sha1()
         sha1.update(str.encode(self.ctx.get_title()))
         hash_as_hex = sha1.hexdigest()
-        # convert the hex back to int and restrict it to the relevant int range
         title_hash = int(hash_as_hex, 16) % sys.maxsize
         self.serialise_file = os.path.join(
             self.serialise_folder,
             f"{title_hash}" f".json",
         )
-        self.ws_server = None
 
     @staticmethod
     def get_serialise_folder():
@@ -97,133 +89,6 @@ class AlabamaEncodingJob:
 
         return AlabamaEncodingJob(ctx)
 
-    def is_done(self):
-        return self.proc_done == 100
-
-    last_update = None
-    update_proc_throttle = 0
-    update_max_freq_sec = 1600
-
-    async def update_website(self):
-        api_url = os.environ.get("status_update_api_url", "")
-        token = os.environ.get("status_update_api_token", "")
-        if api_url != "":
-            if token == "":
-                print("Url is set, but token is not, not updating status api")
-                return
-
-            should_update_api = False
-
-            if time.time() - self.update_proc_throttle > self.update_max_freq_sec:
-                self.update_proc_throttle = time.time()
-                should_update_api = True
-
-            #         curl -X POST -d '{"action":"update","data":{"img":"https://domain.com/poster.avif","status":100,
-            #         "title":"Show 2024 E01S01","phase":"Done"}}'
-            #         -H 'Authorization: Bearer token' 'https://domain.com/update'
-
-            status_data = {
-                "action": "update",
-                "data": {
-                    "img": self.ctx.poster_url,
-                    "status": round(self.proc_done, 1),  # rounded
-                    "title": self.ctx.get_title(),
-                    "phase": self.current_step_name,
-                },
-            }
-
-            if self.last_update == status_data:
-                return
-
-            self.last_update = status_data
-
-            if should_update_api:
-                try:
-                    requests.post(
-                        api_url + "/statuses/update",
-                        json=status_data,
-                        headers={"Authorization": f"Bearer {token}"},
-                    )
-                except Exception as e:
-                    self.ctx.log(f"Failed to update status api: {e}")
-
-                self.ctx.log("Updated encode status api")
-
-            #  curl -X POST -d '{"action":"update","data":{"id":"kokoniara-B550MH",
-            #  "status":"working on title", "utilization":95}}' -H 'Authorization: Bearer token'
-            #  'http://domain.com/workers/update'
-
-            worker_data = {
-                "action": "update",
-                "data": {
-                    "id": (socket.gethostname()),
-                    "status": f"Working on {self.ctx.get_title()}",
-                    "utilization": int(psutil.cpu_percent()),
-                    "ws_ip": self.ws_server.ip if self.ws_server is not None else "",
-                },
-            }
-
-            if should_update_api:
-                try:
-                    requests.post(
-                        api_url + "/workers/update",
-                        json=worker_data,
-                        headers={"Authorization": f"Bearer {token}"},
-                    )
-                except Exception as e:
-                    self.ctx.log(f"Failed to worker update status api: {e}")
-
-                self.ctx.log("Updated worker status api")
-
-    def update_current_step_name(self, step_name):
-        self.current_step_name = step_name
-        if self.current_step_callback is not None:
-            self.current_step_callback(step_name)
-
-        asyncio.create_task(self.update_website())
-
-    def update_proc_done(self, proc_done):
-        self.proc_done = proc_done
-        if self.proc_done_callback is not None:
-            self.proc_done_callback(proc_done)
-
-        # update max every minute the proc done
-        asyncio.create_task(self.update_website())
-
-    async def constant_updates(self):
-        if (
-            os.environ.get("status_update_api_url", "") == ""
-            or os.environ.get("ws_update", "false") == "false"
-        ):
-            return
-
-        tqdm.write("Starting constant updates")
-        self.ws_server = WebsocketServer()
-        self.ws_server.run()
-        while True:
-            worker_data = {
-                "type": "worker",
-                "data": {
-                    "id": (socket.gethostname()),
-                    "status": f"Working on {self.ctx.get_title()}",
-                    "utilization": int(psutil.cpu_percent()),
-                    "ws_ip": self.ws_server.ip if self.ws_server is not None else "",
-                },
-            }
-            status_data = {
-                "type": "status",
-                "data": {
-                    "img": self.ctx.poster_url,
-                    "status": round(self.proc_done, 1),  # rounded
-                    "title": self.ctx.get_title(),
-                    "phase": self.current_step_name,
-                },
-            }
-
-            await self.ws_server.publish(json.dumps(worker_data), type="worker")
-            await self.ws_server.publish(json.dumps(status_data), type="status")
-            await asyncio.sleep(0.5)
-
     async def run_pipeline(self):
         self.save()
 
@@ -257,8 +122,8 @@ class AlabamaEncodingJob:
             else:
                 return os.path.exists(self.ctx.output_file)
 
-        constant_updates = asyncio.create_task(self.constant_updates())
-        self.update_current_step_name("Running scene detection")
+        constant_updates = asyncio.create_task(self.websiteUpdate.constant_updates())
+        self.websiteUpdate.update_current_step_name("Running scene detection")
         sequence: ChunkSequence = scene_detect(
             input_file=self.ctx.input_file,
             cache_file_path=self.ctx.temp_folder + "scene_cache.json",
@@ -278,13 +143,13 @@ class AlabamaEncodingJob:
         self.ctx.total_chunks = len(sequence.chunks)
         if not encode_finished():
 
-            self.update_proc_done(10)
-            self.update_current_step_name("Analyzing content")
+            self.websiteUpdate.update_proc_done(10)
+            self.websiteUpdate.update_current_step_name("Analyzing content")
             await run_sequence_pipeline(self.ctx, sequence)
             self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)
 
-            self.update_proc_done(20)
-            self.update_current_step_name("Encoding scenes")
+            self.websiteUpdate.update_proc_done(20)
+            self.websiteUpdate.update_current_step_name("Encoding scenes")
 
             iter_counter = 0
             if self.ctx.dry_run:
@@ -357,7 +222,7 @@ class AlabamaEncodingJob:
 
                 def update_proc_done(num_finished_scenes):
                     # map 20 to 95% as the space where the scenes are encoded
-                    self.update_proc_done(
+                    self.websiteUpdate.update_proc_done(
                         20
                         + (already_done + num_finished_scenes)
                         / len(sequence.chunks)
@@ -428,8 +293,8 @@ class AlabamaEncodingJob:
                     step(ctx, sequence)
 
             if not self.ctx.multi_res_pipeline:
-                self.update_proc_done(95)
-                self.update_current_step_name("Concatenating scenes")
+                self.websiteUpdate.update_proc_done(95)
+                self.websiteUpdate.update_current_step_name("Concatenating scenes")
 
                 try:
                     VideoConcatenator(
@@ -452,10 +317,10 @@ class AlabamaEncodingJob:
                     raise e
             constant_updates.cancel()
         else:
-            print("Output file exists 🤑, printing stats")
+            print("Output file already exists")
 
-        self.update_proc_done(99)
-        self.update_current_step_name("Final touches")
+        self.websiteUpdate.update_proc_done(99)
+        self.websiteUpdate.update_current_step_name("Final touches")
 
         if self.ctx.generate_stats:
             print_stats(
@@ -513,8 +378,8 @@ class AlabamaEncodingJob:
                 if len(os.listdir(os.path.join(root, name))) == 0:
                     os.rmdir(os.path.join(root, name))
 
-        self.update_proc_done(100)
-        self.update_current_step_name("Done")
+        self.websiteUpdate.update_proc_done(100)
+        self.websiteUpdate.update_current_step_name("Done")
         if self.finished_callback is not None:
             self.finished_callback()
 
