@@ -14,14 +14,11 @@ from alabamaEncode.scene.scene_detection import scene_detect
 
 class NewGrainSynth(ChunkAnalyzePipelineItem):
     def run(self, ctx: AlabamaContext, chunk: ChunkObject, enc: Encoder) -> Encoder:
-        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
-
         grain_synth_result = ctx.get_kv().get("grain_synth", chunk.chunk_path)
 
         if grain_synth_result is None:
             grain_synth_result = calc_grainsynth_of_scene(
                 chunk,
-                probe_dir=probe_file_base,
                 scale_vf=ctx.scale_string,
                 crop_vf=ctx.crop_string,
             )
@@ -55,7 +52,7 @@ def measure_output_size(command):
 
 
 def calc_grainsynth_of_scene(
-    chunk: ChunkObject, probe_dir: str, scale_vf="", crop_vf=""
+    chunk: ChunkObject, scale_vf="", crop_vf="", return_source_values=False
 ) -> int:
     filter_vec = []
     if crop_vf != "" and crop_vf is not None:
@@ -71,7 +68,7 @@ def calc_grainsynth_of_scene(
 
     timer.start("scene_gs_approximation")
 
-    avvs = (
+    common = (
         f"{get_binary('ffmpeg')} -v error "
         f"-y {chunk.get_ss_ffmpeg_command_pair()} -pix_fmt yuv420p10le -c:v huffyuv -an -f nut "
     )
@@ -80,20 +77,19 @@ def calc_grainsynth_of_scene(
         a = f" -vf {a}"
 
     timer.start("ref")
-    cli = f"{avvs} {a} -"
-    ref_size = measure_output_size(cli)
+    ref_size = measure_output_size(f"{common} {a} -")
     timer.stop("ref")
 
     timer.start("strong")
-    b = ",".join(filter_vec + [denoise_strong])
-    cli1 = f"{avvs} -vf {b} -"
-    strong_size = measure_output_size(cli1)
+    strong_size = measure_output_size(
+        f"{common} -vf {",".join(filter_vec + [denoise_strong])} -"
+    )
     timer.stop("strong")
 
     timer.start("weak")
-    c = ",".join(filter_vec + [denoise_weak])
-    cli2 = f"{avvs} -vf {c} -"
-    weak_size = measure_output_size(cli2)
+    weak_size = measure_output_size(
+        f"{common} -vf {",".join(filter_vec + [denoise_weak])} -"
+    )
     timer.stop("weak")
 
     print(
@@ -112,13 +108,20 @@ def calc_grainsynth_of_scene(
     grain_factor = (
         ((ref_size * 100.0 / strong_size * 100.0 / grain_factor) - 105.0) * 8.0 / 10.0
     )
+    final_grain = 0
 
     print(f"Frame grain using old formula (obv wrong): {int(grain_factor / 2)}")
 
     timer.stop("scene_gs_approximation")
     timer.finish(loud=True)
-
-    return 0
+    if return_source_values:
+        return {
+            "ref_size": ref_size,
+            "weak_size": weak_size,
+            "strong_size": strong_size,
+        }
+    else:
+        return final_grain
 
 
 def test():
