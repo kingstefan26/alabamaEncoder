@@ -153,7 +153,8 @@ def read_args(ctx):
 
     encode.add_argument(
         "--grain",
-        help="Manually give the grainsynth value, 0 to disable, -1 for auto, -2 for auto per scene",
+        help="Manually give the grainsynth value, 0 to disable, -1 for auto, -2 for auto per scene, -3 for new fast "
+        "per scene grain",
         type=int,
         default=ctx.prototype_encoder.grain_synth,
         dest="grain",

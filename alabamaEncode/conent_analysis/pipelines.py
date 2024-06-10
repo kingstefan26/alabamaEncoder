@@ -27,6 +27,9 @@ def setup_chunk_analyze_chain(ctx, sequence):
     from alabamaEncode.conent_analysis.chunk.analyze_steps.per_scene_grain import (
         GrainSynth,
     )
+    from alabamaEncode.conent_analysis.chunk.analyze_steps.new_grain import (
+        NewGrainSynth,
+    )
     from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_crf import PlainCrf
     from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_vbr import PlainVbr
     from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
@@ -36,6 +39,8 @@ def setup_chunk_analyze_chain(ctx, sequence):
     # grain synth, per chunk parameters etc.
     if ctx.prototype_encoder.grain_synth == -2:
         ctx.chunk_analyze_chain.append(GrainSynth())
+    elif ctx.prototype_encoder.grain_synth == -3:
+        ctx.chunk_analyze_chain.append(NewGrainSynth())
 
     # setting up rate control, adaptive or not
     if ctx.bitrate_adjust_mode == "chunk":
@@ -50,10 +55,7 @@ def setup_chunk_analyze_chain(ctx, sequence):
         ctx.chunk_analyze_chain.append(EncodeMultiResCandidates())
     elif ctx.crf_map != "":
         ctx.chunk_analyze_chain.append(CrfIndexesMap(ctx.crf_map))
-    elif (
-        ctx.crf_based_vmaf_targeting is True
-        and ctx.multi_res_pipeline is False
-    ):
+    elif ctx.crf_based_vmaf_targeting is True and ctx.multi_res_pipeline is False:
         ctx.chunk_analyze_chain.append(TargetVmaf())
     elif ctx.prototype_encoder.crf != -1:
         ctx.chunk_analyze_chain.append(PlainCrf())
