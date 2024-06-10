@@ -98,15 +98,15 @@ def calc_grainsynth_of_scene(
         weak_size = get_size(f"{common} {filters_weak} -")
         strong_size = get_size(f"{common} {filters_strong} -")
 
-        print(f"GRAIN: ref: {ref_size}, weak: {weak_size}, strong: {strong_size}")
+        # print(f"GRAIN: ref: {ref_size}, weak: {weak_size}, strong: {strong_size}")
 
-        ratio_ref_strong = ref_size / strong_size
-        ratio_ref_weak = ref_size / weak_size
-        ratio_strong_weak = strong_size / weak_size
-        print(
-            f"GRAIN: ratio_ref_strong: {ratio_ref_strong}, ratio_ref_weak: {ratio_ref_weak},"
-            f" ratio_strong_weak: {ratio_strong_weak}"
-        )
+        # ratio_ref_strong = ref_size / strong_size
+        # ratio_ref_weak = ref_size / weak_size
+        # ratio_strong_weak = strong_size / weak_size
+        # print(
+        #     f"GRAIN: ratio_ref_strong: {ratio_ref_strong}, ratio_ref_weak: {ratio_ref_weak},"
+        #     f" ratio_strong_weak: {ratio_strong_weak}"
+        # )
 
         timer.stop(f"calc_scene_{i}")
 
@@ -117,7 +117,7 @@ def calc_grainsynth_of_scene(
             / 10.0
         )
 
-        print(f"Frame grain: {int(grain_factor / (100.0 / encoder_max_grain))}")
+        # print(f"Frame grain: {int(grain_factor / (100.0 / encoder_max_grain))}")
 
         # magic empirical values
         grain_factor = max(0.0, min(100.0, grain_factor))
@@ -164,19 +164,20 @@ def test():
         cache_file_path=test_env + "sceneCache.pt",
     )
 
+    grain_values = {}
     for chunk in scene_list.chunks:
-        print(
-            "calculated gs: "
-            + str(
-                calc_grainsynth_of_scene(
-                    chunk,
-                    crop_vf="3840:1920:0:120",
-                    scale_vf="1920:-2",
-                    print_timing=True,
-                )
-            )
+        grain_value = calc_grainsynth_of_scene(
+            chunk,
+            crop_vf="3840:1920:0:120",
+            scale_vf="1920:-2",
+            # parallel=True,
         )
+        print("calculated gs: " + str(grain_value))
+        grain_values[str(chunk.chunk_index)] = grain_value
+
         print("\n\n")
+
+    print(grain_values)
 
 
 if __name__ == "__main__":
