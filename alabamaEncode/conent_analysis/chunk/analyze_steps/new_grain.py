@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+import numpy as np
+
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
@@ -17,7 +19,7 @@ class NewGrainSynth(ChunkAnalyzePipelineItem):
         grain_synth_result = ctx.get_kv().get("grain_synth", chunk.chunk_path)
 
         if grain_synth_result is None:
-            grain_synth_result = calc_grainsynth_of_scene(
+            grain_synth_result = calc_grainsynth_of_scene_fast(
                 chunk,
                 scale_vf=ctx.scale_string,
                 crop_vf=ctx.crop_string,
@@ -51,7 +53,25 @@ def measure_output_size(command):
     return total_size
 
 
-def calc_grainsynth_of_scene(
+def inference(data):
+    from itertools import combinations_with_replacement
+
+    n_samples, n_features = data.shape
+    combinations = list(combinations_with_replacement(range(n_features), 2))
+    X_poly = np.ones((n_samples, len(combinations)))
+
+    for i, index_comb in enumerate(combinations):
+        X_poly[:, i] = np.prod(data[:, index_comb], axis=1)
+
+    new_data_poly = X_poly
+
+    new_data_poly_b = np.c_[np.ones((new_data_poly.shape[0], 1)), new_data_poly]
+    weights = np.array([34.31016125, 2333.23498342, -4837.40104381, 2474.86714525])
+    res = np.dot(new_data_poly_b, weights)
+    return int(res[0])
+
+
+def calc_grainsynth_of_scene_fast(
     chunk: ChunkObject, scale_vf="", crop_vf="", return_source_values=False
 ) -> int:
     filter_vec = []
@@ -92,25 +112,10 @@ def calc_grainsynth_of_scene(
     )
     timer.stop("weak")
 
-    print(
-        f"denoise stats: size of ref: {ref_size}, size of weak: {weak_size}, size of strong: {strong_size}"
-    )
+    normalised_weak = weak_size / ref_size
+    normalised_strong = strong_size / ref_size
 
-    ratio_ref_strong = ref_size / strong_size
-    ratio_ref_weak = ref_size / weak_size
-    ratio_strong_weak = strong_size / weak_size
-    print(
-        f"ratio_ref_strong: {ratio_ref_strong}, ratio_ref_weak: {ratio_ref_weak},"
-        f" ratio_strong_weak: {ratio_strong_weak}"
-    )
-
-    grain_factor = ref_size * 100.0 / weak_size
-    grain_factor = (
-        ((ref_size * 100.0 / strong_size * 100.0 / grain_factor) - 105.0) * 8.0 / 10.0
-    )
-    final_grain = 0
-
-    print(f"Frame grain using old formula (obv wrong): {int(grain_factor / 2)}")
+    final_grain = inference(np.array([[normalised_weak, normalised_strong]]))
 
     timer.stop("scene_gs_approximation")
     timer.finish(loud=True)
@@ -140,12 +145,8 @@ def test():
         print(
             "calculated gs: "
             + str(
-                calc_grainsynth_of_scene(
-                    chunk,
-                    test_env,
-                    crop_vf="3840:1920:0:120",
-                    scale_vf="1920:-2",
-                    # parallel=True,
+                calc_grainsynth_of_scene_fast(
+                    chunk, crop_vf="3840:1920:0:120", scale_vf="1920:-2"
                 )
             )
         )

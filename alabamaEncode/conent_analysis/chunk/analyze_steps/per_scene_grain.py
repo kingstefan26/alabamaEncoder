@@ -95,18 +95,14 @@ def calc_grainsynth_of_scene(
         timer.start(f"calc_scene_{i}")
 
         ref_size = get_size(f"{common} {filters_ref} -")
+        if ref_size == 0:
+            continue
         weak_size = get_size(f"{common} {filters_weak} -")
+        if weak_size == 0:
+            continue
         strong_size = get_size(f"{common} {filters_strong} -")
-
-        # print(f"GRAIN: ref: {ref_size}, weak: {weak_size}, strong: {strong_size}")
-
-        # ratio_ref_strong = ref_size / strong_size
-        # ratio_ref_weak = ref_size / weak_size
-        # ratio_strong_weak = strong_size / weak_size
-        # print(
-        #     f"GRAIN: ratio_ref_strong: {ratio_ref_strong}, ratio_ref_weak: {ratio_ref_weak},"
-        #     f" ratio_strong_weak: {ratio_strong_weak}"
-        # )
+        if strong_size == 0:
+            continue
 
         timer.stop(f"calc_scene_{i}")
 
