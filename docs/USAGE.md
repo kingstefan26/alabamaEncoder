@@ -14,9 +14,9 @@ alabamaEncoder autothumbnailer [INPUT FILE] [flags]
 
 #### Additional Thumbnail Generation Flags
 
-| Parameter | Description |
-|-----------|-------------|
-| -         | -           |
+| Parameter        | Description           |
+|------------------|-----------------------|
+| `--detect_faces` | Detect faces in video |
 
 ### Worker
 

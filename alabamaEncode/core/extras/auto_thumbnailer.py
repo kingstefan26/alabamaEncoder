@@ -10,7 +10,11 @@ from skimage.metrics import structural_similarity as ssim
 from tqdm import tqdm
 
 from alabamaEncode.core.ffmpeg import Ffmpeg
-from alabamaEncode.core.util.bin_utils import get_binary, check_ffmpeg_libraries, check_bin
+from alabamaEncode.core.util.bin_utils import (
+    get_binary,
+    check_ffmpeg_libraries,
+    check_bin,
+)
 from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.util.get_yuv_stream import get_yuv_frame_stream
 from alabamaEncode.core.util.path import PathAlabama
@@ -102,7 +106,12 @@ def compute_depth_of_field_score(gray):
     return dof_score
 
 
-def process_frame_worker(yuv_frame_buffer, h, w, count):
+def face_score(frame) -> float:
+    # detect faces, their expressions, and give it a float score
+    return 0
+
+
+def process_frame_worker(yuv_frame_buffer, h, w, count, calc_face=False):
     frame = np.frombuffer(yuv_frame_buffer, dtype=np.uint8).reshape((h * 3 // 2, w))
     frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -116,6 +125,8 @@ def process_frame_worker(yuv_frame_buffer, h, w, count):
         #   "symmetry": compute_shot_symmetry_score(gray),
         "index": count,
     }
+    if calc_face:
+        aa["face_score"] = face_score(frame)
     return aa
 
 
@@ -125,6 +136,7 @@ class AutoThumbnailer:
 
         self.frame_data = []
         self.pool = multiprocessing.Pool(6)
+        self.calc_face = False
 
     def generate_previews(self, input_file: str, output_folder: str):
         chunk = ChunkObject(path=input_file)
@@ -167,22 +179,25 @@ class AutoThumbnailer:
         if len(self.frame_data) == 0:
             raise Exception("No frames were processed")
 
+        features_to_calc = [
+            "blurriness",
+            "saliency",
+            # 'rule_of_thirds',
+            "contrast",
+            # 'saturation',
+            "dof",
+            # 'symmetry'
+        ]
 
+        if self.calc_face:
+            features_to_calc.append("face_score")
 
         best_frames = self.get_top_frames(
             self.frame_data,
             num_peaks=9,
-            feature_names=[
-                "blurriness",
-                "saliency",
-                # 'rule_of_thirds',
-                "contrast",
-                # 'saturation',
-                "dof",
-                # 'symmetry'
-            ],
-            # feature_names=['contrast']
+            feature_names=features_to_calc,
         )
+
         has_placebo = check_ffmpeg_libraries("libplacebo")
         has_jpegli = check_bin("cjpeg")
         for i, best_frame in tqdm(
@@ -209,6 +224,7 @@ class AutoThumbnailer:
                 yuv_frame.headers["H"],
                 yuv_frame.headers["W"],
                 yuv_frame.count,
+                self.calc_face,
             ),
             callback=self.collect_result,
         )
@@ -253,7 +269,6 @@ class AutoThumbnailer:
         # change any nans in the data into 0's
         for feature, values in normalized_features.items():
             normalized_features[feature] = np.nan_to_num(values)
-
 
         # Combine the normalized scores into a single score
         combined_score = np.zeros_like(list(normalized_features.values())[0])

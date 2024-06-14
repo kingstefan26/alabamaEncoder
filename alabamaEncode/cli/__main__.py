@@ -101,7 +101,9 @@ def main():
                 print(f"File {args.input} does not exist")
                 quit()
 
-            AutoThumbnailer().generate_previews(
+            thumbnailer = AutoThumbnailer()
+            thumbnailer.calc_face = args.detect_faces
+            thumbnailer.generate_previews(
                 input_file=args.input, output_folder=os.path.dirname(args.input)
             )
             quit()

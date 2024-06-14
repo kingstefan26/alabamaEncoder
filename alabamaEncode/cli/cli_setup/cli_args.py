@@ -39,6 +39,13 @@ def read_args(ctx):
 
     auto_thumbnailer.add_argument("input", type=str, help="Input video file")
 
+    auto_thumbnailer.add_argument(
+        "--detect_faces",
+        action="store_true",
+        help="Detect faces in video",
+        dest="detect_faces",
+    )
+
     encode = subparsers.add_parser("encode", help="Typical encode mode")
 
     encode.add_argument("input", type=str, help="Input video file")
