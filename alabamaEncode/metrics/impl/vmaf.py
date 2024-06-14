@@ -255,7 +255,7 @@ def get_models() -> dict[str, str]:
         ],
     ]
 
-    models_dir = os.path.expanduser("~/vmaf_models")
+    models_dir = os.path.expanduser("~/.alabamaEncoder/vmaf_models")
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
 
