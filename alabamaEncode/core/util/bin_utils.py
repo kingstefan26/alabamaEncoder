@@ -100,6 +100,9 @@ def get_binary(name):
         for _name, _cli in bins:
             if _name == name:
                 _bin = _cli
+                break
+    if _bin is None:
+        _bin = os.path.expanduser(f"~/.alabamaEncoder/bin/{name}")
     if check_bin(_bin):
         return _bin
     else:
