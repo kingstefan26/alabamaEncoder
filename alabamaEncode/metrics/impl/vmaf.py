@@ -30,24 +30,38 @@ class VmafOptions(MetricOptions):
         self.subsample = subsample
         super().__init__(**kwargs)
 
-    def get_model(self) -> str:
+    def get_model(self) -> str or None:
         models = get_models()
         if self.no_motion:
+            if not os.path.exists(models["normal_neg_nomotion"]):
+                return None
             return f'path={models["normal_neg_nomotion"]}'
         if self.neg:
             if self.uhd:
+                if not os.path.exists(models["uhd_neg"]):
+                    return None
                 return f'path={models["uhd_neg"]}'
             if self.phone:
+                if not os.path.exists(models["normal_neg"]):
+                    return None
                 return f'path={models["normal_neg"]}:name=phonevmaf:enable_transform'
             else:
+                if not os.path.exists(models["normal_neg"]):
+                    return None
                 return f'path={models["normal_neg"]}'
 
         else:
             if self.uhd:
+                if not os.path.exists(models["uhd"]):
+                    return None
                 return f'path={models["uhd"]}'
             if self.phone:
+                if not os.path.exists(models["normal"]):
+                    return None
                 return f'path={models["normal"]}:name=phonevmaf:enable_transform'
             else:
+                if not os.path.exists(models["normal"]):
+                    return None
                 return f'path={models["normal"]}'
 
     @staticmethod
@@ -77,12 +91,17 @@ def calc_vmaf(
     if log_path == "":
         log_path = f"/tmp/{os.path.basename(chunk.chunk_path)}.vmaflog"
 
+    vmaf_model = vmaf_options.get_model()
+
     vmaf_command = (
-        f'{get_binary("vmaf")} -q --json --output "{log_path}" --model {vmaf_options.get_model()} '
+        f'{get_binary("vmaf")} -q --json --output "{log_path}" '
         f"--reference {ref_pipe} "
         f"--distorted {dist_pipe}"
         f" --threads {vmaf_options.threads}"
     )
+
+    if vmaf_model is not None:
+        vmaf_command += f" --model {vmaf_model}"
 
     if vmaf_options.subsample != -1 and vmaf_options.subsample is not None:
         vmaf_command += f" --subsample {vmaf_options.subsample}"
@@ -231,29 +250,31 @@ if __name__ == "__main__":
     print(a.__repr__())
 
 
-def get_models() -> dict[str, str]:
-    links = [
-        [
-            "https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1.json",
-            "vmaf_4k_v0.6.1.json",
-        ],
-        [
-            "https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1.json",
-            "vmaf_v0.6.1.json",
-        ],
-        [
-            "https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1neg.json",
-            "vmaf_4k_v0.6.1neg.json",
-        ],
-        [
-            "https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1neg.json",
-            "vmaf_v0.6.1neg.json",
-        ],
-        [
-            "https://github.com/kingstefan26/python-video-split-/raw/master/vmaf_v0.6.1neg-nomotion.json",
-            "vmaf_v0.6.1neg-nomotion.json",
-        ],
-    ]
+model_links = [
+    [
+        "https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1.json",
+        "vmaf_4k_v0.6.1.json",
+    ],
+    [
+        "https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1.json",
+        "vmaf_v0.6.1.json",
+    ],
+    [
+        "https://github.com/Netflix/vmaf/raw/master/model/vmaf_4k_v0.6.1neg.json",
+        "vmaf_4k_v0.6.1neg.json",
+    ],
+    [
+        "https://github.com/Netflix/vmaf/raw/master/model/vmaf_v0.6.1neg.json",
+        "vmaf_v0.6.1neg.json",
+    ],
+    [
+        "https://raw.githubusercontent.com/kingstefan26/alabamaEncoder/master/vmaf_v0.6.1neg-nomotion.json",
+        "vmaf_v0.6.1neg-nomotion.json",
+    ],
+]
+
+
+def download_vmaf_models():
 
     models_dir = os.path.expanduser("~/.alabamaEncoder/vmaf_models")
     if not os.path.exists(models_dir):
@@ -262,28 +283,32 @@ def get_models() -> dict[str, str]:
     try:
         import requests
 
-        for link in links:
+        for link in model_links:
             if not os.path.exists(os.path.join(models_dir, link[1])):
                 print("Downloading VMAF model")
                 r = requests.get(link[0], allow_redirects=True)
                 open(os.path.join(models_dir, link[1]), "wb").write(r.content)
 
-        for link in links:
+        for link in model_links:
             if not os.path.exists(os.path.join(models_dir, link[1])):
-                raise FileNotFoundError(f"Something went wrong accessing {link[1]}")
+                print(f"Something went wrong accessing {link[1]}")
     except Exception as e:
-        raise RuntimeError(f"Failed downloading VMAF models, {e}")
+        print(f"Failed downloading VMAF models, using built-in ones as fallback, {e}")
+
+
+def get_models() -> dict[str, str]:
+    models_dir = os.path.expanduser("~/.alabamaEncoder/vmaf_models")
 
     # turn the model paths into absolute paths
-    for link in links:
+    for link in model_links:
         link[1] = os.path.join(models_dir, link[1])
 
     model_dict = {
-        "uhd": links[0][1],
-        "normal": links[1][1],
-        "uhd_neg": links[2][1],
-        "normal_neg": links[3][1],
-        "normal_neg_nomotion": links[4][1],
+        "uhd": model_links[0][1],
+        "normal": model_links[1][1],
+        "uhd_neg": model_links[2][1],
+        "normal_neg": model_links[3][1],
+        "normal_neg_nomotion": model_links[4][1],
     }
 
     return model_dict

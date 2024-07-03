@@ -26,6 +26,7 @@ from alabamaEncode.core.final_touches import (
     generate_previews,
     create_torrent_file,
 )
+from alabamaEncode.metrics.impl.vmaf import download_vmaf_models
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
@@ -130,6 +131,7 @@ class AlabamaEncodingJob:
         if not self.encode_finished():
             self.websiteUpdate.update_proc_done(10)
             self.websiteUpdate.update_current_step_name("Analyzing content")
+            download_vmaf_models()
             await run_sequence_pipeline(self.ctx, sequence)
             self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)
 
