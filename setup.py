@@ -18,6 +18,7 @@ setup(
         "numpy",
         "scikit-image",
         "argparse_range",
+        "matplotlib",
     ],
     entry_points="""
       [console_scripts]
