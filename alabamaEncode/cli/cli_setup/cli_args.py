@@ -601,6 +601,10 @@ def read_args(ctx):
 
     args = parser.parse_args()
 
+    if args.command is None:
+        parser.print_help()
+        quit()
+
     if (
         args.command == "autothumbnailer"
         or args.command == "worker"
