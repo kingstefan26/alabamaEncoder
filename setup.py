@@ -24,4 +24,5 @@ setup(
       [console_scripts]
       alabamaEncoder=alabamaEncode.cli.__main__:main
       """,
+    python_requires=">=3.12.3",
 )

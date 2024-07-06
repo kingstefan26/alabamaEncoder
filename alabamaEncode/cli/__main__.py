@@ -18,6 +18,10 @@ from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.worker import worker
 
+if sys.version_info < (3, 12, 3):
+    print("Python 3.12.3 or a more recent version is required.")
+    sys.exit(1)
+
 runtime = -1
 runtime_file = ""
 lock_file_path = ""
