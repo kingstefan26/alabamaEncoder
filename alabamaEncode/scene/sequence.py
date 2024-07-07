@@ -61,11 +61,14 @@ class ChunkSequence:
         :param temp_folder: the temp folder to put the chunks in
         :return: Void
         """
+        os.makedirs(os.path.join(temp_folder, "chunks"), exist_ok=True)
         for c in self.chunks:
             # /home/user/encode/show/temp/1.ivf
             # or
             # /home/user/encode/show/temp/1.mkv
-            c.chunk_path = os.path.join(temp_folder, f"{c.chunk_index}{extension}")
+            c.chunk_path = os.path.join(
+                temp_folder, f"chunks/{c.chunk_index}{extension}"
+            )
 
     def get_test_chunks_out_of_a_sequence(
         self, random_pick_count: int = 7

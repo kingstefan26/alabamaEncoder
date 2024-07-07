@@ -294,7 +294,7 @@ class AlabamaEncodingJob:
                         subs_file=[self.ctx.sub_file],
                         temp_dir=self.ctx.temp_folder,
                     ).find_files_in_dir(
-                        folder_path=self.ctx.temp_folder,
+                        folder_path=os.path.join(self.ctx.temp_folder, "chunks"),
                         extension=self.ctx.get_encoder().get_chunk_file_extension(),
                     ).concat_videos()
                 except Exception as e:
