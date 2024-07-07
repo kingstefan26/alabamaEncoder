@@ -69,6 +69,8 @@ class VideoConcatenator:
         return self
 
     def concat_videos(self):
+        if not self.files or len(self.files) == 0:
+            raise Exception("No files to concat")
         start = time.time()
         self._concat_videos()
         end = time.time()
