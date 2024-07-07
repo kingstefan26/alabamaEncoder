@@ -35,7 +35,6 @@ def print_stats(
             num /= 1024.0
         return f"{num:.1f}Yi{suffix}"
 
-
     # Title: <Title> <episode & seson if applicable>
     # IMDB: <id>
     # Runtime: hh:mm:ss
@@ -57,7 +56,7 @@ def print_stats(
 
     size_bytes = os.path.getsize(output_file.get()) * 8
 
-    width, height = Ffmpeg.get_width(output_file),  Ffmpeg.get_height(output_file)
+    width, height = Ffmpeg.get_width(output_file), Ffmpeg.get_height(output_file)
 
     bitdepth = Ffmpeg.get_bit_depth(output_file)
 
@@ -82,8 +81,15 @@ def print_stats(
             video_tracks.append(track)
     lenght = Ffmpeg.get_video_length(output_file, sexagesimal=True)
     vid_codec = video_tracks[0]["codec_name"].upper()
-    audio_codec = audio_tracks[0]["codec_name"].upper()
-    sub_codec = sub_tracks[0]["codec_name"].upper()
+
+    if len(audio_tracks) == 0:
+        audio_codec = "N/A"
+    else:
+        audio_codec = audio_tracks[0]["codec_name"].upper()
+    if len(sub_tracks) == 0:
+        sub_codec = "N/A"
+    else:
+        sub_codec = sub_tracks[0]["codec_name"].upper()
 
     sub_langs_list = []
     for sub_track in sub_tracks:
@@ -107,12 +113,13 @@ def print_stats(
     ps(f"Runtime: {lenght}")
 
     ps(f"Size: {sizeof_fmt(size_bytes)}")
-    ps('\n')
+    ps("\n")
 
     ps(f"Video ({vid_codec}):")
-    ps(f"{width}x{height} - {bitdepth}-bit {'HDR' if hdr else 'SDR'} - {vid_bps // 1000} kbps")
-    ps('\n')
-
+    ps(
+        f"{width}x{height} - {bitdepth}-bit {'HDR' if hdr else 'SDR'} - {vid_bps // 1000} kbps"
+    )
+    ps("\n")
 
     ps(f"Audio ({audio_codec}):")
     for audio_track in audio_tracks:
@@ -121,20 +128,22 @@ def print_stats(
             lang = audio_track["tags"]["language"]
         ps(f"{lang} {audio_track['channel_layout']} - {audio_bps // 1000} kbps")
 
-    ps('\n')
+    ps("\n")
 
     ps(f"Subtitles ({len(sub_tracks)}x {sub_codec}):")
 
     ps(", ".join(sub_langs_list))
 
-    ps('\n')
+    ps("\n")
 
-    ps('Encoder / Settings: <FILL MANUALLY>')
+    ps("Encoder / Settings: <FILL MANUALLY>")
 
     if vid_codec == "AV1":
-        ps("Compatibility: Windows/Android: VLC or MPV - Oculus: SkyboxVR 1.1.0 or later - TVs: Most smart TVs from 2020 or newer")
+        ps(
+            "Compatibility: Windows/Android: VLC or MPV - Oculus: SkyboxVR 1.1.0 or later - TVs: Most smart TVs from 2020 or newer"
+        )
 
-    ps('\n')
+    ps("\n")
 
 
 def generate_previews(input_file: str, output_folder: str):
@@ -150,7 +159,9 @@ def generate_previews(input_file: str, output_folder: str):
 
     is_av1 = Ffmpeg.get_codec(PathAlabama(input_file)) == "av1"
 
-    for i, offset in tqdm(enumerate(offsets), desc="Generating previews", total=num_previews):
+    for i, offset in tqdm(
+        enumerate(offsets), desc="Generating previews", total=num_previews
+    ):
         # create additional avif stream copy previews
         if is_av1:
             run_cli(
@@ -165,7 +176,8 @@ def generate_previews(input_file: str, output_folder: str):
         )
         run_cli(
             f'cat "{png_preview_path}" | {get_binary("cjpeg")} -q 95 -tune-psnr -optimize -progressive > '
-            f'"{jpeg_preview_path}"')
+            f'"{jpeg_preview_path}"'
+        )
         run_cli(f'{get_binary("ect")} "{png_preview_path}"')
         run_cli(f'{get_binary("ect")} "{jpeg_preview_path}"')
         # try:
@@ -180,10 +192,13 @@ if __name__ == "__main__":
     #     "/home/kokoniara/dev/VideoSplit/test_codes/lessons_in_meth_fast13_slow4/out.mp4",
     #     "/home/kokoniara/dev/VideoSplit/test_codes/lessons_in_meth_fast13_slow4/",
     # )
-    tracks = Ffmpeg.get_tracks(PathAlabama("/home/kokoniara/showsEncode/Foundation (2021)/s2/Foundation.2021.S02.1080p.AV1.OPUS.SouAV1R/Foundation.2021.S02E08.1080p.AV1.OPUS.SouAV1R.webm"))
+    tracks = Ffmpeg.get_tracks(
+        PathAlabama(
+            "/home/kokoniara/showsEncode/Foundation (2021)/s2/Foundation.2021.S02.1080p.AV1.OPUS.SouAV1R/Foundation.2021.S02E08.1080p.AV1.OPUS.SouAV1R.webm"
+        )
+    )
     # pretty print the dictionary
-    print(json.dumps(tracks,sort_keys=True, indent=4))
-
+    print(json.dumps(tracks, sort_keys=True, indent=4))
 
 
 def create_torrent_file(video: str, encoder_name: str, output_folder: str):
