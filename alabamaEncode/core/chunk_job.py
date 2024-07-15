@@ -93,6 +93,8 @@ class ChunkEncoder(BaseCommandObject):
         with open(f"{self.ctx.temp_folder}/chunks.log", "a") as f:
             f.write(json.dumps(chunk_stats.__dict__()) + "\n")
 
-        self.ctx.get_kv().set("chunk_timing", self.chunk.chunk_index, timing_stats)
+        self.ctx.get_kv().set(
+            "chunk_timing", self.chunk.chunk_index, timing_stats, individual_mode=True
+        )
 
         return self.pin_to_core, chunk_stats.__dict__()
