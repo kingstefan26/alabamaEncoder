@@ -21,5 +21,7 @@ def parse_video_filters(ctx):
         print("Input Video is HDR but requested a SDR encode, auto-tonemapping")
         vec.append(Ffmpeg.get_tonemap_vf())
 
+    vec = [string for string in vec if string != ""]
+
     ctx.prototype_encoder.video_filters = ",".join(vec)
     return ctx
