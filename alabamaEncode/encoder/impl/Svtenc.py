@@ -39,110 +39,88 @@ class EncoderSvt(Encoder):
             f" --progress 2 "
         )
 
-        if self.override_flags == "" or self.override_flags is None:
-            kommand += f" --keyint {self.keyint}"
+        match self.rate_distribution:
+            case EncoderRateDistribution.CQ:
+                if self.passes != 1:
+                    print("WARNING: passes must be 1 for CQ, setting to 1")
+                    self.passes = 1
+                kommand += f" --crf {self.crf} --rc 0"
+            case EncoderRateDistribution.VBR:
+                kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
+            case EncoderRateDistribution.CQ_VBV:
+                kommand += f" --crf {self.crf} --mbr {self.bitrate}"
+            case EncoderRateDistribution.VBR_VBV:
+                raise Exception("FATAL: VBR_VBV is not supported")
 
-            def crf_check():
-                """
-                validate crf fields
-                """
-                if self.crf is None or self.crf == -1:
-                    raise Exception("FATAL: crf is not set")
-                if self.crf > 63:
-                    raise Exception("FATAL: crf must be less than 63")
+        kommand += f" --pin 0"
+        kommand += f" --lp {self.threads}"
 
-            kommand += f" --color-primaries {self.color_primaries}"
-            kommand += f" --transfer-characteristics {self.transfer_characteristics}"
+        kommand += f" --preset {self.speed}"
 
-            if self.matrix_coefficients == "bt2020c":
-                self.matrix_coefficients = "bt2020-cl"
+        # check one be one if any flags are in the override flags, if not use the framework ones
+        def add_flag(flag, value):
+            nonlocal kommand
+            if flag not in self.override_flags.split(" "):
+                kommand += f" {flag} {value}"
 
-            kommand += f" --matrix-coefficients {self.matrix_coefficients}"
+        if 0 <= self.grain_synth <= 50 and "--film-grain":
+            add_flag("--film-grain", self.grain_synth)
 
-            if self.hdr:
-                kommand += f" --enable-hdr 1"
-                kommand += f" --chroma-sample-position {self.chroma_sample_position}"
-                kommand += (
-                    f" --content-light "
-                    f"{self.maximum_content_light_level},{self.maximum_frame_average_light_level}"
-                )
-                if self.svt_master_display != "":
-                    kommand += f' --mastering-display "{self.svt_master_display}"'
+        add_flag("--color-primaries", self.color_primaries)
+        add_flag("--transfer-characteristics", self.transfer_characteristics)
+        add_flag("--matrix-coefficients", self.matrix_coefficients)
 
-            def bitrate_check():
-                """
-                validate bitrate fields
-                """
-                if self.bitrate is None or self.bitrate == -1:
-                    raise Exception("FATAL: bitrate is not set")
+        if self.hdr:
+            add_flag("--enable-hdr", 1)
+            add_flag("--chroma-sample-position", self.chroma_sample_position)
+            add_flag(
+                "--content-light",
+                f"{self.maximum_content_light_level},{self.maximum_frame_average_light_level}",
+            )
 
-            match self.rate_distribution:
-                case EncoderRateDistribution.CQ:
-                    if self.passes != 1:
-                        print("WARNING: passes must be 1 for CQ, setting to 1")
-                        self.passes = 1
-                    crf_check()
-                    kommand += f" --crf {self.crf} --rc 0"
-                case EncoderRateDistribution.VBR:
-                    bitrate_check()
-                    kommand += f" --rc 1 --tbr {self.bitrate} --undershoot-pct 95 --overshoot-pct 10 "
-                case EncoderRateDistribution.CQ_VBV:
-                    bitrate_check()
-                    crf_check()
-                    kommand += f" --crf {self.crf} --mbr {self.bitrate}"
-                case EncoderRateDistribution.VBR_VBV:
-                    raise Exception("FATAL: VBR_VBV is not supported")
+            if self.svt_master_display != "":
+                add_flag("--mastering-display", f'"{self.svt_master_display}"')
 
-            kommand += f" --tune {self.svt_tune}"
+        add_flag("--tune", self.svt_tune)
+        add_flag("--aq-mode", self.svt_aq_mode)
+        add_flag("--tile-columns", self.tile_cols)
+        add_flag("--tile-rows", self.tile_rows)
+        add_flag("--keyint", self.keyint)
 
-            kommand += f" --pin 0"
-            kommand += f" --lp {self.threads}"
-
-            kommand += f" --aq-mode {self.svt_aq_mode}"
-
-            if self.tile_cols != -1:
-                kommand += f" --tile-columns {self.tile_cols}"
-            if self.tile_rows != -1:
-                kommand += f" --tile-rows {self.tile_rows}"
-
-            if self.svt_supperres_mode != 0:
-                kommand += f" --superres-mode {self.svt_supperres_mode}"
-                kommand += f" --superres-denom {self.svt_superres_denom}"
-                kommand += f" --superres-kf-denom {self.svt_superres_kf_denom}"
-                kommand += f" --superres-qthres {self.svt_superres_qthresh}"
-                kommand += f" --superres-kf-qthres {self.svt_superres_kf_qthresh}"
-
-            if self.svt_sframe_interval > 0:
-                kommand += f" --sframe-dist {self.svt_sframe_interval}"
-                kommand += f" --sframe-mode {self.svt_sframe_mode}"
-
-            if self.svt_resize_mode != 0:
-                kommand += f" --resize-mode {self.svt_resize_mode}"
-                kommand += f" --resize-denominator {self.svt_resize_denominator}"
-                kommand += f" --resize-kf-denominator {self.svt_resize_kf_denominator}"
-
-            if 0 <= self.grain_synth <= 50:
-                kommand += f" --film-grain {self.grain_synth}"
-
-            kommand += f" --preset {self.speed}"
-            kommand += f" --film-grain-denoise 0"
-            if self.qm_enabled:
-                kommand += f" --qm-min {self.qm_min}"
-                kommand += f" --qm-max {self.qm_max}"
-                kommand += " --enable-qm 1"
-            else:
-                kommand += " --enable-qm 0"
-
-            kommand += f" --enable-tf {self.svt_tf}"
-
-            kommand += f" --enable-variance-boost {self.svt_enable_variance_boost} "
-            kommand += f" --variance-boost-strength {self.svt_variance_boost_strength}"
-            kommand += f" --variance-octile {self.svt_variance_octile}"
-            if self.is_psy():
-                kommand += f" --sharpness {self.svt_sharpness}"
-
+        if self.qm_enabled:
+            add_flag("--enable-qm", 1)
+            add_flag("--qm-min", self.qm_min)
+            add_flag("--qm-max", self.qm_max)
         else:
-            kommand += self.override_flags
+            add_flag("--enable-qm", 0)
+
+        add_flag("--film-grain-denoise", 0)
+        add_flag("--enable-tf", self.svt_tf)
+        add_flag("--enable-variance-boost", self.svt_enable_variance_boost)
+        add_flag("--variance-boost-strength", self.svt_variance_boost_strength)
+        add_flag("--variance-octile", self.svt_variance_octile)
+
+        if self.is_psy():
+            add_flag("--sharpness", self.svt_sharpness)
+
+        if self.svt_supperres_mode != 0:
+            add_flag("--superres-mode", self.svt_supperres_mode)
+            add_flag("--superres-denom", self.svt_superres_denom)
+            add_flag("--superres-kf-denom", self.svt_superres_kf_denom)
+            add_flag("--superres-qthres", self.svt_superres_qthresh)
+            add_flag("--superres-kf-qthres", self.svt_superres_kf_qthresh)
+
+        if self.svt_sframe_interval > 0:
+            add_flag("--sframe-dist", self.svt_sframe_interval)
+            add_flag("--sframe-mode", self.svt_sframe_mode)
+
+        if self.svt_resize_mode != 0:
+            add_flag("--resize-mode", self.svt_resize_mode)
+            add_flag("--resize-denominator", self.svt_resize_denominator)
+            add_flag("--resize-kf-denominator", self.svt_resize_kf_denominator)
+
+        if self.override_flags != "":
+            kommand += " " + self.override_flags + " "
 
         stats_bit = ""
 
