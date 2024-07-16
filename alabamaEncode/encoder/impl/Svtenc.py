@@ -60,7 +60,7 @@ class EncoderSvt(Encoder):
         # check one be one if any flags are in the override flags, if not use the framework ones
         def add_flag(flag, value):
             nonlocal kommand
-            if flag not in self.override_flags.split(" "):
+            if flag not in self.override_flags:
                 kommand += f" {flag} {value}"
 
         if 0 <= self.grain_synth <= 50 and "--film-grain":

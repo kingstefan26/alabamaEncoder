@@ -48,7 +48,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                 f"probe.{_crf}{enc_copy.get_chunk_file_extension()}",
             )
             enc_copy.speed = max(get_vmaf_probe_speed(enc_copy, ctx), enc.speed)
-            enc_copy.override_flags = None
+            enc_copy.override_flags = ""
             # TODO: calculate metrics outside enc.run to add the flexibility to calc other ones
             stats: EncodeStats = enc_copy.run(
                 metric_to_calculate=metric,
@@ -81,7 +81,9 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
         while low_crf <= high_crf and depth < probes:
             mid_crf = (low_crf + high_crf) // 2
 
-            if (depth == 2 and ctx.probe_count == 3) or (depth == 1 and ctx.probe_count == 2):
+            if (depth == 2 and ctx.probe_count == 3) or (
+                depth == 1 and ctx.probe_count == 2
+            ):
                 ll, lh = get_crf_limits(enc_copy, ctx)
                 m = (ll + lh) // 2
                 # if closer to edge then the middle, use that edge
@@ -94,7 +96,7 @@ class TargetVmaf(ChunkAnalyzePipelineItem):
                     f"{chunk.log_prefix()} skipping to crf edge: {mid_crf}",
                     category="probe",
                 )
-                
+
             # don't try the same crf twice
             if mid_crf in [t[0] for t in trys]:
                 break
