@@ -20,7 +20,7 @@ class WebsiteUpdate:
         self.current_step_name = "idle"
         self.last_update = None
         self.update_proc_throttle = 0
-        self.update_max_freq_sec = 1600
+        self.update_max_freq_sec = 1
         self.ws_server = None
 
     async def update_website(self):
@@ -114,6 +114,10 @@ class WebsiteUpdate:
             os.environ.get("status_update_api_url", "") == ""
             or os.environ.get("ws_update", "false") == "false"
         ):
+            print(
+                f"Not starting constant updates, {os.environ.get('status_update_api_url', '')} {os.environ.get('ws_update', 'false')}"
+            )
+
             return
 
         tqdm.write("Starting constant updates")
@@ -151,8 +155,8 @@ class WebsocketServer:
         self.loop = asyncio.get_event_loop()
         self.server = None
         self.running = False
-        # get public ip
-        self.ip = requests.get("https://checkip.amazonaws.com").text.strip()
+        # get local ip
+        self.ip = socket.gethostbyname(socket.gethostname())
         self.last_worker_data = None
         self.last_status_data = None
 

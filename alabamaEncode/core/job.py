@@ -207,13 +207,18 @@ class AlabamaEncodingJob:
                 )
 
                 def update_proc_done(num_finished_scenes):
-                    already_done = len(sequence.chunks) - len(command_objects)
                     # map 20 to 95% as the space where the scenes are encoded
+                    already_done = len(sequence.chunks) - len(command_objects)
+                    # self.websiteUpdate.update_proc_done(
+                    #     20
+                    #     + (already_done + num_finished_scenes)
+                    #     / len(sequence.chunks)
+                    #     * 75
+                    # )
+
                     self.websiteUpdate.update_proc_done(
-                        20
-                        + (already_done + num_finished_scenes)
-                        / len(sequence.chunks)
-                        * 75
+                        ((already_done + num_finished_scenes) / len(sequence.chunks))
+                        * 100
                     )
 
                 kv = self.ctx.get_kv()
