@@ -1,6 +1,8 @@
+import copy
 import os
 import subprocess
 
+import cv2
 import numpy as np
 
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
@@ -8,6 +10,7 @@ from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
 )
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.bin_utils import get_binary
+from alabamaEncode.core.util.get_yuv_stream import get_yuv_frame_stream
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.scene.chunk import ChunkObject
@@ -51,6 +54,29 @@ def measure_output_size(command):
     process.wait()
 
     return total_size
+
+
+def get_single_frame(chunk: ChunkObject, vf: str = "") -> np.ndarray:
+    chunk: ChunkObject = copy.deepcopy(chunk)
+    chunk.last_frame_index = chunk.first_frame_index + 1
+
+    class TopTenHacksBigPythonDosentWantYouToKnow(Exception):
+        pass
+
+    def cb(yuv_frame):
+        frame = np.frombuffer(yuv_frame.buffer, dtype=np.uint8)
+        frame = frame.reshape((yuv_frame.headers["H"] * 3 // 2, yuv_frame.headers["W"]))
+        frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_I420)
+        raise TopTenHacksBigPythonDosentWantYouToKnow(frame)
+
+    try:
+        get_yuv_frame_stream(
+            chunk,
+            frame_callback=cb,
+            vf=vf,
+        )
+    except TopTenHacksBigPythonDosentWantYouToKnow as ex:
+        return ex.args[0]
 
 
 def inference(data):
@@ -153,5 +179,39 @@ def test():
         print("\n\n")
 
 
+def test1():
+    test_env = "./experiments/grain_synth/"
+    test_env = os.path.abspath(test_env)
+
+    if not os.path.exists(test_env):
+        os.makedirs(test_env)
+
+    scene_list = scene_detect(
+        input_file="/home/kokoniara/ep3_halo_test.mkv",
+        cache_file_path=test_env + "sceneCache.pt",
+    )
+
+    for chunk in scene_list.chunks:
+        image_data = get_single_frame(
+            chunk, vf="'crop=270:270:(in_w-270)/2:(in_h-270)/2'"
+        )  # np.ndarray
+        print(chunk.chunk_index)
+        # save image to test_env
+        cv2.imwrite(test_env + f"test{chunk.chunk_index}.png", image_data)
+
+        filtered_image = cv2.Laplacian(image_data, cv2.CV_64F)
+
+        # save the filtered image
+        cv2.imwrite(
+            test_env + f"filtered{chunk.chunk_index}.png",
+            filtered_image,
+        )
+
+        high_frequency_energy = np.mean(np.abs(filtered_image))
+
+        print(high_frequency_energy)
+
+
 if __name__ == "__main__":
-    test()
+    # test()
+    test1()
