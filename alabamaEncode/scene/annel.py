@@ -18,6 +18,10 @@ def get_variance(scenes: List[ChunkEncoder]) -> float:
 
 
 def annealing(scenes: List[ChunkEncoder], iterations: int) -> List[ChunkEncoder]:
+
+    if len(scenes) < 2:
+        return scenes
+
     current_solution = scenes.copy()
     best_solution = scenes.copy()
     temperature = 1.0
