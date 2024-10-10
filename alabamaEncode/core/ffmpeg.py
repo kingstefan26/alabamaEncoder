@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from typing import Any
 
 from alabamaEncode.core.util.bin_utils import get_binary, verify_ffmpeg_library
@@ -141,7 +142,9 @@ class Ffmpeg:
         elif pix_fmt == "yuv420p10le":
             return 10
         else:
-            raise NotImplemented(f"could not parse bitdepth out of: {pix_fmt}; please report it")
+            raise NotImplemented(
+                f"could not parse bitdepth out of: {pix_fmt}; please report it"
+            )
 
     @staticmethod
     def is_hdr(path: PathAlabama) -> bool:
@@ -232,6 +235,18 @@ class Ffmpeg:
         # https://ffmpeg.org/ffmpeg-filters.html#tonemap
         verify_ffmpeg_library("libzimg")
         return "zscale=t=linear,tonemap=mobius,zscale=p=bt709:t=bt709:m=bt709:r=tv:d=error_diffusion"
+
+    @staticmethod
+    def get_frame_data(path: PathAlabama) -> dict:
+        path.check_video()
+
+        return json.loads(
+            run_cli(
+                f"ffprobe -v error -select_streams v:0 -show_frames -of json {path.get_safe()}"
+            )
+            .verify()
+            .get_output()
+        )
 
     @staticmethod
     def get_first_frame_data(path: PathAlabama) -> dict:
@@ -409,7 +424,31 @@ def track_test():
         print(track)
 
 
+def test_frame_data():
+    cache_file = "owo_cache"
+    print("Scraping dv meta using ffprobe...")
+    start = time.time()
+    if not os.path.exists(cache_file):
+        frame_data = Ffmpeg.get_frame_data(
+            PathAlabama("/home/kokoniara/ep3_halo_test.mkv")
+        )
+        with open(cache_file, "w") as f:
+            f.write(json.dumps(frame_data))
+    else:
+        with open(cache_file) as f:
+            frame_data = json.loads(f.read())
+
+    # print(frame_data)
+    print(f"Finished in {time.time() - start}s")
+
+    for i, frame in enumerate(frame_data["frames"]):
+        # print("\n\n")
+        # print(frame["side_data_list"][3]["scene_refresh_flag"])
+        new_scene = frame["side_data_list"][3]["scene_refresh_flag"]
+        if new_scene == 1:
+            print(f"{i} is a new scene")
+
+
 if __name__ == "__main__":
-    track_test()
-
-
+    # track_test()
+    test_frame_data()
