@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 
 
 class AlabamaKv(object):
@@ -18,6 +19,7 @@ class AlabamaKv(object):
     """
 
     def __init__(self, folder):
+        self.mutex = threading.Lock()
         self.folder = folder
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -29,35 +31,39 @@ class AlabamaKv(object):
         return self.set("kv", key, value)
 
     def set(self, bucket, key, value, individual_mode=False):
-        if individual_mode:
-            bucket_path = os.path.join(self.folder, bucket)
-            if not os.path.exists(bucket_path):
-                os.makedirs(bucket_path)
-            key_path = os.path.join(bucket_path, f"{key}.json")
-            with open(key_path, "w") as f:
-                json.dump(value, f)
-        else:
-            bucket_content = self._load(bucket)
-            bucket_content[key] = value
-            bucket_path = os.path.join(self.folder, bucket + ".json")
-            with open(bucket_path, "w") as f:
-                json.dump(bucket_content, f)
+        with self.mutex:
+            if individual_mode:
+                bucket_path = os.path.join(self.folder, bucket)
+                if not os.path.exists(bucket_path):
+                    os.makedirs(bucket_path)
+                key_path = os.path.join(bucket_path, f"{key}.json")
+                with open(key_path, "w") as f:
+                    json.dump(value, f)
+            else:
+                bucket_content = self._load(bucket)
+                bucket_content[key] = value
+                bucket_path = os.path.join(self.folder, bucket + ".json")
+                with open(bucket_path, "w") as f:
+                    json.dump(bucket_content, f)
 
     def get(self, bucket, key) -> [str | None]:
-        b = self._load(bucket)
-        if not isinstance(key, str):
-            key = str(key)
-        if key not in b:
-            return None
-        return b[key]
+        with self.mutex:
+            b = self._load(bucket)
+            if not isinstance(key, str):
+                key = str(key)
+            if key not in b:
+                return None
+            return b[key]
 
     def get_all(self, bucket):
-        b = self._load(bucket)
-        return b
+        with self.mutex:
+            b = self._load(bucket)
+            return b
 
     def exists(self, bucket, key):
-        b = self._load(bucket)
-        return key in b
+        with self.mutex:
+            b = self._load(bucket)
+            return key in b
 
     def _load(self, bucket_name: str) -> dict:
         bucket_path = os.path.join(self.folder, bucket_name)
