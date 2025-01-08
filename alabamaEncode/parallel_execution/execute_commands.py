@@ -253,7 +253,7 @@ async def execute_commands(
                             elif thouput_change_trend == 1:
                                 thouput_change_trend = -1
                             tqdm.write(
-                                f"Reversing lobs limit trend to {'increasing' if thouput_change_trend == 1 else 'decreasing'}"
+                                f"Reversing jobs limit trend to {'increasing' if thouput_change_trend == 1 else 'decreasing'}"
                             )
                             if thouput_change_trend == 1:
                                 tqdm.write(

@@ -186,9 +186,9 @@ class AlabamaEncodingJob:
                 if ctx.chunk_order == "random":
                     random.shuffle(command_objects)
                 elif ctx.chunk_order == "length_asc":
-                    command_objects.sort(key=lambda x: x.job.chunk.length)
+                    command_objects.sort(key=lambda x: x.chunk.length)
                 elif ctx.chunk_order == "length_desc":
-                    command_objects.sort(key=lambda x: x.job.chunk.length, reverse=True)
+                    command_objects.sort(key=lambda x: x.chunk.length, reverse=True)
                 elif ctx.chunk_order == "sequential":
                     pass
                 elif ctx.chunk_order == "sequential_reverse":
