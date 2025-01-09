@@ -114,10 +114,6 @@ class WebsiteUpdate:
             os.environ.get("status_update_api_url", "") == ""
             or os.environ.get("ws_update", "false") == "false"
         ):
-            print(
-                f"Not starting constant updates, {os.environ.get('status_update_api_url', '')} {os.environ.get('ws_update', 'false')}"
-            )
-
             return
 
         tqdm.write("Starting constant updates")
