@@ -5,11 +5,9 @@ import threading
 
 class AlabamaKv(object):
     """
-    AlabamaKv is a key-value store that stores data in a bucket, each bucket is file in a folder. Stored in json format.
-    It is used to store data between runs of alabamaEncode. Saving to files immediately because making this
-    thread safe is not worth it/needed.
-    Prototypes:
-    __init__(folder for buckets)
+    A key-value store to make persisting data dead simple, each "bucket" is file in a folder, all stored in json.
+    Prototype:
+    __init__(folder path for buckets)
     set(bucket, key, value)
     get(bucket, key) -> str
     get_all(bucket) -> dict
