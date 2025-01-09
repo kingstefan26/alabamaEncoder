@@ -25,9 +25,6 @@ class ChunkEncoder(BaseCommandObject):
         self.chunk = chunk
         self.encoded_a_frame_callback: callable = None
         self.pin_to_core = -1
-        # how long (seconds) before we time out the final encoding
-        # currently set to 30 minutes
-        self.final_encode_timeout = 1800
         self.run_on_celery = False
 
     def supports_encoded_a_frame_callback(self):
