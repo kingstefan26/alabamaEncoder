@@ -156,7 +156,7 @@ class ChunkObject:
         if video_filters is None:
             video_filters = ""
         end_command = (
-            f"ffmpeg -threads 1 -v error -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} "
+            f"ffmpeg -threads 1 -v fatal -nostdin -hwaccel auto {self.get_ss_ffmpeg_command_pair()} "
             f"-pix_fmt yuv420p10le "
         )
 
