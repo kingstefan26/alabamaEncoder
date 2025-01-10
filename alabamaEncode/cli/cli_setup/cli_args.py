@@ -599,6 +599,14 @@ def read_args(ctx):
         dest="throughput_scaling",
     )
 
+    encode.add_argument(
+        "--luma_boost",
+        action="store_true",
+        help="ideally after vmaf target, boost crfs based on how dark the scene is,"
+        " to combat dark scenes getting overlooked by metrics",
+        dest="luma_boost",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -682,5 +690,6 @@ def read_args(ctx):
     ctx.calc_final_vmaf = args.calc_final_vmaf
     ctx.metric_to_target = args.metric_to_target
     ctx.throughput_scaling = args.throughput_scaling
+    ctx.luma_boost = args.luma_boost
 
     return ctx, args

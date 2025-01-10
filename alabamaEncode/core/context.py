@@ -147,6 +147,7 @@ class AlabamaContext:
     args_tune = "appeal"
     calc_final_vmaf = False
 
+    luma_boost = False
     crf_limits = None
     metric_to_target = "vmaf"
     vmaf: int = 96
@@ -223,7 +224,7 @@ class AlabamaContext:
             ),
             no_motion=self.vmaf_no_motion,
             denoise_refrence=self.denoise_vmaf_ref,
-            subsample=self.vmaf_subsample
+            subsample=self.vmaf_subsample,
         )
 
     def get_metric_target(self) -> Tuple[Metric, float]:

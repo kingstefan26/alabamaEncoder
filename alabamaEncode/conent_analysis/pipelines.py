@@ -1,5 +1,6 @@
 from typing import List
 
+from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import LumaBoost
 from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
     EncodeMultiResCandidates,
 )
@@ -61,6 +62,10 @@ def setup_chunk_analyze_chain(ctx, sequence):
         ctx.chunk_analyze_chain.append(PlainCrf())
     else:
         ctx.chunk_analyze_chain.append(PlainVbr())
+
+    # luma boost is done after initial rate control, since its ment as an addition
+    if ctx.luma_boost is True:
+        ctx.chunk_analyze_chain.append(LumaBoost())
 
     if len(ctx.chunk_analyze_chain) == 0:
         raise Exception("Failed to Create the analyze steps in analyzer_factory")
