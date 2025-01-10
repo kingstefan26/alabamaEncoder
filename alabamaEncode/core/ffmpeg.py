@@ -288,6 +288,30 @@ class Ffmpeg:
         return float(re.findall(r"VMAF Motion avg: ([0-9.]+)", out)[0])
 
     @staticmethod
+    def get_chunk_brightness_score(chunk, vf="") -> float:
+        if vf == "":
+            vf = '"scale=100:100"'
+
+        out = (
+            run_cli(
+                f"{chunk.create_chunk_ffmpeg_pipe_command(video_filters=vf)} | {get_binary('ffprobe')} -v error "
+                f"-select_streams v:0 -f lavfi -i 'movie=/dev/stdin,signalstats' -show_frames -of json "
+                f"-show_entries frame_tags=lavfi.signalstats.YAVG"
+            )
+            .verify()
+            .get_output()
+        )
+
+        parsed_json = json.loads(out)
+
+        avg_luma_sum = 0
+
+        for frame in parsed_json["frames"]:
+            avg_luma_sum += float(frame["tags"]["lavfi.signalstats.YAVG"])
+
+        return avg_luma_sum / len(parsed_json["frames"])
+
+    @staticmethod
     def get_ffprobe_content_features(chunk, vf) -> dict[Any, Any]:
         # ffmpeg -v error -nostdin -hwaccel auto -i
         # '/home/kokoniara/howlscastle_test.mkv'  -pix_fmt yuv420p10le -an -sn -strict -1 -f yuv4mpegpipe - | ffprobe
@@ -449,6 +473,22 @@ def test_frame_data():
             print(f"{i} is a new scene")
 
 
+def test_vid_brightness():
+    from alabamaEncode.scene.scene_detection import scene_detect
+
+    input_file = "/home/kokoniara/Silo.s02e01.t120.testclip.mkv"
+    scene_list = scene_detect(
+        input_file=input_file,
+        cache_file_path=input_file + ".sceneCache.pt",
+    )
+    for chunk in scene_list.chunks:
+        print(
+            "Avg Luma:",
+            Ffmpeg.get_chunk_brightness_score(chunk),
+        )
+
+
 if __name__ == "__main__":
     # track_test()
-    test_frame_data()
+    # test_frame_data()
+    test_vid_brightness()
