@@ -51,6 +51,8 @@ class ChunkEncoder(BaseCommandObject):
                 # )
                 timeing.stop(f"analyze_step_{step.__class__.__name__}")
 
+            self.ctx.get_kv().set("final_chunk_crf", enc.chunk.chunk_index, enc.crf)
+
             rate_search_time = timeing.stop("analyze_step")
 
             enc.running_on_celery = self.run_on_celery

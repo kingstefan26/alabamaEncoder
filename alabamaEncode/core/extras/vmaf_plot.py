@@ -10,7 +10,7 @@ from alabamaEncode.scene.sequence import ChunkSequence
 def plot_vmaf(ctx: AlabamaContext, sequence: ChunkSequence, show_bpp=False):
     print("Plotting vmaf...")
     vmaf_scores = ctx.get_kv().get_all("vmaf_frame_scores")
-    crfs = ctx.get_kv().get_all("target_vmaf")
+    crfs = ctx.get_kv().get_all("final_chunk_crf")
 
     bpp = {}
     pixels_in_frame = sequence.chunks[0].width * sequence.chunks[0].height
