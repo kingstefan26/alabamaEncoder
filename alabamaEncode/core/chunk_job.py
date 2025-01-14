@@ -44,7 +44,11 @@ class ChunkEncoder(BaseCommandObject):
             enc.chunk = self.chunk
             for step in self.ctx.chunk_analyze_chain:
                 timeing.start(f"analyze_step_{step.__class__.__name__}")
+                # crf_before = enc.crf
                 enc = step.run(self.ctx, self.chunk, enc)
+                # print(
+                #     f"analyze_step_{step.__class__.__name__} crf before: {crf_before}; after: {enc.crf}"
+                # )
                 timeing.stop(f"analyze_step_{step.__class__.__name__}")
 
             rate_search_time = timeing.stop("analyze_step")
