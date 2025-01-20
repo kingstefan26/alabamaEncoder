@@ -89,7 +89,8 @@ def calc_vmaf(
     dist_command = owo["dist_command"]
 
     if log_path == "":
-        log_path = f"/tmp/{os.path.basename(chunk.chunk_path)}.vmaflog"
+        random_bit = os.urandom(16).hex()
+        log_path = f"/tmp/{random_bit}_{os.path.basename(chunk.chunk_path)}.vmaflog"
 
     vmaf_model = vmaf_options.get_model()
 
