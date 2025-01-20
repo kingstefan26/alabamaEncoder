@@ -79,14 +79,14 @@ def calc_vmaf(
 ):
     assert vmaf_options is not None
 
-    from alabamaEncode.metrics.calculate import get_input_pipes
+    from alabamaEncode.metrics.calculate import create_content_comparison_y4m_pipes, cleanup_comparison_pipes
 
-    owo = get_input_pipes(chunk=chunk, options=vmaf_options)
+    owo = create_content_comparison_y4m_pipes(chunk=chunk, options=vmaf_options)
 
-    ref_pipe = owo["ref_pipe"]
-    dist_pipe = owo["dist_pipe"]
-    ref_command = owo["ref_command"]
-    dist_command = owo["dist_command"]
+    reference_y4m_pipe = owo["ref_pipe"]
+    distorted_y4m_pipe = owo["dist_pipe"]
+    feed_reference_cli = owo["ref_command"]
+    feed_distorted_cli = owo["dist_command"]
 
     if log_path == "":
         random_bit = os.urandom(16).hex()
@@ -96,8 +96,8 @@ def calc_vmaf(
 
     vmaf_command = (
         f'{get_binary("vmaf")} -q --json --output "{log_path}" '
-        f"--reference {ref_pipe} "
-        f"--distorted {dist_pipe}"
+        f"--reference {reference_y4m_pipe} "
+        f"--distorted {distorted_y4m_pipe}"
         f" --threads {vmaf_options.threads}"
     )
 
@@ -109,15 +109,13 @@ def calc_vmaf(
 
     cli_results = run_cli_parallel(
         [
-            ref_command,
-            dist_command,
+            feed_reference_cli,
+            feed_distorted_cli,
             vmaf_command,
         ]
     )
 
-    from alabamaEncode.metrics.calculate import cleanup_input_pipes
-
-    cleanup_input_pipes(owo)
+    cleanup_comparison_pipes(owo)
 
     for c in cli_results:
         try:

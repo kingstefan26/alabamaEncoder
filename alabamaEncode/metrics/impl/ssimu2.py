@@ -21,28 +21,29 @@ def calc_ssimu2(
 ):
     assert ssimu2_options is not None
 
-    from alabamaEncode.metrics.calculate import get_input_pipes
+    from alabamaEncode.metrics.calculate import (
+        create_content_comparison_y4m_pipes,
+        cleanup_comparison_pipes,
+    )
 
-    owo = get_input_pipes(chunk=chunk, options=ssimu2_options)
+    owo = create_content_comparison_y4m_pipes(chunk=chunk, options=ssimu2_options)
 
-    ref_pipe = owo["ref_pipe"]
-    dist_pipe = owo["dist_pipe"]
-    ref_command = owo["ref_command"]
-    dist_command = owo["dist_command"]
+    reference_y4m_pipe = owo["ref_pipe"]
+    distorted_y4m_pipe = owo["dist_pipe"]
+    feed_reference_cli = owo["ref_command"]
+    feed_distorted_cli = owo["dist_command"]
 
-    main_command = f"{get_binary('ssimulacra2_rs')} video --frame-threads 4 {ref_pipe} {dist_pipe} "
+    main_command = f"{get_binary('ssimulacra2_rs')} video --frame-threads 4 {reference_y4m_pipe} {distorted_y4m_pipe} "
 
     cli_results = run_cli_parallel(
         [
-            ref_command,
-            dist_command,
+            feed_reference_cli,
+            feed_distorted_cli,
             main_command,
         ]
     )
 
-    from alabamaEncode.metrics.calculate import cleanup_input_pipes
-
-    cleanup_input_pipes(owo)
+    cleanup_comparison_pipes(owo)
 
     for c in cli_results:
         try:

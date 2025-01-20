@@ -49,14 +49,16 @@ def calculate_metric(
             raise NotImplementedError(f"Metric {metric} not implemented")
 
 
-def cleanup_input_pipes(output: dict):
+def cleanup_comparison_pipes(output: dict):
     if os.path.exists(output["ref_pipe"]):
         os.remove(output["ref_pipe"])
     if os.path.exists(output["dist_pipe"]):
         os.remove(output["dist_pipe"])
 
 
-def get_input_pipes(chunk: ChunkObject, options: MetricOptions) -> dict:
+def create_content_comparison_y4m_pipes(
+    chunk: ChunkObject, options: MetricOptions
+) -> dict:
     """
     Create two named pipes that will output distorted and reference yuv frames,
     return the pipe paths and the commands that will feed them
