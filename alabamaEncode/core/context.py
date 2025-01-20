@@ -148,6 +148,9 @@ class AlabamaContext:
     calc_final_vmaf = False
 
     luma_boost = False
+    luma_boost_start_of_boosting_luma_score = 170
+    luma_boost_end_of_boosting_luma_score = 50
+    luma_boost_cap = 12
     crf_limits = None
     metric_to_target = "vmaf"
     vmaf: int = 96

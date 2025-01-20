@@ -607,6 +607,30 @@ def read_args(ctx):
         dest="luma_boost",
     )
 
+    encode.add_argument(
+        "--luma_boost_start",
+        type=int,
+        default=ctx.luma_boost_start_of_boosting_luma_score,
+        help="at what luma value (0-255) start linearly boosting crf",
+        dest="luma_boost_start_of_boosting_luma_score",
+    )
+
+    encode.add_argument(
+        "--luma_boost_stop",
+        type=int,
+        default=ctx.luma_boost_end_of_boosting_luma_score,
+        help="at what luma value (0-255) do you stop boosting crf",
+        dest="luma_boost_end_of_boosting_luma_score",
+    )
+
+    encode.add_argument(
+        "--luma_max_boost",
+        type=int,
+        default=ctx.luma_boost_cap,
+        help="what is the max amount of crf levels down that lumaboost can do",
+        dest="luma_boost_cap",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -691,5 +715,12 @@ def read_args(ctx):
     ctx.metric_to_target = args.metric_to_target
     ctx.throughput_scaling = args.throughput_scaling
     ctx.luma_boost = args.luma_boost
+    ctx.luma_boost_end_of_boosting_luma_score = (
+        args.luma_boost_end_of_boosting_luma_score
+    )
+    ctx.luma_boost_start_of_boosting_luma_score = (
+        args.luma_boost_start_of_boosting_luma_score
+    )
+    ctx.luma_boost_cap = args.luma_boost_cap
 
     return ctx, args
