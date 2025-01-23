@@ -542,7 +542,7 @@ def read_args(ctx):
     encode.add_argument(
         "--metric_to_target",
         default=ctx.metric_to_target,
-        choices=["vmaf", "ssimu2"],
+        choices=["vmaf", "ssimu2", "xpsnr"],
         help="Uses all the vmaf target logic but a different metric",
         dest="metric_to_target",
     )

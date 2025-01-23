@@ -237,6 +237,8 @@ class AlabamaContext:
         """
         if self.metric_to_target == "ssimu2":
             return Metric.SSIMULACRA2, self.vmaf
+        if self.metric_to_target == "xpsnr":
+            return Metric.XPSNR, self.vmaf
         return Metric.VMAF, self.vmaf
 
     def get_output_res(self) -> List[int]:
