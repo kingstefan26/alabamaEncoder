@@ -29,6 +29,17 @@ class PlainFinalEncode(FinalEncodeStep):
                     vmaf_frame_scores,
                     individual_mode=True,
                 )
+        if metric == Metric.XPSNR and ctx.calc_final_vmaf:
+            if stats.metric_results.frames is not None:
+                frame_scores = {}
+                for frame in stats.metric_results.frames:
+                    frame_scores[frame["frame"]] = frame["avg"]
+                ctx.get_kv().set(
+                    "frame_scores",
+                    chunk.chunk_index,
+                    frame_scores,
+                    individual_mode=True,
+                )
 
         return stats
 

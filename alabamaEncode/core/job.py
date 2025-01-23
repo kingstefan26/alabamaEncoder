@@ -330,9 +330,9 @@ class AlabamaEncodingJob:
                 #     else False
                 # ),
             )
-            if (
-                self.ctx.calc_final_vmaf
-                and self.ctx.get_metric_target()[0] == Metric.VMAF
+            target_metric = self.ctx.get_metric_target()[0]
+            if self.ctx.calc_final_vmaf and (
+                target_metric == Metric.VMAF or target_metric == Metric.XPSNR
             ):
                 plot_vmaf(self.ctx, sequence)
 
