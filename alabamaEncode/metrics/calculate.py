@@ -7,6 +7,7 @@ from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.impl.ssimu2 import Ssimu2Options
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
+from alabamaEncode.metrics.impl.xpsnr import XpsnrOptions
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
 from alabamaEncode.scene.chunk import ChunkObject
@@ -44,6 +45,13 @@ def calculate_metric(
             return calc_ssimu2(
                 chunk=_chunk,
                 ssimu2_options=options if options is not None else Ssimu2Options(),
+            )
+        case Metric.XPSNR:
+            from alabamaEncode.metrics.impl.xpsnr import calc_xpsnr
+
+            return calc_xpsnr(
+                chunk=_chunk,
+                xspnr_options=options if options is not None else XpsnrOptions()
             )
         case _:
             raise NotImplementedError(f"Metric {metric} not implemented")
