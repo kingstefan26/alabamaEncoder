@@ -70,36 +70,47 @@ class XpsnrResult(MetricResult):
         for line in cli_out.splitlines():
             if line.startswith("n: "):
                 match = re.match(
-                    r"n:\s*(\d+)\s*XPSNR y:\s*([\d.]+)\s*XPSNR u:\s*([\d.]+)\s*XPSNR v:\s*([\d.]+)",
+                    r"n:\s*(\d+)\s*XPSNR y:\s*([\d\.]+|inf)\s*XPSNR u:\s*([\d\.]+|inf)\s*XPSNR v:\s*([\d\.]+|inf)",
                     line,
                 )
                 if match:
                     frame_num = int(match.group(1))
-                    y_psnr = float(match.group(2))
-                    u_psnr = float(match.group(3))
-                    v_psnr = float(match.group(4))
+                    y_psnr_str = match.group(2)
+                    u_psnr_str = match.group(3)
+                    v_psnr_str = match.group(4)
+
+                    y_psnr = float("inf") if y_psnr_str == "inf" else float(y_psnr_str)
+                    u_psnr = float("inf") if u_psnr_str == "inf" else float(u_psnr_str)
+                    v_psnr = float("inf") if v_psnr_str == "inf" else float(v_psnr_str)
+                    avg = (y_psnr + u_psnr + v_psnr) / 3
                     self.frames.append(
-                        {"frame": frame_num, "y": y_psnr, "u": u_psnr, "v": v_psnr}
+                        {
+                            "frame": frame_num,
+                            "y": y_psnr,
+                            "u": u_psnr,
+                            "v": v_psnr,
+                            "avg": avg,
+                        }
                     )
 
         if len(self.frames) == 0:
             raise XpsnrException("No frames found")
 
-        y_values = [frame["y"] for frame in self.frames]
+        avg_values = [frame["avg"] for frame in self.frames]
 
-        self.percentile_50 = np.percentile(y_values, 50)
-        self.percentile_25 = np.percentile(y_values, 25)
-        self.percentile_10 = np.percentile(y_values, 10)
-        self.percentile_5 = np.percentile(y_values, 5)
-        self.percentile_1 = np.percentile(y_values, 1)
-        self.max = np.max(y_values)
-        self.min = np.min(y_values)
-        self.mean = np.mean(y_values)
+        self.percentile_50 = np.percentile(avg_values, 50)
+        self.percentile_25 = np.percentile(avg_values, 25)
+        self.percentile_10 = np.percentile(avg_values, 10)
+        self.percentile_5 = np.percentile(avg_values, 5)
+        self.percentile_1 = np.percentile(avg_values, 1)
+        self.max = np.max(avg_values)
+        self.min = np.min(avg_values)
+        self.mean = np.mean(avg_values)
         try:
-            self.harmonic_mean = hmean(y_values)
+            self.harmonic_mean = hmean(avg_values)
         except ZeroDivisionError:
             self.harmonic_mean = -1
-        self.std_dev = np.std(y_values)
+        self.std_dev = np.std(avg_values)
 
     def __repr__(self):
         return (
