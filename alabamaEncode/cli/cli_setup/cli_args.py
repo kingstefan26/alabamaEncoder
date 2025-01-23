@@ -171,7 +171,7 @@ def read_args(ctx):
         "--vmaf_target",
         help="What vmaf to target when using bitrate auto",
         default=ctx.vmaf,
-        type=int,
+        type=float,
         dest="vmaf_target",
     )
 
