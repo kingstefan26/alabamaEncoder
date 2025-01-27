@@ -2,8 +2,8 @@ import asyncio
 
 from tqdm import tqdm
 
-from alabamaEncode.conent_analysis.refine_steps.refine_step import get_refine_steps
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
+from alabamaEncode.pipeline.refine_steps.refine_step import get_refine_steps
 
 
 async def run_encode_jobs(ctx):

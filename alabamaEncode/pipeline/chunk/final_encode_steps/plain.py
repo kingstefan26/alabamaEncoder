@@ -1,6 +1,3 @@
-from alabamaEncode.conent_analysis.chunk.final_encode_step import (
-    FinalEncodeStep,
-)
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
@@ -8,6 +5,9 @@ from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.xpsnr import XpsnrOptions
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.metrics.options import MetricOptions
+from alabamaEncode.pipeline.chunk.final_encode_step import (
+    FinalEncodeStep,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 
 

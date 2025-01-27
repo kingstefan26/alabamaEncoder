@@ -9,13 +9,13 @@ import subprocess
 from math import sqrt
 from statistics import mean
 
-from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
-    ChunkAnalyzePipelineItem,
-)
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.pipeline.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.scene_detection import scene_detect
 

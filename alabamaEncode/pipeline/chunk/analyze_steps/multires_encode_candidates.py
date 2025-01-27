@@ -1,8 +1,5 @@
 import os
 
-from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
-    ChunkAnalyzePipelineItem,
-)
 from alabamaEncode.core.util.opinionated_vmaf import (
     convexhull_get_resolutions,
     convexhull_get_crf_range,
@@ -11,6 +8,9 @@ from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calculate import get_metric_from_stats
 from alabamaEncode.metrics.metric import Metric
+from alabamaEncode.pipeline.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 
 

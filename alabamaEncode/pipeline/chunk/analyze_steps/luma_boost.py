@@ -1,12 +1,12 @@
 from math import ceil
 
-from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
-    ChunkAnalyzePipelineItem,
-)
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.opinionated_vmaf import get_crf_limits
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.pipeline.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 
 

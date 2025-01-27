@@ -1,10 +1,10 @@
-from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
 from alabamaEncode.core.util.opinionated_vmaf import (
     get_vmaf_list,
     convexhull_get_crf_range,
     convexhull_get_resolutions,
 )
 from alabamaEncode.encoder.codec import Codec
+from alabamaEncode.pipeline.refine_steps.refine_step import RefineStep
 
 
 class MutliResTrellis(RefineStep):

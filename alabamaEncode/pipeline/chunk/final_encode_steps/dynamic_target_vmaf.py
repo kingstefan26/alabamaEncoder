@@ -2,9 +2,6 @@ import os
 import shutil
 from typing import Tuple
 
-from alabamaEncode.conent_analysis.chunk.final_encode_step import (
-    FinalEncodeStep,
-)
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.opinionated_vmaf import get_crf_limits
 from alabamaEncode.encoder.codec import Codec
@@ -13,6 +10,9 @@ from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calculate import get_metric_from_stats
 from alabamaEncode.metrics.metric import Metric
+from alabamaEncode.pipeline.chunk.final_encode_step import (
+    FinalEncodeStep,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 
 

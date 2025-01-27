@@ -1,7 +1,7 @@
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
+from alabamaEncode.pipeline.chunk.final_encode_steps.dynamic_target_vmaf import (
     DynamicTargetVmaf,
 )
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.multires_encode_finals import (
+from alabamaEncode.pipeline.chunk.final_encode_steps.multires_encode_finals import (
     EncodeMultiResFinals,
 )
 
@@ -12,11 +12,11 @@ def setup_chunk_encoder(ctx):
     """
 
     # ugly imports here cuz "Circular import 🤓☝"
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.plain import (
+    from alabamaEncode.pipeline.chunk.final_encode_steps.plain import (
         PlainFinalEncode,
     )
 
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf_vbr import (
+    from alabamaEncode.pipeline.chunk.final_encode_steps.dynamic_target_vmaf_vbr import (
         DynamicTargetVmafVBR,
     )
 

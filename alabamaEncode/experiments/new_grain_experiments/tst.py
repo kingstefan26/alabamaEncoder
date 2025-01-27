@@ -2,10 +2,10 @@ import os
 
 import numpy as np
 
-from alabamaEncode.conent_analysis.chunk.analyze_steps.new_grain import (
+from alabamaEncode.pipeline.chunk.analyze_steps.new_grain import (
     calc_grainsynth_of_scene_fast,
 )
-from alabamaEncode.conent_analysis.chunk.analyze_steps.per_scene_grain import (
+from alabamaEncode.pipeline.chunk.analyze_steps.per_scene_grain import (
     calc_grainsynth_of_scene,
 )
 from alabamaEncode.scene.scene_detection import scene_detect

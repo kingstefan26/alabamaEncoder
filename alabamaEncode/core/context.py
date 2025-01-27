@@ -5,9 +5,6 @@ from typing import List, Tuple
 
 from tqdm import tqdm
 
-from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
-    ChunkAnalyzePipelineItem,
-)
 from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.kv import AlabamaKv
 from alabamaEncode.core.util.path import PathAlabama
@@ -17,6 +14,9 @@ from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
 from alabamaEncode.metrics.metric import Metric
+from alabamaEncode.pipeline.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 
 

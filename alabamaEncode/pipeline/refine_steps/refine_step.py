@@ -9,10 +9,10 @@ class RefineStep(ABC):
 
 
 def get_refine_steps(ctx) -> List[RefineStep]:
-    from alabamaEncode.conent_analysis.refine_steps.multires_package import (
+    from alabamaEncode.pipeline.refine_steps.multires_package import (
         MutliResPackage,
     )
-    from alabamaEncode.conent_analysis.refine_steps.multires_trellis import (
+    from alabamaEncode.pipeline.refine_steps.multires_trellis import (
         MutliResTrellis,
     )
 

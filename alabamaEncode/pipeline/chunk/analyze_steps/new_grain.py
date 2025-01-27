@@ -5,14 +5,14 @@ import subprocess
 import cv2
 import numpy as np
 
-from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
-    ChunkAnalyzePipelineItem,
-)
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.get_yuv_stream import get_yuv_frame_stream
 from alabamaEncode.core.util.timer import Timer
 from alabamaEncode.encoder.encoder import Encoder
+from alabamaEncode.pipeline.chunk.chunk_analyse_step import (
+    ChunkAnalyzePipelineItem,
+)
 from alabamaEncode.scene.chunk import ChunkObject
 from alabamaEncode.scene.scene_detection import scene_detect
 

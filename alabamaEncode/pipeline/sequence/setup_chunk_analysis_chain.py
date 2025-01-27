@@ -2,22 +2,22 @@ def setup_chunk_analyze_chain(ctx):
     """
     Sets up the chunk analyze chain
     """
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.manual_crf import (
+    from alabamaEncode.pipeline.chunk.analyze_steps.manual_crf import (
         CrfIndexesMap,
     )
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.optimised_vbr import (
+    from alabamaEncode.pipeline.chunk.analyze_steps.optimised_vbr import (
         VbrPerChunkOptimised,
     )
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.per_scene_grain import (
+    from alabamaEncode.pipeline.chunk.analyze_steps.per_scene_grain import (
         GrainSynth,
     )
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.new_grain import (
+    from alabamaEncode.pipeline.chunk.analyze_steps.new_grain import (
         NewGrainSynth,
     )
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_crf import PlainCrf
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_vbr import PlainVbr
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
-    from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
+    from alabamaEncode.pipeline.chunk.analyze_steps.plain_crf import PlainCrf
+    from alabamaEncode.pipeline.chunk.analyze_steps.plain_vbr import PlainVbr
+    from alabamaEncode.pipeline.chunk.analyze_steps.target_vmaf import TargetVmaf
+    from alabamaEncode.pipeline.chunk.analyze_steps.multires_encode_candidates import (
         EncodeMultiResCandidates,
     )
 
@@ -52,7 +52,7 @@ def setup_chunk_analyze_chain(ctx):
 
     # luma boost is done after initial rate control, since its ment as an addition
     if ctx.luma_boost is True:
-        from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import (
+        from alabamaEncode.pipeline.chunk.analyze_steps.luma_boost import (
             LumaBoost,
         )
 

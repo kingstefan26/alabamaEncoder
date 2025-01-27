@@ -1,12 +1,12 @@
 import os
 
-from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.util.bin_utils import register_bin
 from alabamaEncode.encoder.impl.X264 import EncoderX264
 from alabamaEncode.metrics.comparison_display import ComparisonDisplayResolution
 from alabamaEncode.metrics.impl.vmaf import VmafOptions
 from alabamaEncode.metrics.metric import Metric
+from alabamaEncode.pipeline.chunk.analyze_steps.target_vmaf import TargetVmaf
 from alabamaEncode.scene.scene_detection import scene_detect
 from alabamaEncode.scene.sequence import ChunkSequence
 
