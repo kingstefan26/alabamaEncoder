@@ -151,9 +151,9 @@ class AlabamaEncodingJob:
             for func in pipeline:
                 # if async await, if not run normally
                 self.ctx = (
-                    await func(self.ctx, self.ctx.chunk_sequence)
+                    await func(self.ctx)
                     if func.__code__.co_flags & 0x80
-                    else func(self.ctx, self.ctx.chunk_sequence)
+                    else func(self.ctx)
                 )
 
             self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)

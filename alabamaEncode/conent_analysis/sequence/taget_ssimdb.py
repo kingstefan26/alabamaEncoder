@@ -7,7 +7,6 @@ from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.scene.chunk import ChunkObject
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
 def calulcate_ssimdb(bitrate: int, chunk: ChunkObject, dbs: List[float], ctx):
@@ -70,7 +69,7 @@ def get_target_ssimdb(bitrate: int, ctx, chunk_sequence) -> float:
     return target_ssimdb
 
 
-def setup_ssimdb_target(ctx: AlabamaContext, sequence: ChunkSequence):
+def setup_ssimdb_target(ctx: AlabamaContext):
     if all(
         [
             ctx.crf_based_vmaf_targeting is False,
@@ -82,7 +81,7 @@ def setup_ssimdb_target(ctx: AlabamaContext, sequence: ChunkSequence):
             quit()
         print("Using SSIMDB target")
         ctx.ssim_db_target = get_target_ssimdb(
-            ctx.prototype_encoder.bitrate, ctx=ctx, chunk_sequence=sequence
+            ctx.prototype_encoder.bitrate, ctx=ctx, chunk_sequence=ctx.chunk_sequence
         )
 
     return ctx

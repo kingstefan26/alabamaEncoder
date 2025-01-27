@@ -1,8 +1,7 @@
 from alabamaEncode.core.context import AlabamaContext
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def setup_denoise(ctx: AlabamaContext, sequence: ChunkSequence):
+def setup_denoise(ctx: AlabamaContext):
     """
     Sets up a denoise filter
     """

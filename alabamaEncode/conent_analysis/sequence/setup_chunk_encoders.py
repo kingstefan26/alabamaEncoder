@@ -6,7 +6,7 @@ from alabamaEncode.core.chunk_encoder import ChunkEncoder
 from alabamaEncode.scene.annel import annealing
 
 
-def setup_chunk_encoders(ctx, sequence):
+def setup_chunk_encoders(ctx):
     def is_chunk_done(_chunk):
         if ctx.multi_res_pipeline:
             enc = ctx.get_encoder()
@@ -24,7 +24,7 @@ def setup_chunk_encoders(ctx, sequence):
         else:
             return _chunk.is_done(kv=ctx.get_kv())
 
-    for chunk in sequence.chunks:
+    for chunk in ctx.chunk_sequence.chunks:
         if not is_chunk_done(chunk):
             ctx.chunk_jobs.append(ChunkEncoder(ctx, chunk))
         else:

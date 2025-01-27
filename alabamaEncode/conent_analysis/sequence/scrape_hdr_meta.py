@@ -6,10 +6,9 @@ from alabamaEncode.core.ffmpeg import Ffmpeg
 from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
 from alabamaEncode.encoder.impl.X264 import EncoderX264
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def scrape_hdr_metadata(ctx: AlabamaContext, sequence: ChunkSequence):
+def scrape_hdr_metadata(ctx: AlabamaContext):
     """
     Scrapes HDR metadata from the input file
     """

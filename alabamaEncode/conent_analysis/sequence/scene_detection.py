@@ -1,7 +1,7 @@
 from alabamaEncode.scene.scene_detection import scene_detect
 
 
-def do_scene_detection(ctx, seq):
+def do_scene_detection(ctx):
     ctx.chunk_sequence = scene_detect(
         input_file=ctx.input_file,
         cache_file_path=ctx.temp_folder + "scene_cache.json",

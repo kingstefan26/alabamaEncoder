@@ -9,7 +9,7 @@ from alabamaEncode.conent_analysis.refine_steps.multires_package import MutliRes
 from alabamaEncode.conent_analysis.refine_steps.multires_trellis import MutliResTrellis
 
 
-def setup_chunk_analyze_chain(ctx, sequence):
+def setup_chunk_analyze_chain(ctx):
     """
     Sets up the chunk analyze chain
     """

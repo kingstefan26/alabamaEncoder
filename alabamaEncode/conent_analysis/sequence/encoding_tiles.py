@@ -1,9 +1,8 @@
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.codec import Codec
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def setup_tiles(ctx: AlabamaContext, sequence: ChunkSequence):
+def setup_tiles(ctx: AlabamaContext):
     """
     Sets up the tiles based on the resolution
     stolen from the one and only autocompressor.com's source code.

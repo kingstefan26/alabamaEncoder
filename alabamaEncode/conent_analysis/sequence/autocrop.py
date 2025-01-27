@@ -9,10 +9,9 @@ from alabamaEncode.core.util.bin_utils import get_binary
 from alabamaEncode.core.util.cli_executor import run_cli
 from alabamaEncode.core.util.path import PathAlabama
 from alabamaEncode.scene.chunk import ChunkObject
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def do_autocrop(ctx: AlabamaContext, sequence: ChunkSequence):
+def do_autocrop(ctx: AlabamaContext):
     """
     Does autocrop if needed
     """

@@ -276,7 +276,7 @@ model_links = [
 ]
 
 
-def download_vmaf_models_wrapper(ctx, sq):
+def download_vmaf_models_wrapper(ctx):
     download_vmaf_models()
     return ctx
 

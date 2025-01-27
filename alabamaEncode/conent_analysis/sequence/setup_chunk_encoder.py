@@ -6,7 +6,7 @@ from alabamaEncode.conent_analysis.chunk.final_encode_steps.multires_encode_fina
 )
 
 
-def setup_chunk_encoder(ctx, sequence):
+def setup_chunk_encoder(ctx):
     """
     Sets up the chunk encoder
     """

@@ -15,14 +15,15 @@ from alabamaEncode.metrics.image import ImageMetrics
 from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def setup_autograin(ctx: AlabamaContext, sequence: ChunkSequence):
+def setup_autograin(ctx: AlabamaContext):
     if (
         ctx.prototype_encoder.grain_synth == -1
         and ctx.prototype_encoder.supports_grain_synth()
     ):
         ctx.prototype_encoder.grain_synth = get_best_avg_grainsynth(
-            input_file=sequence.input_file,
-            scenes=sequence,
+            # input_file=sequence.input_file,
+            input_file=ctx.chunk_sequence.input_file,
+            scenes=ctx.chunk_sequence,
             temp_folder=ctx.temp_folder,
             video_filters=ctx.prototype_encoder.video_filters,
             kv=ctx.get_kv(),

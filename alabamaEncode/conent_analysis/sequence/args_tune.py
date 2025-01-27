@@ -1,9 +1,8 @@
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.impl.Svtenc import EncoderSvt
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
-def tune_args_for_fdlty_or_apl(ctx: AlabamaContext, sequence: ChunkSequence):
+def tune_args_for_fdlty_or_apl(ctx: AlabamaContext):
     match ctx.args_tune:
         case "fidelity":
             ctx.log("Tuning for fidelity", category="analyzing_content_logs")
