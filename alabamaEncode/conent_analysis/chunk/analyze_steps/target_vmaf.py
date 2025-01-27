@@ -5,12 +5,12 @@ import shutil
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
-from alabamaEncode.conent_analysis.opinionated_vmaf import (
+from alabamaEncode.core.context import AlabamaContext
+from alabamaEncode.core.util.opinionated_vmaf import (
     get_crf_limits,
     get_vmaf_probe_speed,
     get_vmaf_probe_offset,
 )
-from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.stats import EncodeStats
 from alabamaEncode.metrics.calculate import get_metric_from_stats

@@ -3,7 +3,7 @@ import os
 from alabamaEncode.conent_analysis.chunk.chunk_analyse_step import (
     ChunkAnalyzePipelineItem,
 )
-from alabamaEncode.conent_analysis.opinionated_vmaf import (
+from alabamaEncode.core.util.opinionated_vmaf import (
     convexhull_get_resolutions,
     convexhull_get_crf_range,
 )

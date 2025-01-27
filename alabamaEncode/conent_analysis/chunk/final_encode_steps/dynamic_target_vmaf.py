@@ -5,8 +5,8 @@ from typing import Tuple
 from alabamaEncode.conent_analysis.chunk.final_encode_step import (
     FinalEncodeStep,
 )
-from alabamaEncode.conent_analysis.opinionated_vmaf import get_crf_limits
 from alabamaEncode.core.context import AlabamaContext
+from alabamaEncode.core.util.opinionated_vmaf import get_crf_limits
 from alabamaEncode.encoder.codec import Codec
 from alabamaEncode.encoder.encoder import Encoder
 from alabamaEncode.encoder.rate_dist import EncoderRateDistribution

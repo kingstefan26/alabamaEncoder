@@ -1,8 +1,8 @@
 import os
 import random
 
-from alabamaEncode.conent_analysis.opinionated_vmaf import get_vmaf_list
 from alabamaEncode.core.chunk_encoder import ChunkEncoder
+from alabamaEncode.core.util.opinionated_vmaf import get_vmaf_list
 from alabamaEncode.scene.annel import annealing
 
 

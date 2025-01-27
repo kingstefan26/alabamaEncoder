@@ -1,9 +1,9 @@
-from alabamaEncode.conent_analysis.opinionated_vmaf import (
+from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
+from alabamaEncode.core.util.opinionated_vmaf import (
     get_vmaf_list,
     convexhull_get_crf_range,
     convexhull_get_resolutions,
 )
-from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
 from alabamaEncode.encoder.codec import Codec
 
 
