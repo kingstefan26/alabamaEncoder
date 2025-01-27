@@ -1,9 +1,6 @@
 from abc import abstractmethod, ABC
 from typing import List
 
-from alabamaEncode.conent_analysis.refine_steps.multires_package import MutliResPackage
-from alabamaEncode.conent_analysis.refine_steps.multires_trellis import MutliResTrellis
-
 
 class RefineStep(ABC):
     @abstractmethod
@@ -12,6 +9,13 @@ class RefineStep(ABC):
 
 
 def get_refine_steps(ctx) -> List[RefineStep]:
+    from alabamaEncode.conent_analysis.refine_steps.multires_package import (
+        MutliResPackage,
+    )
+    from alabamaEncode.conent_analysis.refine_steps.multires_trellis import (
+        MutliResTrellis,
+    )
+
     steps = []
     if ctx.multi_res_pipeline:
         steps.append(MutliResTrellis())

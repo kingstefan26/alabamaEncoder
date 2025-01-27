@@ -1,9 +1,3 @@
-from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import LumaBoost
-from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
-    EncodeMultiResCandidates,
-)
-
-
 def setup_chunk_analyze_chain(ctx):
     """
     Sets up the chunk analyze chain
@@ -23,6 +17,9 @@ def setup_chunk_analyze_chain(ctx):
     from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_crf import PlainCrf
     from alabamaEncode.conent_analysis.chunk.analyze_steps.plain_vbr import PlainVbr
     from alabamaEncode.conent_analysis.chunk.analyze_steps.target_vmaf import TargetVmaf
+    from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
+        EncodeMultiResCandidates,
+    )
 
     ctx.chunk_analyze_chain = []
 
@@ -42,6 +39,7 @@ def setup_chunk_analyze_chain(ctx):
         print("Using dynamic vmaf targeting with vbr")
         ctx.chunk_analyze_chain.append(PlainVbr())
     elif ctx.multi_res_pipeline:
+
         ctx.chunk_analyze_chain.append(EncodeMultiResCandidates())
     elif ctx.crf_map != "":
         ctx.chunk_analyze_chain.append(CrfIndexesMap(ctx.crf_map))
@@ -54,6 +52,10 @@ def setup_chunk_analyze_chain(ctx):
 
     # luma boost is done after initial rate control, since its ment as an addition
     if ctx.luma_boost is True:
+        from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import (
+            LumaBoost,
+        )
+
         ctx.chunk_analyze_chain.append(LumaBoost())
 
     if len(ctx.chunk_analyze_chain) == 0:

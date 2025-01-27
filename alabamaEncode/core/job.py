@@ -6,9 +6,6 @@ from alabamaEncode.cli.cli_setup.paths import parse_paths
 from alabamaEncode.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode.cli.cli_setup.res_preset import parse_resolution_presets
 from alabamaEncode.cli.cli_setup.video_filters import parse_video_filters
-from alabamaEncode.conent_analysis.pipelines import (
-    setup_chunk_analyze_chain,
-)
 from alabamaEncode.conent_analysis.sequence.args_tune import tune_args_for_fdlty_or_apl
 from alabamaEncode.conent_analysis.sequence.autocrop import do_autocrop
 from alabamaEncode.conent_analysis.sequence.concat import concat
@@ -25,6 +22,9 @@ from alabamaEncode.conent_analysis.sequence.scene_detection import do_scene_dete
 from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import scrape_hdr_metadata
 from alabamaEncode.conent_analysis.sequence.sequence_autograin import setup_autograin
 from alabamaEncode.conent_analysis.sequence.setup_celery import setup_celery
+from alabamaEncode.conent_analysis.sequence.setup_chunk_analysis_chain import (
+    setup_chunk_analyze_chain,
+)
 from alabamaEncode.conent_analysis.sequence.setup_chunk_encoder import (
     setup_chunk_encoder,
 )
