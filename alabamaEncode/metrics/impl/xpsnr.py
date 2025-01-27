@@ -79,17 +79,16 @@ class XpsnrResult(MetricResult):
                     u_psnr_str = match.group(3)
                     v_psnr_str = match.group(4)
 
-                    y_psnr = float("inf") if y_psnr_str == "inf" else float(y_psnr_str)
-                    u_psnr = float("inf") if u_psnr_str == "inf" else float(u_psnr_str)
-                    v_psnr = float("inf") if v_psnr_str == "inf" else float(v_psnr_str)
-                    avg = (y_psnr + u_psnr + v_psnr) / 3
+                    y_psnr = 60 if y_psnr_str == "inf" else float(y_psnr_str)
+                    u_psnr = 60 if u_psnr_str == "inf" else float(u_psnr_str)
+                    v_psnr = 60 if v_psnr_str == "inf" else float(v_psnr_str)
                     self.frames.append(
                         {
                             "frame": frame_num,
                             "y": y_psnr,
                             "u": u_psnr,
                             "v": v_psnr,
-                            "avg": avg,
+                            "avg": ((y_psnr + u_psnr + v_psnr) / 3),
                         }
                     )
 
