@@ -218,7 +218,7 @@ def read_args(ctx):
             "sequential",
             "length_desc",
             "length_asc",
-            "sequential_reverse",
+            "reverse",
             "even",
         ],
         dest="chunk_order",

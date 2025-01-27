@@ -90,12 +90,8 @@ class AlabamaEncodingJob:
 
         return AlabamaEncodingJob(ctx)
 
-    def encode_finished(self):
-        if self.ctx.multi_res_pipeline:
-            return os.path.exists(self.ctx.output_file)
-            # TODO: do a paranoid check for all files
-        else:
-            return os.path.exists(self.ctx.output_file)
+    def is_job_done(self) -> bool:
+        return os.path.exists(self.ctx.output_file)
 
     async def run_pipeline(self):
         self.save()
@@ -126,9 +122,23 @@ class AlabamaEncodingJob:
         constant_updates = asyncio.create_task(self.websiteUpdate.constant_updates())
         self.websiteUpdate.update_current_step_name("Running scene detection")
 
-        sequence = self.prepare_sequence()
+        sequence: ChunkSequence = scene_detect(
+            input_file=self.ctx.input_file,
+            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
+            max_scene_length=self.ctx.max_scene_length,
+            start_offset=self.ctx.start_offset,
+            end_offset=self.ctx.end_offset,
+            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
+            static_length=self.ctx.statically_sized_scenes,
+            static_length_size=self.ctx.max_scene_length,
+            scene_merge=self.ctx.scene_merge,
+        ).setup_paths(
+            temp_folder=self.ctx.temp_folder,
+            extension=self.ctx.get_encoder().get_chunk_file_extension(),
+        )
+        self.ctx.total_chunks = len(sequence.chunks)
 
-        if not self.encode_finished():
+        if not self.is_job_done():
             self.websiteUpdate.update_proc_done(10)
             self.websiteUpdate.update_current_step_name("Analyzing content")
             download_vmaf_models()
@@ -152,7 +162,7 @@ class AlabamaEncodingJob:
                 frames_encoded_so_far = 0
                 size_kb_so_far = 0
 
-                command_objects = []
+                chunk_jobs = []
 
                 def is_chunk_done(_chunk):
                     if ctx.multi_res_pipeline:
@@ -173,85 +183,73 @@ class AlabamaEncodingJob:
 
                 for chunk in sequence.chunks:
                     if not is_chunk_done(chunk):
-                        command_objects.append(ChunkEncoder(ctx, chunk))
+                        chunk_jobs.append(ChunkEncoder(ctx, chunk))
                     else:
                         frames_encoded_so_far += chunk.get_frame_count()
                         size_kb_so_far += chunk.get_filesize() / 1000
 
                 threads = os.cpu_count()
-                if len(command_objects) < threads:
-                    ctx.prototype_encoder.threads = int(threads / len(command_objects))
+                if len(chunk_jobs) < threads:
+                    ctx.prototype_encoder.threads = int(threads / len(chunk_jobs))
 
-                # order chunks based on order
-                if ctx.chunk_order == "random":
-                    random.shuffle(command_objects)
-                elif ctx.chunk_order == "length_asc":
-                    command_objects.sort(key=lambda x: x.chunk.length)
-                elif ctx.chunk_order == "length_desc":
-                    command_objects.sort(key=lambda x: x.chunk.length, reverse=True)
-                elif ctx.chunk_order == "sequential":
-                    pass
-                elif ctx.chunk_order == "sequential_reverse":
-                    command_objects.reverse()
-                elif ctx.chunk_order == "even":
-                    command_objects = annealing(command_objects, 1000)
-                else:
-                    raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
+                if ctx.throughput_scaling and ctx.chunk_order != "even":
+                    print("Forcing chunk order to even")
+                    ctx.chunk_order = "even"
 
-                if ctx.throughput_scaling:
-                    # make the chunk length distribution homogenous
-                    command_objects = annealing(command_objects, 1000)
+                match ctx.chunk_order:
+                    case "random":
+                        random.shuffle(chunk_jobs)
+                    case "length_asc":
+                        chunk_jobs.sort(key=lambda x: x.chunk.length)
+                    case "length_desc":
+                        chunk_jobs.sort(key=lambda x: x.chunk.length, reverse=True)
+                    case "even":
+                        chunk_jobs = annealing(chunk_jobs, 1000)
+                    case "reverse":
+                        chunk_jobs.reverse()
+                    case _:
+                        raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
 
-                print(
-                    f"Starting encoding of {len(command_objects)} out of {len(sequence.chunks)} scenes"
-                )
-
-                def update_proc_done(num_finished_scenes):
-                    # map 20 to 95% as the space where the scenes are encoded
-                    already_done = len(sequence.chunks) - len(command_objects)
-                    # self.websiteUpdate.update_proc_done(
-                    #     20
-                    #     + (already_done + num_finished_scenes)
-                    #     / len(sequence.chunks)
-                    #     * 75
-                    # )
-
-                    self.websiteUpdate.update_proc_done(
-                        ((already_done + num_finished_scenes) / len(sequence.chunks))
-                        * 100
+                if len(chunk_jobs) > 0:
+                    print(
+                        f"Starting encoding of {len(chunk_jobs)} out of {len(sequence.chunks)} scenes"
+                    )
+                    saved_progress = ctx.get_kv().get_global("pbar_progress")
+                    pbar = tqdm(
+                        total=sum([c.chunk.length for c in chunk_jobs]),
+                        desc="Encoding",
+                        unit="frame",
+                        dynamic_ncols=True,
+                        unit_scale=True,
+                        smoothing=0.2,
+                        initial=saved_progress if saved_progress is not None else 0,
                     )
 
-                kv = self.ctx.get_kv()
-                saved_progress = kv.get_global("pbar_progress")
+                    saved_total = ctx.get_kv().get_global("pbar_total")
+                    if saved_total is not None:
+                        pbar.total = saved_total
 
-                pbar = tqdm(
-                    total=sum([c.chunk.length for c in command_objects]),
-                    desc="Encoding",
-                    unit="frame",
-                    dynamic_ncols=True,
-                    unit_scale=True,
-                    smoothing=0.2,
-                    initial=saved_progress if saved_progress is not None else 0,
-                )
+                    saved_estimation = ctx.get_kv().get_global("pbar_estimation")
+                    if saved_estimation is not None:
+                        pbar.set_postfix(estimation=saved_estimation)
 
-                saved_total = kv.get_global("pbar_total")
-                if saved_total is not None:
-                    pbar.total = saved_total
+                    pbar.refresh()
 
-                saved_estimation = kv.get_global("pbar_estimation")
-                if saved_estimation is not None:
-                    pbar.set_postfix(estimation=saved_estimation)
+                    def update_proc_done(num_finished_scenes):
+                        already_done = len(sequence.chunks) - len(chunk_jobs)
+                        self.websiteUpdate.update_proc_done(
+                            (
+                                (already_done + num_finished_scenes)
+                                / len(sequence.chunks)
+                            )
+                            * 100
+                        )
 
-                pbar.refresh()
-
-                if len(command_objects) == 0:
-                    print("Nothing to encode, skipping")
-                else:
                     try:
                         await asyncio.create_task(
                             execute_commands(
                                 ctx.use_celery,
-                                command_objects,
+                                chunk_jobs,
                                 ctx.multiprocess_workers,
                                 pin_to_cores=ctx.pin_to_cores,
                                 finished_scene_callback=update_proc_done,
@@ -278,9 +276,8 @@ class AlabamaEncodingJob:
                         kv.set_global("pbar_estimation", pbar.postfix.get("estimation"))
                         quit()
 
-                refine_steps = get_refine_steps(ctx)
-                for step in refine_steps:
-                    step(ctx, sequence)
+                for refine_step in get_refine_steps(ctx):
+                    refine_step(ctx, sequence)
 
             if not self.ctx.multi_res_pipeline:
                 self.websiteUpdate.update_proc_done(95)
@@ -305,9 +302,10 @@ class AlabamaEncodingJob:
                 except Exception as e:
                     print("Concat failed 😷")
                     raise e
+
             constant_updates.cancel()
         else:
-            print("Output file already exists")
+            print("Encoding job already done")
 
         self.websiteUpdate.update_proc_done(99)
         self.websiteUpdate.update_current_step_name("Final touches")
@@ -316,19 +314,7 @@ class AlabamaEncodingJob:
             print_stats(
                 output_folder=self.ctx.output_folder,
                 output=self.ctx.output_file,
-                # input_file=self.ctx.raw_input_file,
-                # grain_synth=self.ctx.prototype_encoder.grain_synth,
                 title=self.ctx.get_title(),
-                # cut_intro=(True if self.ctx.start_offset > 0 else False),
-                # cut_credits=(True if self.ctx.end_offset > 0 else False),
-                # croped=(True if self.ctx.crop_string != "" else False),
-                # scaled=(True if self.ctx.scale_string != "" else False),
-                # tonemaped=(
-                #     True
-                #     if not self.ctx.prototype_encoder.hdr
-                #     and Ffmpeg.is_hdr(PathAlabama(self.ctx.input_file))
-                #     else False
-                # ),
             )
             target_metric = self.ctx.get_metric_target()[0]
             if self.ctx.calc_final_vmaf and (
@@ -374,22 +360,3 @@ class AlabamaEncodingJob:
             self.finished_callback()
 
         self.delete()
-
-    def prepare_sequence(self):
-        sequence: ChunkSequence = scene_detect(
-            input_file=self.ctx.input_file,
-            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
-            max_scene_length=self.ctx.max_scene_length,
-            start_offset=self.ctx.start_offset,
-            end_offset=self.ctx.end_offset,
-            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
-            static_length=self.ctx.statically_sized_scenes,
-            static_length_size=self.ctx.max_scene_length,
-            scene_merge=self.ctx.scene_merge,
-        )
-        sequence.setup_paths(
-            temp_folder=self.ctx.temp_folder,
-            extension=self.ctx.get_encoder().get_chunk_file_extension(),
-        )
-        self.ctx.total_chunks = len(sequence.chunks)
-        return sequence

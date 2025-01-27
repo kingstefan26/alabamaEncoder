@@ -33,7 +33,7 @@ def get_ideal_bitrate(
 
     rate_search_start = time.time()
 
-    probe_file_base = config.get_probe_file_base(chunk.chunk_path)
+    probe_file_base = chunk.probe_path()
     cache_filename = f"{probe_file_base}complexity.speed{convex_speed}.pt"
 
     ideal_rate = None

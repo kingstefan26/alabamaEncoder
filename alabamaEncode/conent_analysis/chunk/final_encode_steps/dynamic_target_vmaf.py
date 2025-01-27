@@ -90,7 +90,7 @@ class DynamicTargetVmaf(FinalEncodeStep):
 
         original_speed = enc.speed
         original_output_path = enc.output_path
-        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
+        probe_file_base = chunk.probe_path()
         trys = []
         stats = None
 

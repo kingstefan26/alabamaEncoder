@@ -22,8 +22,10 @@ from alabamaEncode.scene.chunk import ChunkObject
 
 class AlabamaContext:
     """
-    A class to hold the configuration for an encoding instance,
-    a god object (in the process of being refactored from a god object)
+    A config/context class, knows everything about a encoding job.
+    Useful for disconnecting how the job is created, could be created form a file or cli args, doesn't make a
+    difference.
+    It is a god object (needs to passed-around almost everywhere), but so far this architecture didn't get in the way
     """
 
     def __str__(self):
@@ -209,12 +211,11 @@ class AlabamaContext:
                 tqdm.write(msg)
 
     def get_encoder(self) -> Encoder:
-        if self.prototype_encoder is not None:
-            return self.prototype_encoder.clone()
-        else:
+        if self.prototype_encoder is None:
             raise RuntimeError(
                 "Prototype encoder is not set, this should be impossible"
             )
+        return self.prototype_encoder.clone()
 
     def get_vmaf_options(self) -> VmafOptions:
         return VmafOptions(
@@ -250,63 +251,33 @@ class AlabamaContext:
             width_str, height_str = cache.split(",")
             self.output_width = int(width_str)
             self.output_height = int(height_str)
-            return [self.output_width, self.output_height]
-        enc = self.get_encoder()
-        enc.chunk = ChunkObject(
-            path=self.raw_input_file, first_frame_index=0, last_frame_index=2
-        )
-        enc.speed = 12
-        enc.passes = 1
-        enc.rate_distribution = EncoderRateDistribution.CQ
-        enc.crf = 60
-        temp_output = PathAlabama(
-            f"/tmp/{time.time()}_resprobe{enc.get_chunk_file_extension()}"
-        )
-        enc.output_path = temp_output.get()
-        enc.run()
-        width = Ffmpeg.get_width(temp_output)
-        height = Ffmpeg.get_height(temp_output)
-        os.remove(enc.output_path)
-        self.output_width = width
-        self.output_height = height
-        self.get_kv().set_global("output_res", f"{width},{height}")
+        else:
+            enc = self.get_encoder()
+            enc.chunk = ChunkObject(
+                path=self.raw_input_file, first_frame_index=0, last_frame_index=2
+            )
+            enc.speed = 12
+            enc.passes = 1
+            enc.rate_distribution = EncoderRateDistribution.CQ
+            enc.crf = 60
+            temp_output = PathAlabama(
+                f"/tmp/{time.time()}_resprobe{enc.get_chunk_file_extension()}"
+            )
+            enc.output_path = temp_output.get()
+            enc.run()
+            width = Ffmpeg.get_width(temp_output)
+            height = Ffmpeg.get_height(temp_output)
+            os.remove(enc.output_path)
+            self.output_width = width
+            self.output_height = height
+            self.get_kv().set_global("output_res", f"{width},{height}")
 
-        return [width, height]
+        return [self.output_width, self.output_height]
 
     def get_kv(self) -> AlabamaKv:
         if self.kv is None:
             self.kv = AlabamaKv(self.temp_folder)
         return self.kv
-
-    def get_probe_file_base(self, encoded_scene_path) -> str:
-        """
-        A helper function to get a probe file path derived from the encoded scene path
-
-        Examples:
-        /home/test/out/temp/1.ivf -> /home/test/out/temp/1_rate_probes/
-        /home/test/out/temp/42.ivf -> /home/test/out/temp/42_rate_probes/
-        /home/test/out/temp/filename.ivf -> /home/test/out/temp/filename_rate_probes/
-        """
-        # get base file name without an extension
-        file_without_extension = os.path.splitext(os.path.basename(encoded_scene_path))[
-            0
-        ]
-
-        # temp folder
-        path_without_file = os.path.dirname(encoded_scene_path)
-
-        # join
-        probe_folder_path = os.path.join(
-            path_without_file, (file_without_extension + "_rate_probes")
-        )
-
-        # add trailing slash
-        probe_folder_path += os.path.sep
-
-        os.makedirs(probe_folder_path, exist_ok=True)
-
-        # new file base
-        return probe_folder_path
 
     def get_title(self):
         if self.title == "":

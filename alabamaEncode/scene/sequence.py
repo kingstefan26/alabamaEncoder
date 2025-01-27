@@ -54,7 +54,7 @@ class ChunkSequence:
         self.input_file = d["input_file"]
         return self
 
-    def setup_paths(self, temp_folder: str, extension: str):
+    def setup_paths(self, temp_folder: str, extension: str) -> "ChunkSequence":
         """
         sets up the paths for the chunks, in the appropriate temp folder, and with the appropriate extension
         :param extension: .ivf .mkv etc.
@@ -69,6 +69,7 @@ class ChunkSequence:
             c.chunk_path = os.path.join(
                 temp_folder, f"chunks/{c.chunk_index}{extension}"
             )
+        return self
 
     def get_test_chunks_out_of_a_sequence(
         self, random_pick_count: int = 7

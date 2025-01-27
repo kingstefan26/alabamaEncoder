@@ -76,6 +76,24 @@ class ChunkObject:
             "size_kB": self.size_kB,
         }
 
+    def probe_path(self) -> str:
+        """
+        A helper function to get a probe file path derived from the encoded scene path
+
+        Examples:
+        /home/test/out/temp/1.ivf -> /home/test/out/temp/1_rate_probes/
+        /home/test/out/temp/42.ivf -> /home/test/out/temp/42_rate_probes/
+        /home/test/out/temp/filename.ivf -> /home/test/out/temp/filename_rate_probes/
+        """
+        file_without_extension = os.path.splitext(os.path.basename(self.chunk_path))[0]
+        path_without_file = os.path.dirname(self.chunk_path)
+        probe_folder_path = os.path.join(
+            path_without_file, (file_without_extension + "_rate_probes")
+        )
+        probe_folder_path += os.path.sep
+        os.makedirs(probe_folder_path, exist_ok=True)
+        return probe_folder_path
+
     def to_json(self) -> str:
         import json
 

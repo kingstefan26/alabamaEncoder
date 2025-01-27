@@ -139,7 +139,7 @@ async def run_sequence_pipeline(ctx, sequence):
     ]
 
     for func in pipeline:
-        # if async run awaits, if not run normally
+        # if async await, if not run normally
         ctx = (
             await func(ctx, sequence)
             if func.__code__.co_flags & 0x80

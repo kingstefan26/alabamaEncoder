@@ -17,7 +17,7 @@ class DynamicTargetVmafVBR(FinalEncodeStep):
         self, enc: Encoder, chunk: ChunkObject, ctx: AlabamaContext, encoded_a_frame
     ) -> EncodeStats:
         vmaf_options = ctx.get_vmaf_options()
-        probe_file_base = ctx.get_probe_file_base(chunk.chunk_path)
+        probe_file_base = chunk.probe_path()
         enc.passes = 3
         enc.rate_distribution = EncoderRateDistribution.VBR
         metric_name = "vmaf"
