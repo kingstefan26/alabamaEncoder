@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import os
-import random
 import sys
 
 from tqdm import tqdm
@@ -10,14 +9,24 @@ from alabamaEncode.cli.cli_setup.paths import parse_paths
 from alabamaEncode.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode.cli.cli_setup.res_preset import parse_resolution_presets
 from alabamaEncode.cli.cli_setup.video_filters import parse_video_filters
-from alabamaEncode.conent_analysis.opinionated_vmaf import (
-    get_vmaf_list,
-)
 from alabamaEncode.conent_analysis.pipelines import (
-    run_sequence_pipeline,
     get_refine_steps,
+    setup_chunk_analyze_chain,
 )
-from alabamaEncode.core.chunk_job import ChunkEncoder
+from alabamaEncode.conent_analysis.sequence.args_tune import tune_args_for_fdlty_or_apl
+from alabamaEncode.conent_analysis.sequence.autocrop import do_autocrop
+from alabamaEncode.conent_analysis.sequence.denoise_filtering import setup_denoise
+from alabamaEncode.conent_analysis.sequence.encoding_tiles import setup_tiles
+from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import scrape_hdr_metadata
+from alabamaEncode.conent_analysis.sequence.sequence_autograin import setup_autograin
+from alabamaEncode.conent_analysis.sequence.setup_chunk_encoder import (
+    setup_chunk_encoder,
+)
+from alabamaEncode.conent_analysis.sequence.setup_chunk_encoders import (
+    setup_chunk_encoders,
+)
+from alabamaEncode.conent_analysis.sequence.taget_ssimdb import setup_ssimdb_target
+from alabamaEncode.conent_analysis.sequence.x264_tune import get_ideal_x264_tune
 from alabamaEncode.core.context import AlabamaContext
 from alabamaEncode.core.extras.vmaf_plot import plot_vmaf
 from alabamaEncode.core.extras.ws_update import WebsiteUpdate
@@ -30,7 +39,6 @@ from alabamaEncode.metrics.impl.vmaf import download_vmaf_models
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
-from alabamaEncode.scene.annel import annealing
 from alabamaEncode.scene.concat import VideoConcatenator
 from alabamaEncode.scene.scene_detection import scene_detect
 from alabamaEncode.scene.sequence import ChunkSequence
@@ -139,10 +147,33 @@ class AlabamaEncodingJob:
         self.ctx.total_chunks = len(sequence.chunks)
 
         if not self.is_job_done():
+            ctx = self.ctx
             self.websiteUpdate.update_proc_done(10)
             self.websiteUpdate.update_current_step_name("Analyzing content")
             download_vmaf_models()
-            await run_sequence_pipeline(self.ctx, sequence)
+
+            pipeline = [
+                setup_chunk_analyze_chain,
+                setup_chunk_encoder,
+                scrape_hdr_metadata,
+                tune_args_for_fdlty_or_apl,
+                do_autocrop,
+                setup_tiles,
+                setup_denoise,
+                setup_autograin,
+                setup_ssimdb_target,
+                get_ideal_x264_tune,
+                setup_chunk_encoders,
+            ]
+
+            for func in pipeline:
+                # if async await, if not run normally
+                ctx = (
+                    await func(ctx, sequence)
+                    if func.__code__.co_flags & 0x80
+                    else func(ctx, sequence)
+                )
+
             self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)
 
             self.websiteUpdate.update_proc_done(20)
@@ -158,70 +189,18 @@ class AlabamaEncodingJob:
                     print("Integrity check failed 3 times, aborting")
                     quit()
 
-                ctx = self.ctx
-                frames_encoded_so_far = 0
-                size_kb_so_far = 0
-
-                chunk_jobs = []
-
-                def is_chunk_done(_chunk):
-                    if ctx.multi_res_pipeline:
-                        enc = ctx.get_encoder()
-                        vmafs = get_vmaf_list(enc.get_codec())
-
-                        for vmaf in vmafs:
-                            output_path = (
-                                f"{ctx.temp_folder}/"
-                                f"{_chunk.chunk_index}_{vmaf}.{enc.get_chunk_file_extension()}"
-                            )
-                            if not os.path.exists(output_path):
-                                return False
-
-                        return True
-                    else:
-                        return _chunk.is_done(kv=ctx.get_kv())
-
-                for chunk in sequence.chunks:
-                    if not is_chunk_done(chunk):
-                        chunk_jobs.append(ChunkEncoder(ctx, chunk))
-                    else:
-                        frames_encoded_so_far += chunk.get_frame_count()
-                        size_kb_so_far += chunk.get_filesize() / 1000
-
-                threads = os.cpu_count()
-                if len(chunk_jobs) < threads:
-                    ctx.prototype_encoder.threads = int(threads / len(chunk_jobs))
-
-                if ctx.throughput_scaling and ctx.chunk_order != "even":
-                    print("Forcing chunk order to even")
-                    ctx.chunk_order = "even"
-
-                match ctx.chunk_order:
-                    case "random":
-                        random.shuffle(chunk_jobs)
-                    case "length_asc":
-                        chunk_jobs.sort(key=lambda x: x.chunk.length)
-                    case "length_desc":
-                        chunk_jobs.sort(key=lambda x: x.chunk.length, reverse=True)
-                    case "even":
-                        chunk_jobs = annealing(chunk_jobs, 1000)
-                    case "reverse":
-                        chunk_jobs.reverse()
-                    case _:
-                        raise ValueError(f"Invalid chunk order: {ctx.chunk_order}")
-
-                if len(chunk_jobs) > 0:
+                if len(ctx.chunk_jobs) > 0:
                     print(
-                        f"Starting encoding of {len(chunk_jobs)} out of {len(sequence.chunks)} scenes"
+                        f"Starting encoding of {len(ctx.chunk_jobs)} out of {len(sequence.chunks)} scenes"
                     )
                     saved_progress = ctx.get_kv().get_global("pbar_progress")
                     pbar = tqdm(
-                        total=sum([c.chunk.length for c in chunk_jobs]),
+                        total=sum([c.chunk.length for c in ctx.chunk_jobs]),
                         desc="Encoding",
                         unit="frame",
                         dynamic_ncols=True,
                         unit_scale=True,
-                        smoothing=0.2,
+                        smoothing=0,
                         initial=saved_progress if saved_progress is not None else 0,
                     )
 
@@ -236,7 +215,7 @@ class AlabamaEncodingJob:
                     pbar.refresh()
 
                     def update_proc_done(num_finished_scenes):
-                        already_done = len(sequence.chunks) - len(chunk_jobs)
+                        already_done = len(sequence.chunks) - len(ctx.chunk_jobs)
                         self.websiteUpdate.update_proc_done(
                             (
                                 (already_done + num_finished_scenes)
@@ -248,14 +227,14 @@ class AlabamaEncodingJob:
                     try:
                         await asyncio.create_task(
                             execute_commands(
-                                ctx.use_celery,
-                                chunk_jobs,
-                                ctx.multiprocess_workers,
+                                use_celery=ctx.use_celery,
+                                command_objects=ctx.chunk_jobs,
+                                multiprocess_workers=ctx.multiprocess_workers,
                                 pin_to_cores=ctx.pin_to_cores,
                                 finished_scene_callback=update_proc_done,
                                 size_estimate_data=(
-                                    frames_encoded_so_far,
-                                    size_kb_so_far,
+                                    ctx.last_session_encoded_frames,
+                                    ctx.last_session_size_kb,
                                 ),
                                 throughput_scaling=ctx.throughput_scaling,
                                 pbar=pbar,

@@ -2,7 +2,7 @@ import math
 import random
 from typing import List
 
-from alabamaEncode.core.chunk_job import ChunkEncoder
+from alabamaEncode.core.chunk_encoder import ChunkEncoder
 
 
 def total_length(scenes: List[ChunkEncoder]) -> int:

@@ -172,7 +172,10 @@ class AlabamaContext:
 
     crf_map = ""
 
+    chunk_jobs = []
     total_chunks = -1
+    last_session_encoded_frames = 0
+    last_session_size_kb = 0
     max_scene_length: int = 10
     statically_sized_scenes = False
     scene_merge = False

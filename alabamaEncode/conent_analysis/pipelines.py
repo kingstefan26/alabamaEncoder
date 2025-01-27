@@ -4,12 +4,6 @@ from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import LumaBoo
 from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
     EncodeMultiResCandidates,
 )
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf import (
-    DynamicTargetVmaf,
-)
-from alabamaEncode.conent_analysis.chunk.final_encode_steps.multires_encode_finals import (
-    EncodeMultiResFinals,
-)
 from alabamaEncode.conent_analysis.refine_step import RefineStep
 from alabamaEncode.conent_analysis.refine_steps.multires_package import MutliResPackage
 from alabamaEncode.conent_analysis.refine_steps.multires_trellis import MutliResTrellis
@@ -73,33 +67,6 @@ def setup_chunk_analyze_chain(ctx, sequence):
     return ctx
 
 
-def setup_chunk_encoder(ctx, sequence):
-    """
-    Sets up the chunk encoder
-    """
-
-    # ugly imports here cuz "Circular import 🤓☝"
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.plain import (
-        PlainFinalEncode,
-    )
-
-    from alabamaEncode.conent_analysis.chunk.final_encode_steps.dynamic_target_vmaf_vbr import (
-        DynamicTargetVmafVBR,
-    )
-
-    if ctx.dynamic_vmaf_target:
-        ctx.chunk_encode_class = DynamicTargetVmaf()
-    elif ctx.dynamic_vmaf_target_vbr:
-        ctx.chunk_encode_class = DynamicTargetVmafVBR()
-    elif ctx.multi_res_pipeline:
-        print("Starting the multi res pipeline")
-        ctx.chunk_encode_class = EncodeMultiResFinals()
-    else:
-        ctx.chunk_encode_class = PlainFinalEncode()
-
-    return ctx
-
-
 def get_refine_steps(ctx) -> List[RefineStep]:
     steps = []
     if ctx.multi_res_pipeline:
@@ -107,42 +74,3 @@ def get_refine_steps(ctx) -> List[RefineStep]:
         steps.append(MutliResPackage())
 
     return steps
-
-
-async def run_sequence_pipeline(ctx, sequence):
-    from alabamaEncode.conent_analysis.sequence.autocrop import do_autocrop
-    from alabamaEncode.conent_analysis.sequence.args_tune import (
-        tune_args_for_fdlty_or_apl,
-    )
-    from alabamaEncode.conent_analysis.sequence.denoise_filtering import setup_denoise
-    from alabamaEncode.conent_analysis.sequence.encoding_tiles import setup_tiles
-    from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import (
-        scrape_hdr_metadata,
-    )
-    from alabamaEncode.conent_analysis.sequence.sequence_autograin import (
-        setup_autograin,
-    )
-    from alabamaEncode.conent_analysis.sequence.taget_ssimdb import setup_ssimdb_target
-    from alabamaEncode.conent_analysis.sequence.x264_tune import get_ideal_x264_tune
-
-    pipeline = [
-        setup_chunk_analyze_chain,
-        setup_chunk_encoder,
-        scrape_hdr_metadata,
-        tune_args_for_fdlty_or_apl,
-        do_autocrop,
-        setup_tiles,
-        setup_denoise,
-        setup_autograin,
-        setup_ssimdb_target,
-        get_ideal_x264_tune,
-    ]
-
-    for func in pipeline:
-        # if async await, if not run normally
-        ctx = (
-            await func(ctx, sequence)
-            if func.__code__.co_flags & 0x80
-            else func(ctx, sequence)
-        )
-    return ctx

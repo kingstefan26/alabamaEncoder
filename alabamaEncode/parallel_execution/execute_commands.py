@@ -7,7 +7,7 @@ from typing import List, Tuple
 import psutil
 from tqdm import tqdm
 
-from alabamaEncode.core.chunk_job import ChunkEncoder
+from alabamaEncode.core.chunk_encoder import ChunkEncoder
 from alabamaEncode.parallel_execution.celery_app import run_command_on_celery, app
 from alabamaEncode.parallel_execution.command import BaseCommandObject
 
