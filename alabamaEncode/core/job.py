@@ -17,6 +17,7 @@ from alabamaEncode.conent_analysis.sequence.args_tune import tune_args_for_fdlty
 from alabamaEncode.conent_analysis.sequence.autocrop import do_autocrop
 from alabamaEncode.conent_analysis.sequence.denoise_filtering import setup_denoise
 from alabamaEncode.conent_analysis.sequence.encoding_tiles import setup_tiles
+from alabamaEncode.conent_analysis.sequence.scene_detection import do_scene_detection
 from alabamaEncode.conent_analysis.sequence.scrape_hdr_meta import scrape_hdr_metadata
 from alabamaEncode.conent_analysis.sequence.sequence_autograin import setup_autograin
 from alabamaEncode.conent_analysis.sequence.setup_chunk_encoder import (
@@ -35,13 +36,13 @@ from alabamaEncode.core.final_touches import (
     generate_previews,
     create_torrent_file,
 )
-from alabamaEncode.metrics.impl.vmaf import download_vmaf_models
+from alabamaEncode.metrics.impl.vmaf import (
+    download_vmaf_models_wrapper,
+)
 from alabamaEncode.metrics.metric import Metric
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
 from alabamaEncode.scene.concat import VideoConcatenator
-from alabamaEncode.scene.scene_detection import scene_detect
-from alabamaEncode.scene.sequence import ChunkSequence
 
 
 class AlabamaEncodingJob:
@@ -98,9 +99,6 @@ class AlabamaEncodingJob:
 
         return AlabamaEncodingJob(ctx)
 
-    def is_job_done(self) -> bool:
-        return os.path.exists(self.ctx.output_file)
-
     async def run_pipeline(self):
         self.save()
 
@@ -130,29 +128,13 @@ class AlabamaEncodingJob:
         constant_updates = asyncio.create_task(self.websiteUpdate.constant_updates())
         self.websiteUpdate.update_current_step_name("Running scene detection")
 
-        sequence: ChunkSequence = scene_detect(
-            input_file=self.ctx.input_file,
-            cache_file_path=self.ctx.temp_folder + "scene_cache.json",
-            max_scene_length=self.ctx.max_scene_length,
-            start_offset=self.ctx.start_offset,
-            end_offset=self.ctx.end_offset,
-            override_bad_wrong_cache_path=self.ctx.override_scenecache_path_check,
-            static_length=self.ctx.statically_sized_scenes,
-            static_length_size=self.ctx.max_scene_length,
-            scene_merge=self.ctx.scene_merge,
-        ).setup_paths(
-            temp_folder=self.ctx.temp_folder,
-            extension=self.ctx.get_encoder().get_chunk_file_extension(),
-        )
-        self.ctx.total_chunks = len(sequence.chunks)
-
-        if not self.is_job_done():
-            ctx = self.ctx
+        if not os.path.exists(self.ctx.output_file):
             self.websiteUpdate.update_proc_done(10)
             self.websiteUpdate.update_current_step_name("Analyzing content")
-            download_vmaf_models()
 
             pipeline = [
+                do_scene_detection,
+                download_vmaf_models_wrapper,
                 setup_chunk_analyze_chain,
                 setup_chunk_encoder,
                 scrape_hdr_metadata,
@@ -168,10 +150,10 @@ class AlabamaEncodingJob:
 
             for func in pipeline:
                 # if async await, if not run normally
-                ctx = (
-                    await func(ctx, sequence)
+                self.ctx = (
+                    await func(self.ctx, self.ctx.chunk_sequence)
                     if func.__code__.co_flags & 0x80
-                    else func(ctx, sequence)
+                    else func(self.ctx, self.ctx.chunk_sequence)
                 )
 
             self.ctx.get_kv().set_global("quiet_analyzing_content_logs", True)
@@ -183,19 +165,21 @@ class AlabamaEncodingJob:
             if self.ctx.dry_run:
                 iter_counter = 2
 
-            while sequence.sequence_integrity_check(kv=self.ctx.get_kv()):
+            while self.ctx.chunk_sequence.sequence_integrity_check(
+                kv=self.ctx.get_kv()
+            ):
                 iter_counter += 1
                 if iter_counter > 3:
                     print("Integrity check failed 3 times, aborting")
                     quit()
 
-                if len(ctx.chunk_jobs) > 0:
+                if len(self.ctx.chunk_jobs) > 0:
                     print(
-                        f"Starting encoding of {len(ctx.chunk_jobs)} out of {len(sequence.chunks)} scenes"
+                        f"Starting encoding of {len(self.ctx.chunk_jobs)} out of {len(self.ctx.chunk_sequence.chunks)} scenes"
                     )
-                    saved_progress = ctx.get_kv().get_global("pbar_progress")
+                    saved_progress = self.ctx.get_kv().get_global("pbar_progress")
                     pbar = tqdm(
-                        total=sum([c.chunk.length for c in ctx.chunk_jobs]),
+                        total=sum([c.chunk.length for c in self.ctx.chunk_jobs]),
                         desc="Encoding",
                         unit="frame",
                         dynamic_ncols=True,
@@ -204,22 +188,24 @@ class AlabamaEncodingJob:
                         initial=saved_progress if saved_progress is not None else 0,
                     )
 
-                    saved_total = ctx.get_kv().get_global("pbar_total")
+                    saved_total = self.ctx.get_kv().get_global("pbar_total")
                     if saved_total is not None:
                         pbar.total = saved_total
 
-                    saved_estimation = ctx.get_kv().get_global("pbar_estimation")
+                    saved_estimation = self.ctx.get_kv().get_global("pbar_estimation")
                     if saved_estimation is not None:
                         pbar.set_postfix(estimation=saved_estimation)
 
                     pbar.refresh()
 
                     def update_proc_done(num_finished_scenes):
-                        already_done = len(sequence.chunks) - len(ctx.chunk_jobs)
+                        already_done = len(self.ctx.chunk_sequence.chunks) - len(
+                            self.ctx.chunk_jobs
+                        )
                         self.websiteUpdate.update_proc_done(
                             (
                                 (already_done + num_finished_scenes)
-                                / len(sequence.chunks)
+                                / len(self.ctx.chunk_sequence.chunks)
                             )
                             * 100
                         )
@@ -227,16 +213,16 @@ class AlabamaEncodingJob:
                     try:
                         await asyncio.create_task(
                             execute_commands(
-                                use_celery=ctx.use_celery,
-                                command_objects=ctx.chunk_jobs,
-                                multiprocess_workers=ctx.multiprocess_workers,
-                                pin_to_cores=ctx.pin_to_cores,
+                                use_celery=self.ctx.use_celery,
+                                command_objects=self.ctx.chunk_jobs,
+                                multiprocess_workers=self.ctx.multiprocess_workers,
+                                pin_to_cores=self.ctx.pin_to_cores,
                                 finished_scene_callback=update_proc_done,
                                 size_estimate_data=(
-                                    ctx.last_session_encoded_frames,
-                                    ctx.last_session_size_kb,
+                                    self.ctx.last_session_encoded_frames,
+                                    self.ctx.last_session_size_kb,
                                 ),
-                                throughput_scaling=ctx.throughput_scaling,
+                                throughput_scaling=self.ctx.throughput_scaling,
                                 pbar=pbar,
                             )
                         )
@@ -255,8 +241,8 @@ class AlabamaEncodingJob:
                         kv.set_global("pbar_estimation", pbar.postfix.get("estimation"))
                         quit()
 
-                for refine_step in get_refine_steps(ctx):
-                    refine_step(ctx, sequence)
+                for refine_step in get_refine_steps(self.ctx):
+                    refine_step(self.ctx, self.ctx.chunk_sequence)
 
             if not self.ctx.multi_res_pipeline:
                 self.websiteUpdate.update_proc_done(95)
@@ -299,7 +285,7 @@ class AlabamaEncodingJob:
             if self.ctx.calc_final_vmaf and (
                 target_metric == Metric.VMAF or target_metric == Metric.XPSNR
             ):
-                plot_vmaf(self.ctx, sequence)
+                plot_vmaf(self.ctx, self.ctx.chunk_sequence)
 
         if self.ctx.generate_previews:
             generate_previews(

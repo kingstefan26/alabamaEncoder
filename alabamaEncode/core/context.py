@@ -173,6 +173,7 @@ class AlabamaContext:
     crf_map = ""
 
     chunk_jobs = []
+    chunk_sequence = None
     total_chunks = -1
     last_session_encoded_frames = 0
     last_session_size_kb = 0

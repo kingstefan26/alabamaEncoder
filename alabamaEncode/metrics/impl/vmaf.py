@@ -79,7 +79,10 @@ def calc_vmaf(
 ):
     assert vmaf_options is not None
 
-    from alabamaEncode.metrics.calculate import create_content_comparison_y4m_pipes, cleanup_comparison_pipes
+    from alabamaEncode.metrics.calculate import (
+        create_content_comparison_y4m_pipes,
+        cleanup_comparison_pipes,
+    )
 
     owo = create_content_comparison_y4m_pipes(chunk=chunk, options=vmaf_options)
 
@@ -271,6 +274,11 @@ model_links = [
         "vmaf_v0.6.1neg-nomotion.json",
     ],
 ]
+
+
+def download_vmaf_models_wrapper(ctx, sq):
+    download_vmaf_models()
+    return ctx
 
 
 def download_vmaf_models():
