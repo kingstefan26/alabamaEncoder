@@ -3,7 +3,7 @@ from alabamaEncode.conent_analysis.opinionated_vmaf import (
     convexhull_get_crf_range,
     convexhull_get_resolutions,
 )
-from alabamaEncode.conent_analysis.refine_step import RefineStep
+from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
 from alabamaEncode.encoder.codec import Codec
 
 

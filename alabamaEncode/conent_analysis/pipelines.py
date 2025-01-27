@@ -4,9 +4,9 @@ from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import LumaBoo
 from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
     EncodeMultiResCandidates,
 )
-from alabamaEncode.conent_analysis.refine_step import RefineStep
 from alabamaEncode.conent_analysis.refine_steps.multires_package import MutliResPackage
 from alabamaEncode.conent_analysis.refine_steps.multires_trellis import MutliResTrellis
+from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
 
 
 def setup_chunk_analyze_chain(ctx):
