@@ -1,12 +1,7 @@
-from typing import List
-
 from alabamaEncode.conent_analysis.chunk.analyze_steps.luma_boost import LumaBoost
 from alabamaEncode.conent_analysis.chunk.analyze_steps.multires_encode_candidates import (
     EncodeMultiResCandidates,
 )
-from alabamaEncode.conent_analysis.refine_steps.multires_package import MutliResPackage
-from alabamaEncode.conent_analysis.refine_steps.multires_trellis import MutliResTrellis
-from alabamaEncode.conent_analysis.refine_steps.refine_step import RefineStep
 
 
 def setup_chunk_analyze_chain(ctx):
@@ -65,12 +60,3 @@ def setup_chunk_analyze_chain(ctx):
         raise Exception("Failed to Create the analyze steps in analyzer_factory")
 
     return ctx
-
-
-def get_refine_steps(ctx) -> List[RefineStep]:
-    steps = []
-    if ctx.multi_res_pipeline:
-        steps.append(MutliResTrellis())
-        steps.append(MutliResPackage())
-
-    return steps

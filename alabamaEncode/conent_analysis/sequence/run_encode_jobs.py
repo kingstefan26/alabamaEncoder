@@ -2,7 +2,7 @@ import asyncio
 
 from tqdm import tqdm
 
-from alabamaEncode.conent_analysis.pipelines import get_refine_steps
+from alabamaEncode.conent_analysis.refine_steps.refine_step import get_refine_steps
 from alabamaEncode.parallel_execution.execute_commands import execute_commands
 
 
@@ -11,9 +11,7 @@ async def run_encode_jobs(ctx):
     if ctx.dry_run:
         iter_counter = 2
 
-    while ctx.chunk_sequence.sequence_integrity_check(
-            kv=ctx.get_kv()
-    ):
+    while ctx.chunk_sequence.sequence_integrity_check(kv=ctx.get_kv()):
         iter_counter += 1
         if iter_counter > 3:
             print("Integrity check failed 3 times, aborting")
@@ -45,9 +43,7 @@ async def run_encode_jobs(ctx):
             pbar.refresh()
 
             def update_proc_done(num_finished_scenes):
-                already_done = len(ctx.chunk_sequence.chunks) - len(
-                    ctx.chunk_jobs
-                )
+                already_done = len(ctx.chunk_sequence.chunks) - len(ctx.chunk_jobs)
                 # self.websiteUpdate.update_proc_done(
                 #     (
                 #             (already_done + num_finished_scenes)
