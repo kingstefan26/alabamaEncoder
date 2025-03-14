@@ -120,12 +120,16 @@ class AlabamaEncodingJob:
             ]
 
             for func in pipeline:
-                # if async await, if not run normally
-                self.ctx = (
-                    await func(self.ctx)
-                    if func.__code__.co_flags & 0x80
-                    else func(self.ctx)
-                )
+                try:
+                    # if async await, if not run normally
+                    self.ctx = (
+                        await func(self.ctx)
+                        if func.__code__.co_flags & 0x80
+                        else func(self.ctx)
+                    )
+                except Exception as e:
+                    failed_func_name = func.__name__
+                    print(f"job pipeline item {failed_func_name} failed with: {e}")
 
         if self.finished_callback is not None:
             self.finished_callback()
