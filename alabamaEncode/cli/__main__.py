@@ -10,6 +10,7 @@ from alabamaEncode.cli.cli_setup.cli_args import read_args
 from alabamaEncode.cli.cli_setup.paths import parse_paths
 from alabamaEncode.cli.cli_setup.ratecontrol import parse_rd
 from alabamaEncode.cli.cli_setup.res_preset import parse_resolution_presets
+from alabamaEncode.cli.cli_setup.save_cli import save_cli
 from alabamaEncode.cli.cli_setup.validate_files import validate_input
 from alabamaEncode.cli.cli_setup.video_filters import parse_video_filters
 from alabamaEncode.core.context import AlabamaContext
@@ -31,6 +32,7 @@ def run_pipeline(ctx):
     creation_pipeline = [
         auto_output_paths,
         parse_paths,
+        save_cli,
         validate_input,
         parse_rd,
         parse_resolution_presets,
