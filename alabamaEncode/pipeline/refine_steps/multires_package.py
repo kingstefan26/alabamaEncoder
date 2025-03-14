@@ -30,7 +30,7 @@ class MutliResPackage(RefineStep):
         concated_files = []
 
         ctc = VideoConcatenator(
-            output="",
+            output=ctx.temp_folder,
             file_with_audio=ctx.input_file,
             start_offset=ctx.start_offset,
             end_offset=ctx.end_offset,

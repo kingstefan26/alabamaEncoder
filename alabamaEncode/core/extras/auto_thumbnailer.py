@@ -5,6 +5,7 @@ import os
 
 import cv2
 import numpy as np
+import requests
 import scipy
 from skimage.metrics import structural_similarity as ssim
 from tqdm import tqdm
@@ -106,9 +107,98 @@ def compute_depth_of_field_score(gray):
     return dof_score
 
 
+# def eye_aspect_ratio(eye_points):
+#     """Calculate the Eye Aspect Ratio (EAR) for given eye landmarks."""
+#     # Compute vertical distances
+#     A = np.linalg.norm(eye_points[1] - eye_points[5])
+#     B = np.linalg.norm(eye_points[2] - eye_points[4])
+#     # Compute horizontal distance
+#     C = np.linalg.norm(eye_points[0] - eye_points[3])
+#     ear = (A + B) / (2.0 * C) if C != 0 else 0.0
+#     return ear
+#
+#
+# def face_score(frame) -> float:
+#     """Detect faces, check if eyes are open, and return a score based on face areas with open eyes."""
+#     # Lazy initialization of face detector and landmark predictor
+#     if not hasattr(face_score, "detector"):
+#         model_download_link = "https://huggingface.co/spaces/asdasdasdasd/Face-forgery-detection/resolve/ccfc24642e0210d4d885bc7b3dbc9a68ed948ad6/shape_predictor_68_face_landmarks.dat"
+#         model_folder = os.path.expanduser("~/.alabamaEncoder/models")
+#         model_path = os.path.join(model_folder, "shape_predictor_68_face_landmarks.dat")
+#         if not os.path.exists(model_path) or os.path.getsize(model_path) == 0:
+#             r = requests.get(model_download_link, allow_redirects=True)
+#             open(model_path, "wb").write(r.content)
+#
+#         face_score.detector = dlib.get_frontal_face_detector()
+#         # Ensure the shape predictor file is available at the specified path
+#         face_score.predictor = dlib.shape_predictor(model_path)
+#
+#     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+#     faces = face_score.detector(gray, 1)  # Upscale once for better detection
+#
+#     total_score = 0.0
+#     EAR_THRESHOLD = 0.25  # Adjust based on empirical testing
+#
+#     for face in faces:
+#         landmarks = face_score.predictor(gray, face)
+#         # Extract left and right eye landmarks
+#         left_eye = np.array(
+#             [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)]
+#         )
+#         right_eye = np.array(
+#             [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)]
+#         )
+#
+#         ear_left = eye_aspect_ratio(left_eye)
+#         ear_right = eye_aspect_ratio(right_eye)
+#         avg_ear = (ear_left + ear_right) / 2.0
+#
+#         if avg_ear >= EAR_THRESHOLD:
+#             # Calculate the area of the face bounding box
+#             x, y, w, h = face.left(), face.top(), face.width(), face.height()
+#             total_score += w * h
+#
+#     return total_score
+
+
 def face_score(frame) -> float:
-    # detect faces, their expressions, and give it a float score
-    return 0
+    model_folder = os.path.expanduser("~/.alabamaEncoder/models")
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+    deploy_path = model_folder + "/deploy.prototxt"
+    model_path = model_folder + "/res10_300x300_ssd_iter_140000.caffemodel"
+    if not os.path.exists(deploy_path):
+        r = requests.get(
+            "https://raw.githubusercontent.com/keyurr2/face-detection/refs/heads/master/deploy.prototxt.txt",
+            allow_redirects=True,
+        )
+        open(deploy_path, "wb").write(r.content)
+    if not os.path.isfile(model_path):
+        r = requests.get(
+            "https://raw.githubusercontent.com/keyurr2/face-detection/refs/heads/master/res10_300x300_ssd_iter_140000.caffemodel",
+            allow_redirects=True,
+        )
+        open(model_path, "wb").write(r.content)
+
+    if not hasattr(face_score, "net"):
+        face_score.net = cv2.dnn.readNetFromCaffe(deploy_path, model_path)
+
+    blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), (104.0, 177.0, 123.0))
+    face_score.net.setInput(blob)
+    detections = face_score.net.forward()
+
+    total_score = 0.0
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        if confidence > 0.5:  # Confidence threshold
+            box = detections[0, 0, i, 3:7] * np.array(
+                [frame.shape[1], frame.shape[0]] * 2
+            )
+            w = box[2] - box[0]
+            h = box[3] - box[1]
+            total_score += w * h
+
+    return total_score
 
 
 def process_frame_worker(yuv_frame_buffer, h, w, count, calc_face=False):
@@ -253,6 +343,21 @@ class AutoThumbnailer:
             for feature in feature_names
         }
 
+        import matplotlib.pyplot as plt
+
+        # Plot all features using matplotlib.pyplot
+        plt.figure(figsize=(12, 8))
+        for i, (feature, values) in enumerate(features.items()):
+            plt.subplot(len(feature_names), 1, i + 1)
+            plt.plot(values, label=feature)
+            plt.title(feature)
+            plt.xlabel("Frame Index")
+            plt.ylabel("Value")
+            plt.legend()
+
+        plt.tight_layout()
+        plt.show()
+
         # Normalize each feature to [0, 1]
         normalized_features = {}
         for feature, values in features.items():
@@ -283,6 +388,8 @@ class AutoThumbnailer:
                 normalized_values *= 0.4
             elif feature == "dof":
                 normalized_values *= 0.9
+            elif feature == "face_score":
+                normalized_values *= 3
 
             combined_score += normalized_values
         return combined_score
@@ -314,12 +421,12 @@ class AutoThumbnailer:
         )  # Adjust distance for peak spacing
 
         # print the data with peeks overlayed
-        # import matplotlib.pyplot as plt
-        #
-        # plt.plot(smoothed_score, label="Smoothed Score")
-        # plt.plot(peaks, smoothed_score[peaks], "x", label="Peaks")
-        # plt.legend()
-        # plt.show()
+        import matplotlib.pyplot as plt
+
+        plt.plot(smoothed_score, label="Smoothed Score")
+        plt.plot(peaks, smoothed_score[peaks], "x", label="Peaks")
+        plt.legend()
+        plt.show()
 
         return peaks
 

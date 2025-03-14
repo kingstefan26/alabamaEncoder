@@ -59,17 +59,16 @@ def calc_ssimu2(
 class Ssimu2Result(MetricResult):
     def __init__(self, cli_out: str):
         for line in cli_out.split("\n"):
-            parsed_number = float(line.split(":")[1])
             if "Mean" in line:
-                self.mean = parsed_number
+                self.mean = float(line.split(":")[1])
             elif "Median" in line:
-                self.percentile_50 = parsed_number
+                self.percentile_50 = float(line.split(":")[1])
             elif "Std Dev" in line:
-                self.std_dev = parsed_number
+                self.std_dev = float(line.split(":")[1])
             elif "95th Percentile" in line:
-                self.percentile_95 = parsed_number
+                self.percentile_95 = float(line.split(":")[1])
             elif "5th Percentile" in line:
-                self.percentile_5 = parsed_number
+                self.percentile_5 = float(line.split(":")[1])
 
     def __str__(self):
         return f"{self.mean}"

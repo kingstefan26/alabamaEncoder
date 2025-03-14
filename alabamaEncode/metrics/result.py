@@ -17,3 +17,4 @@ class MetricResult(ABC):
     mean = -1
     harmonic_mean = -1
     std_dev = -1
+    frames = None
