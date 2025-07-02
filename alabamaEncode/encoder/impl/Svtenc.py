@@ -71,7 +71,8 @@ class EncoderSvt(Encoder):
         add_flag("--matrix-coefficients", self.matrix_coefficients)
 
         if self.hdr:
-            add_flag("--enable-hdr", 1)
+            if not self.is_psy():
+                add_flag("--enable-hdr", 1)
             add_flag("--chroma-sample-position", self.chroma_sample_position)
             add_flag(
                 "--content-light",

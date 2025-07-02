@@ -28,3 +28,5 @@ venv/**
 alabamaEncode/ai_vmaf/train
 /alabamaEncode/experiments/crf_vmaf_relation/
 /alabamaEncoder.egg-info/
+/alabamaEncode/experiments/netflix_autothumbnail/workdir/
+/alabamaEncode/experiments/netflix_autothumbnail/refrence_thumbnails/urls/

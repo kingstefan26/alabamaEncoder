@@ -46,6 +46,27 @@ def read_args(ctx):
         dest="detect_faces",
     )
 
+    auto_thumbnailer.add_argument(
+        "--skip_result_image_optimisation",
+        action="store_true",
+        help="Save thumbnails as simple png's, no extra steps",
+        dest="skip_result_image_optimisation"
+    )
+
+    auto_thumbnailer.add_argument(
+        "--only_face_frames",
+        action="store_true",
+        help="Only consider frames with faces",
+        dest="only_face_frames"
+    )
+
+    auto_thumbnailer.add_argument(
+        "--use_face_frequency",
+        action="store_true",
+        help="Measure how often faces appear and score based on that",
+        dest="use_face_frequency"
+    )
+
     encode = subparsers.add_parser("encode", help="Typical encode mode")
 
     encode.add_argument("input", type=str, help="Input video file")
@@ -87,8 +108,8 @@ def read_args(ctx):
         type=str,
         default=ctx.prototype_encoder.video_filters,
         help="Override the crop, put your vf ffmpeg there, example "
-        "scale=-2:1080:flags=lanczos,zscale=t=linear..."
-        " make sure ffmpeg on all workers has support for the filters you use",
+             "scale=-2:1080:flags=lanczos,zscale=t=linear..."
+             " make sure ffmpeg on all workers has support for the filters you use",
     )
 
     encode.add_argument(
@@ -136,7 +157,7 @@ def read_args(ctx):
         type=float,
         default=ctx.ssim_db_target,
         help="What ssim dB to target when using auto bitrate, not recommended to set manually, "
-        "otherwise 21.2 is a good starting point",
+             "otherwise 21.2 is a good starting point",
         dest="ssim_db_target",
     )
 
@@ -161,7 +182,7 @@ def read_args(ctx):
     encode.add_argument(
         "--grain",
         help="Manually give the grainsynth value, 0 to disable, -1 for auto, -2 for auto per scene, -3 for new fast "
-        "per scene grain",
+             "per scene grain",
         type=int,
         default=ctx.prototype_encoder.grain_synth,
         dest="grain",
@@ -178,7 +199,7 @@ def read_args(ctx):
     encode.add_argument(
         "--max_scene_length",
         help="If a scene is longer then this, it will recursively cut in the"
-        " middle it to get until each chunk is within the max",
+             " middle it to get until each chunk is within the max",
         type=int,
         default=ctx.max_scene_length,
         dest="max_scene_length",
@@ -243,9 +264,9 @@ def read_args(ctx):
     encode.add_argument(
         "--bitrate_adjust_mode",
         help="do a complexity analysis on each chunk individually and adjust "
-        "bitrate based on that, can overshoot/undershoot a lot, "
-        "otherwise do complexity analysis on all chunks ahead of time"
-        " and budget it to hit target by normalizing the bitrate",
+             "bitrate based on that, can overshoot/undershoot a lot, "
+             "otherwise do complexity analysis on all chunks ahead of time"
+             " and budget it to hit target by normalizing the bitrate",
         type=str,
         default=ctx.bitrate_adjust_mode,
         choices=["chunk", "global"],
@@ -498,7 +519,7 @@ def read_args(ctx):
         "--simple_denoise",
         action="store_true",
         help="use atadenoise on input, useful for x26 encoding with very noisy imputs and target vmaf, "
-        "to be automated in the future",
+             "to be automated in the future",
         dest="simple_denoise",
     )
 
@@ -603,7 +624,7 @@ def read_args(ctx):
         "--luma_boost",
         action="store_true",
         help="ideally after vmaf target, boost crfs based on how dark the scene is,"
-        " to combat dark scenes getting overlooked by metrics",
+             " to combat dark scenes getting overlooked by metrics",
         dest="luma_boost",
     )
 
@@ -638,9 +659,9 @@ def read_args(ctx):
         quit()
 
     if (
-        args.command == "autothumbnailer"
-        or args.command == "worker"
-        or args.command == "clear"
+            args.command == "autothumbnailer"
+            or args.command == "worker"
+            or args.command == "clear"
     ):
         return ctx, args
 

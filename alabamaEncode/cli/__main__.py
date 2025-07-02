@@ -14,7 +14,10 @@ from alabamaEncode.cli.cli_setup.save_cli import save_cli
 from alabamaEncode.cli.cli_setup.validate_files import validate_input
 from alabamaEncode.cli.cli_setup.video_filters import parse_video_filters
 from alabamaEncode.core.context import AlabamaContext
-from alabamaEncode.core.extras.auto_thumbnailer import AutoThumbnailer
+from alabamaEncode.core.extras.autothumbnail.auto_thumbnailer import (
+    generate_autothumbnail_previews,
+)
+from alabamaEncode.core.extras.autothumbnail.opt import autothumbnailOptions
 from alabamaEncode.core.job import AlabamaEncodingJob
 from alabamaEncode.parallel_execution.celery_app import app
 from alabamaEncode.parallel_execution.worker import worker
@@ -107,11 +110,17 @@ def main():
                 print(f"File {args.input} does not exist")
                 quit()
 
-            thumbnailer = AutoThumbnailer()
-            thumbnailer.calc_face = args.detect_faces
-            thumbnailer.generate_previews(
-                input_file=args.input, output_folder=os.path.dirname(args.input)
+            generate_autothumbnail_previews(
+                input_file=args.input,
+                output_folder=os.path.dirname(args.input),
+                options=autothumbnailOptions(
+                    skip_result_image_optimisation=args.skip_result_image_optimisation,
+                    detect_faces=args.detect_faces,
+                    only_face_frames=args.only_face_frames,
+                    use_face_frequency=args.use_face_frequency,
+                ),
             )
+
             quit()
 
     ctx = run_pipeline(ctx)
