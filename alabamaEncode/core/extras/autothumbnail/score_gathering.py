@@ -2,7 +2,7 @@ import multiprocessing
 import os
 
 import cv2
-import face_recognition
+# import face_recognition
 import numpy as np
 import requests
 from skimage.metrics import structural_similarity as ssim

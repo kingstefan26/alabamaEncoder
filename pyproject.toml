@@ -1,0 +1,32 @@
+[project]
+name = "alabamaEncode"
+version = "0.5.4"
+description = "Eryk's video encoding framework/playground"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "scenedetect",
+    "tqdm",
+    "celery",
+    "redis",
+    "psutil",
+    "opencv-contrib-python",
+    "requests",
+    "torf",
+    "websockets",
+    "scipy",
+    "numpy",
+    "scikit-image",
+    "argparse_range",
+    "matplotlib"
+    #    ,
+    #        "face-recognition",
+    #        "face_recognition_models"
+]
+[project.scripts]
+alabamaEncode = "alabamaEncode.cli.__main__:main"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

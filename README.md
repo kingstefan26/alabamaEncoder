@@ -9,10 +9,10 @@ and [x264](https://wiki.x266.mov/docs/encoders/x264), among others.
 
 ## Installation
 
-## Recommended way, install with pipx
+## Recommended way, install with uv
 
 ```bash
-pipx install alabamaEncoder
+uv tool install alabamaEncoder
 ```
 
 ## But if you are a developer

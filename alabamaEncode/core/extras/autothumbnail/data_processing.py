@@ -1,7 +1,7 @@
 import os
 from typing import List, Tuple
 
-import face_recognition
+# import face_recognition
 import numpy as np
 import scipy
 
